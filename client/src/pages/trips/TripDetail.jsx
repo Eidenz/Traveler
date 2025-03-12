@@ -3,12 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Calendar, ChevronDown, Map, Bed, User, Coffee, Ticket, PlusCircle, 
-  Clock, Share2, Bell, Edit, Trash2, Home, ArrowLeft, Package
+  Clock, Share2, Bell, Edit, Trash2, Home, ArrowLeft, Package,
+  Plane, Train, Bus, Car, Ship
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { tripAPI, transportAPI, lodgingAPI, activityAPI } from '../../services/api';
+import TransportModal from '../../components/trips/TransportModal';
+import LodgingModal from '../../components/trips/LodgingModal';
+import ActivityModal from '../../components/trips/ActivityModal';
+import { tripAPI, transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
@@ -30,6 +34,17 @@ const TripDetail = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
+  const [isLodgingModalOpen, setIsLodgingModalOpen] = useState(false);
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [selectedTransportId, setSelectedTransportId] = useState(null);
+  const [selectedLodgingId, setSelectedLodgingId] = useState(null);
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareRole, setShareRole] = useState('viewer');
+  const [isSharing, setIsSharing] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState({ type: '', id: null });
 
   useEffect(() => {
     fetchTripData();
@@ -66,6 +81,141 @@ const TripDetail = () => {
     } finally {
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
+    }
+  };
+  
+  // Handle opening the transport modal
+  const handleOpenTransportModal = (transportId = null) => {
+    setSelectedTransportId(transportId);
+    setIsTransportModalOpen(true);
+  };
+  
+  // Handle opening the lodging modal
+  const handleOpenLodgingModal = (lodgingId = null) => {
+    setSelectedLodgingId(lodgingId);
+    setIsLodgingModalOpen(true);
+  };
+  
+  // Handle opening the activity modal
+  const handleOpenActivityModal = (activityId = null) => {
+    setSelectedActivityId(activityId);
+    setIsActivityModalOpen(true);
+  };
+  
+  // Delete confirmation helpers
+  const confirmDelete = (type, id) => {
+    setItemToDelete({ type, id });
+    setShowConfirmDeleteModal(true);
+  };
+  
+  const handleConfirmDelete = async () => {
+    try {
+      if (itemToDelete.type === 'transport') {
+        await transportAPI.deleteTransportation(itemToDelete.id);
+        toast.success('Transportation deleted successfully');
+      } else if (itemToDelete.type === 'lodging') {
+        await lodgingAPI.deleteLodging(itemToDelete.id);
+        toast.success('Accommodation deleted successfully');
+      } else if (itemToDelete.type === 'activity') {
+        await activityAPI.deleteActivity(itemToDelete.id);
+        toast.success('Activity deleted successfully');
+      }
+      
+      fetchTripData(); // Refresh data
+      setShowConfirmDeleteModal(false);
+    } catch (error) {
+      console.error(`Error deleting ${itemToDelete.type}:`, error);
+      toast.error(`Failed to delete ${itemToDelete.type}`);
+    }
+  };
+  
+  // Handle trip sharing
+  const handleShareTrip = async (e) => {
+    e.preventDefault();
+    
+    if (!shareEmail) {
+      toast.error('Please enter an email address');
+      return;
+    }
+    
+    try {
+      setIsSharing(true);
+      
+      await tripAPI.shareTrip(tripId, {
+        email: shareEmail,
+        role: shareRole
+      });
+      
+      toast.success(`Trip shared successfully with ${shareEmail}`);
+      setShareEmail('');
+      fetchTripData(); // Refresh members list
+    } catch (error) {
+      console.error('Error sharing trip:', error);
+      toast.error(error.response?.data?.message || 'Failed to share trip');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+  
+  // Handle remove member
+  const handleRemoveMember = async (userId) => {
+    try {
+      await tripAPI.removeTripMember(tripId, userId);
+      toast.success('Member removed successfully');
+      fetchTripData(); // Refresh members list
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error('Failed to remove member');
+    }
+  };
+  
+  // Handle change member role
+  const handleChangeMemberRole = async (userId, newRole) => {
+    if (newRole === 'remove') {
+      handleRemoveMember(userId);
+      return;
+    }
+    
+    try {
+      // Find member email
+      const member = members.find(m => m.id === userId);
+      if (!member) return;
+      
+      await tripAPI.shareTrip(tripId, {
+        email: member.email,
+        role: newRole
+      });
+      
+      toast.success(`Member role updated successfully`);
+      fetchTripData(); // Refresh members list
+    } catch (error) {
+      console.error('Error updating member role:', error);
+      toast.error('Failed to update member role');
+    }
+  };
+  
+  // Handle document download
+  const handleDownloadDocument = async (documentId, fileName) => {
+    try {
+      const response = await documentAPI.downloadDocument(documentId);
+      
+      // Create blob from response data
+      const blob = new Blob([response.data]);
+      
+      // Create download link and trigger click
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up URL object
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
     }
   };
 
@@ -113,20 +263,20 @@ const TripDetail = () => {
   
   // Find activities for a specific date
   const getActivitiesForDate = (date) => {
-    const dateString = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    return activities.filter(activity => 
-      activity.date === dateString || 
-      dayjs(activity.date).format('MMMM D, YYYY') === dateString
-    );
+    const dateString = date.toISOString().split('T')[0];
+    return activities.filter(activity => {
+      const activityDate = new Date(activity.date);
+      return dateString === activityDate.toISOString().split('T')[0];
+    });
   };
   
   // Get transport for a specific date
   const getTransportForDate = (date) => {
-    const dateString = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    return transportation.filter(transport => 
-      transport.departure_date === dateString || 
-      dayjs(transport.departure_date).format('MMMM D, YYYY') === dateString
-    );
+    const dateString = date.toISOString().split('T')[0];
+    return transportation.filter(transport => {
+      const transportDate = new Date(transport.departure_date);
+      return dateString === transportDate.toISOString().split('T')[0];
+    });
   };
   
   // Get lodging for a specific date
@@ -136,6 +286,25 @@ const TripDetail = () => {
       const checkOutDate = new Date(lodge.check_out);
       return date >= checkInDate && date < checkOutDate;
     });
+  };
+  
+  // Get transport icon based on type
+  const getTransportIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'flight':
+        return <Plane className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'train':
+        return <Train className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'bus':
+        return <Bus className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'car':
+        return <Car className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'ship':
+      case 'ferry':
+        return <Ship className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      default:
+        return <Package className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+    }
   };
 
   if (loading) {
@@ -323,7 +492,7 @@ const TripDetail = () => {
                   {trip.description && (
                     <div className="mb-6">
                       <h3 className="font-medium mb-2">Description</h3>
-                      <p className="text-gray-600 dark:text-gray-300">{trip.description}</p>
+                      <p className="text-gray-600 dark:text-gray-300" style={{whiteSpace: 'pre-wrap'}}>{trip.description}</p>
                     </div>
                   )}
                   
@@ -403,7 +572,7 @@ const TripDetail = () => {
                           <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mr-3">
                             {member.profile_image ? (
                               <img 
-                                src={`${import.meta.env.VITE_API_URL}${member.profile_image}`} 
+                                src={getImageUrl(member.profile_image)} 
                                 alt={member.name} 
                                 className="h-full w-full object-cover"
                               />
@@ -416,15 +585,28 @@ const TripDetail = () => {
                             <div className="text-sm text-gray-500 dark:text-gray-400">{member.email}</div>
                           </div>
                         </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          member.role === 'owner' 
-                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' 
-                            : member.role === 'editor'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}>
-                          {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                        </div>
+                        
+                        {isOwner() && member.id !== user.id ? (
+                          <select 
+                            className="text-xs px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                            defaultValue={member.role}
+                            onChange={(e) => handleChangeMemberRole(member.id, e.target.value)}
+                          >
+                            <option value="editor">Editor</option>
+                            <option value="viewer">Viewer</option>
+                            <option value="remove">Remove</option>
+                          </select>
+                        ) : (
+                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            member.role === 'owner' 
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' 
+                              : member.role === 'editor'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          }`}>
+                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -454,6 +636,7 @@ const TripDetail = () => {
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
+                  onClick={() => handleOpenTransportModal()}
                 >
                   Add Transport
                 </Button>
@@ -463,11 +646,11 @@ const TripDetail = () => {
             <div className="space-y-4">
               {transportation.length > 0 ? (
                 transportation.map(item => (
-                  <Card key={item.id}>
+                  <Card key={item.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="bg-blue-50 dark:bg-blue-900/20 flex flex-row justify-between items-center p-4">
                       <div className="flex items-center">
                         <div className="p-2 rounded-full bg-white dark:bg-gray-800 mr-4">
-                          <Package className="h-6 w-6 text-blue-500 dark:text-blue-400" />
+                          {getTransportIcon(item.type)}
                         </div>
                         <div>
                           <h3 className="font-semibold">{item.type} - {item.company || 'Not specified'}</h3>
@@ -479,6 +662,23 @@ const TripDetail = () => {
                           <div className="flex items-center px-3 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 mr-3">
                             <Ticket size={12} className="mr-1" />
                             Ticket attached
+                          </div>
+                        )}
+                        
+                        {canEdit() && (
+                          <div className="flex ml-3">
+                            <button
+                              onClick={() => handleOpenTransportModal(item.id)}
+                              className="p-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full text-gray-600 dark:text-gray-300 mr-1"
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              onClick={() => confirmDelete('transport', item.id)}
+                              className="p-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 rounded-full text-red-600 dark:text-red-400"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         )}
                       </div>
@@ -495,7 +695,7 @@ const TripDetail = () => {
                         <div className="hidden md:flex items-center px-4">
                           <div className="h-0.5 w-24 bg-gray-300 dark:bg-gray-600"></div>
                           <div className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 mx-2">
-                            <Package className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                            {getTransportIcon(item.type)}
                           </div>
                           <div className="h-0.5 w-24 bg-gray-300 dark:bg-gray-600"></div>
                         </div>
@@ -522,6 +722,7 @@ const TripDetail = () => {
                               <Button
                                 variant={item.has_documents > 0 ? 'secondary' : 'primary'}
                                 icon={item.has_documents > 0 ? <Ticket className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                                onClick={() => handleOpenTransportModal(item.id)}
                               >
                                 {item.has_documents > 0 ? 'View Ticket' : 'Attach Ticket'}
                               </Button>
@@ -543,6 +744,7 @@ const TripDetail = () => {
                     <Button
                       variant="primary"
                       icon={<PlusCircle className="h-5 w-5" />}
+                      onClick={() => handleOpenTransportModal()}
                     >
                       Add First Transportation
                     </Button>
@@ -562,6 +764,7 @@ const TripDetail = () => {
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
+                  onClick={() => handleOpenLodgingModal()}
                 >
                   Add Accommodation
                 </Button>
@@ -571,7 +774,7 @@ const TripDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {lodging.length > 0 ? (
                 lodging.map(lodge => (
-                  <Card key={lodge.id}>
+                  <Card key={lodge.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="p-0 relative h-48">
                       <img 
                         src="https://images.unsplash.com/photo-1566073771259-6a8506099945"
@@ -579,7 +782,25 @@ const TripDetail = () => {
                         className="w-full h-full object-cover rounded-t-xl"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
-                      <div className="absolute bottom-0 left-0 p-4">
+                      
+                      {canEdit() && (
+                        <div className="absolute top-3 right-3 flex space-x-2 z-10">
+                          <button
+                            onClick={() => handleOpenLodgingModal(lodge.id)}
+                            className="p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-700 hover:text-gray-900 transition-colors"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => confirmDelete('lodging', lodge.id)}
+                            className="p-1.5 bg-white/80 hover:bg-white rounded-full text-red-600 hover:text-red-700 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="absolute bottom-0 left-0 p-4 z-10">
                         <h3 className="text-xl font-semibold text-white">{lodge.name}</h3>
                         <div className="text-sm text-gray-200 mt-1">
                           {dayjs(lodge.check_in).format('MMM D')} - {dayjs(lodge.check_out).format('MMM D, YYYY')}
@@ -607,6 +828,7 @@ const TripDetail = () => {
                               <Button
                                 variant={lodge.has_documents > 0 ? 'secondary' : 'primary'}
                                 icon={lodge.has_documents > 0 ? <Ticket className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                                onClick={() => handleOpenLodgingModal(lodge.id)}
                               >
                                 {lodge.has_documents > 0 ? 'View Reservation' : 'Attach Reservation'}
                               </Button>
@@ -628,6 +850,7 @@ const TripDetail = () => {
                     <Button
                       variant="primary"
                       icon={<PlusCircle className="h-5 w-5" />}
+                      onClick={() => handleOpenLodgingModal()}
                     >
                       Add First Accommodation
                     </Button>
@@ -647,6 +870,7 @@ const TripDetail = () => {
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
+                  onClick={() => handleOpenActivityModal()}
                 >
                   Add Activity
                 </Button>
@@ -656,7 +880,7 @@ const TripDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activities.length > 0 ? (
                 activities.map(activity => (
-                  <Card key={activity.id}>
+                  <Card key={activity.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="p-0 relative h-40">
                       <img 
                         src="https://images.unsplash.com/photo-1527786356703-4b100091cd2c"
@@ -664,7 +888,25 @@ const TripDetail = () => {
                         className="w-full h-full object-cover rounded-t-xl"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
-                      <div className="absolute top-2 right-2">
+                      
+                      {canEdit() && (
+                        <div className="absolute top-2 right-2 flex space-x-2 z-10">
+                          <button
+                            onClick={() => handleOpenActivityModal(activity.id)}
+                            className="p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-700 hover:text-gray-900 transition-colors"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => confirmDelete('activity', activity.id)}
+                            className="p-1.5 bg-white/80 hover:bg-white rounded-full text-red-600 hover:text-red-700 transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      )}
+                      
+                      <div className="absolute top-2 left-2">
                         {activity.has_documents > 0 && (
                           <div className="flex items-center px-3 py-1 rounded-full text-xs bg-green-500 text-white">
                             <Ticket size={12} className="mr-1" />
@@ -672,7 +914,7 @@ const TripDetail = () => {
                           </div>
                         )}
                       </div>
-                      <div className="absolute bottom-0 left-0 p-4">
+                      <div className="absolute bottom-0 left-0 p-4 z-10">
                         <h3 className="text-lg font-semibold text-white">{activity.name}</h3>
                         <div className="text-sm text-gray-200 mt-1">{activity.date}</div>
                       </div>
@@ -706,6 +948,7 @@ const TripDetail = () => {
                             size="sm"
                             variant={activity.has_documents > 0 ? 'secondary' : 'primary'}
                             icon={activity.has_documents > 0 ? <Ticket className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                            onClick={() => handleOpenActivityModal(activity.id)}
                           >
                             {activity.has_documents > 0 ? 'View Ticket' : 'Add Ticket'}
                           </Button>
@@ -725,6 +968,7 @@ const TripDetail = () => {
                     <Button
                       variant="primary"
                       icon={<PlusCircle className="h-5 w-5" />}
+                      onClick={() => handleOpenActivityModal()}
                     >
                       Add First Activity
                     </Button>
@@ -861,6 +1105,39 @@ const TripDetail = () => {
         </div>
       </Modal>
       
+      {/* Item delete confirmation modal */}
+      <Modal
+        isOpen={showConfirmDeleteModal}
+        onClose={() => setShowConfirmDeleteModal(false)}
+        title={`Delete ${itemToDelete.type === 'transport' ? 'Transportation' : 
+                itemToDelete.type === 'lodging' ? 'Accommodation' : 'Activity'}`}
+        size="sm"
+      >
+        <div className="p-6">
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Are you sure you want to delete this {
+              itemToDelete.type === 'transport' ? 'transportation' : 
+              itemToDelete.type === 'lodging' ? 'accommodation' : 'activity'
+            }? This action cannot be undone.
+          </p>
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="secondary"
+              onClick={() => setShowConfirmDeleteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleConfirmDelete}
+              icon={<Trash2 className="h-5 w-5" />}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      
       {/* Share modal */}
       <Modal
         isOpen={isShareModalOpen}
@@ -869,27 +1146,40 @@ const TripDetail = () => {
         size="md"
       >
         <div className="p-6">
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Invite by email</label>
-            <div className="flex">
-              <input
-                type="email"
-                placeholder="Email address"
-                className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
-              />
-              <Button className="rounded-l-none rounded-r-lg">
-                Invite
-              </Button>
+          <form onSubmit={handleShareTrip}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Invite by email</label>
+              <div className="flex">
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={shareEmail}
+                  onChange={(e) => setShareEmail(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
+                  required
+                />
+                <Button 
+                  type="submit" 
+                  className="rounded-l-none rounded-r-lg"
+                  loading={isSharing}
+                >
+                  Invite
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Permission level</label>
-            <select className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600">
-              <option>Can edit</option>
-              <option>Can view</option>
-            </select>
-          </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Permission level</label>
+              <select 
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
+                value={shareRole}
+                onChange={(e) => setShareRole(e.target.value)}
+              >
+                <option value="editor">Can edit</option>
+                <option value="viewer">Can view</option>
+              </select>
+            </div>
+          </form>
           
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">Share link</label>
@@ -900,7 +1190,14 @@ const TripDetail = () => {
                 readOnly
                 className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300"
               />
-              <Button variant="secondary" className="rounded-l-none rounded-r-lg">
+              <Button 
+                variant="secondary" 
+                className="rounded-l-none rounded-r-lg"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/invite/${tripId}`);
+                  toast.success('Link copied to clipboard');
+                }}
+              >
                 Copy
               </Button>
             </div>
@@ -914,7 +1211,7 @@ const TripDetail = () => {
                   <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mr-3">
                     {member.profile_image ? (
                       <img 
-                        src={`${import.meta.env.VITE_API_URL}${member.profile_image}`} 
+                        src={getImageUrl(member.profile_image)} 
                         alt={member.name} 
                         className="h-full w-full object-cover"
                       />
@@ -932,6 +1229,7 @@ const TripDetail = () => {
                   <select 
                     className="text-xs px-2 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
                     defaultValue={member.role}
+                    onChange={(e) => handleChangeMemberRole(member.id, e.target.value)}
                   >
                     <option value="editor">Editor</option>
                     <option value="viewer">Viewer</option>
@@ -953,6 +1251,33 @@ const TripDetail = () => {
           </div>
         </div>
       </Modal>
+      
+      {/* Transport Modal */}
+      <TransportModal
+        isOpen={isTransportModalOpen}
+        onClose={() => setIsTransportModalOpen(false)}
+        tripId={tripId}
+        transportId={selectedTransportId}
+        onSuccess={fetchTripData}
+      />
+      
+      {/* Lodging Modal */}
+      <LodgingModal
+        isOpen={isLodgingModalOpen}
+        onClose={() => setIsLodgingModalOpen(false)}
+        tripId={tripId}
+        lodgingId={selectedLodgingId}
+        onSuccess={fetchTripData}
+      />
+      
+      {/* Activity Modal */}
+      <ActivityModal
+        isOpen={isActivityModalOpen}
+        onClose={() => setIsActivityModalOpen(false)}
+        tripId={tripId}
+        activityId={selectedActivityId}
+        onSuccess={fetchTripData}
+      />
     </div>
   );
 };
