@@ -39,7 +39,9 @@ This application is configured for production use with:
 
 All data (uploads and database) is persisted in the `./data` directory, making backups and migration simpler.
 
-### Running with Docker (Production)
+### Running with Docker
+
+This application can run in both development and production modes with data persistence through host system folders.
 
 1. Clone the repository:
    ```
@@ -47,17 +49,32 @@ All data (uploads and database) is persisted in the `./data` directory, making b
    cd travel-companion
    ```
 
-2. Create data directories for persistence:
+2. Make the start script executable:
    ```
-   mkdir -p data/uploads/documents data/uploads/trips data/uploads/profiles data/db
-   ```
-
-3. Build and run the containers:
-   ```
-   docker-compose up -d
+   chmod +x start.sh
    ```
 
-4. The application will be available at:
+3. Start the application:
+   
+   **Development Mode** (with hot reloading):
+   ```
+   ./start.sh
+   ```
+   or
+   ```
+   ./start.sh --development
+   ```
+   
+   The application will be available at:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
+
+   **Production Mode**:
+   ```
+   ./start.sh --production
+   ```
+   
+   The application will be available at:
    - http://localhost:5000 (Server handles both frontend and API)
 
 ### Running without Docker
