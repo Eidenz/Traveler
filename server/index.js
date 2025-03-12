@@ -30,6 +30,12 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Ensure DB directory exists
+const dbDir = path.join(__dirname, 'db', 'data');
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(morgan('dev')); // Logging
@@ -49,10 +55,35 @@ app.use('/api/lodging', lodgingRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/documents', documentRoutes);
 
-// Basic route for testing
-app.get('/', (req, res) => {
-  res.send('Travel Companion API is running!');
-});
+// Serve static files from the React app in production
+if (process.env.NODE_ENV === 'production') {
+  // Set security headers for React app
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
+        connectSrc: ["'self'"]
+      }
+    }
+  }));
+  
+  // Serve the static files from the React app
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  
+  // For any request that doesn't match the above routes, send the React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+} else {
+  // Basic route for testing in development
+  app.get('/', (req, res) => {
+    res.send('Travel Companion API is running!');
+  });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

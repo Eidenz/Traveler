@@ -27,7 +27,19 @@ A full-featured travel planning application built with React, Node.js, and SQLit
 
 - Docker and Docker Compose
 
-### Running with Docker
+### Production Setup
+
+This application is configured for production use with:
+
+- React frontend built as static files and served by Express
+- Node.js backend running in production mode
+- Data persistence through host system folder mapping
+- All services run through a single port (5000)
+- Security headers enabled
+
+All data (uploads and database) is persisted in the `./data` directory, making backups and migration simpler.
+
+### Running with Docker (Production)
 
 1. Clone the repository:
    ```
@@ -35,14 +47,18 @@ A full-featured travel planning application built with React, Node.js, and SQLit
    cd travel-companion
    ```
 
-2. Build and run the containers:
+2. Create data directories for persistence:
+   ```
+   mkdir -p data/uploads/documents data/uploads/trips data/uploads/profiles data/db
+   ```
+
+3. Build and run the containers:
    ```
    docker-compose up -d
    ```
 
-3. The application will be available at:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000
+4. The application will be available at:
+   - http://localhost:5000 (Server handles both frontend and API)
 
 ### Running without Docker
 
