@@ -1,7 +1,7 @@
 {
-  "name": "travel-companion-server",
+  "name": "traveler-server",
   "version": "1.0.0",
-  "description": "Server for Travel Companion app",
+  "description": "Server for Traveler app",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

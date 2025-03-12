@@ -1,4 +1,7 @@
-FROM node:20-alpine
+FROM node:20-slim
+
+# Install dependencies required for building native modules
+RUN apt-get update && apt-get install -y python3 make g++ sqlite3 libsqlite3-dev
 
 WORKDIR /app
 
@@ -8,7 +11,7 @@ RUN npm install
 
 # Copy server package.json and install dependencies
 COPY server/package.json ./server/
-RUN cd server && npm install
+RUN cd server && npm install --build-from-source
 
 # Copy client package.json and install dependencies
 COPY client/package.json ./client/

@@ -1,9 +1,9 @@
 services:
-  travel-app:
+  traveler:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: travel-companion
+    container_name: traveler
     ports:
       - "5000:5000"
     volumes:

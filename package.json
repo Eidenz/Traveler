@@ -1,7 +1,7 @@
 {
-    "name": "travel-companion",
+    "name": "traveler",
     "version": "1.0.0",
-    "description": "Travel Companion App",
+    "description": "Traveler App",
     "scripts": {
       "server": "cd server && npm run dev",
       "client": "cd client && npm run dev",
