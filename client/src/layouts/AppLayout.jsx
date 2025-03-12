@@ -8,9 +8,8 @@ import {
 import useAuthStore from '../stores/authStore';
 import useThemeStore from '../stores/themeStore';
 import toast from 'react-hot-toast';
-import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
+import { getImageUrl } from '../utils/imageUtils';
 import { tripAPI } from '../services/api';
-import dayjs from 'dayjs';
 
 const AppLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -103,7 +102,8 @@ const AppLayout = () => {
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+          <img className="mr-3" src="../../public/logo.svg" width={40} alt="logo"/>
           <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">Traveler</h1>
           <button 
             className="lg:hidden p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
