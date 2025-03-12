@@ -2,6 +2,20 @@
 
 A full-featured travel planning application built with React, Node.js, and SQLite.
 
+## ⚠️ Disclaimer / AI-Generated Project Warning
+
+**This project was mostly coded using AI (Claude 3.7 Sonnet Thinking).**
+
+This code is provided as-is. While effort has been made to ensure functionality, it comes with no warranty or guarantee of support.
+
+**Please note:**
+
+- Use of this code is at your own risk.
+- No official support will be provided for setup, usage, customization, or troubleshooting.
+- Community contributions and improvements via pull requests are welcome, but please do not expect personalized assistance.
+
+For any issues or questions, consider consulting online resources, community forums, or attempting to resolve problems independently.
+
 ## Features
 
 - **Trip Management**: Create, edit, and delete trips with details
@@ -58,10 +72,6 @@ This application can run in both development and production modes with data pers
    
    **Development Mode** (with hot reloading):
    ```
-   ./start.sh
-   ```
-   or
-   ```
    ./start.sh --development
    ```
    
@@ -70,6 +80,10 @@ This application can run in both development and production modes with data pers
    - Backend API: http://localhost:5000
 
    **Production Mode**:
+   ```
+   ./start.sh
+   ```
+   or
    ```
    ./start.sh --production
    ```
