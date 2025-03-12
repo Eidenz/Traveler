@@ -1,21 +1,54 @@
 // client/src/layouts/AppLayout.jsx
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { 
-  Menu, X, Search, Bell, User, LogOut, Settings, Sun, Moon, PlusCircle,
-  Compass, Calendar, Package, Home
+  Menu, X, Search, User, LogOut, Settings, Sun, Moon, PlusCircle,
+  Compass, Calendar, Home
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import useThemeStore from '../stores/themeStore';
 import toast from 'react-hot-toast';
 import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
+import { tripAPI } from '../services/api';
+import dayjs from 'dayjs';
 
 const AppLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
+
+  // Fetch user trips for the sidebar
+  useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        const response = await tripAPI.getUserTrips();
+        setTrips(response.data.trips || []);
+      } catch (error) {
+        console.error('Error fetching trips for sidebar:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrips();
+  }, []);
+
+  // Filter trips by category
+  const upcomingTrips = trips.filter(trip => 
+    new Date(trip.start_date) > new Date()
+  ).sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+
+  const pastTrips = trips.filter(trip => 
+    new Date(trip.end_date) < new Date()
+  ).sort((a, b) => new Date(b.end_date) - new Date(a.end_date));
+
+  const sharedTrips = trips.filter(trip => 
+    trip.role !== 'owner'
+  );
 
   // Close sidebar when navigating on mobile
   useEffect(() => {
@@ -139,36 +172,72 @@ const AppLayout = () => {
               <p className="px-2 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Your Trips
               </p>
-              <ul className="space-y-1">
-                {/* This would be populated from API in a real app */}
-                <li>
-                  <a 
-                    href="#" 
-                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span className="mr-3 h-2 w-2 rounded-full bg-green-500"></span>
-                    Upcoming Trip
-                  </a>
-                </li>
-                <li>
-                  <a 
-                    href="#" 
-                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span className="mr-3 h-2 w-2 rounded-full bg-purple-500"></span>
-                    Past Trip
-                  </a>
-                </li>
-                <li>
-                  <a 
-                    href="#" 
-                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <span className="mr-3 h-2 w-2 rounded-full bg-yellow-500"></span>
-                    Shared Trip
-                  </a>
-                </li>
-              </ul>
+              {loading ? (
+                <div className="animate-pulse space-y-2 px-2">
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {upcomingTrips.length > 0 && (
+                    <>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Upcoming</p>
+                      {upcomingTrips.slice(0, 3).map(trip => (
+                        <li key={`upcoming-${trip.id}`}>
+                          <Link 
+                            to={`/trips/${trip.id}`}
+                            className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <span className="mr-3 h-2 w-2 rounded-full bg-green-500"></span>
+                            <span className="truncate">{trip.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </>
+                  )}
+
+                  {sharedTrips.length > 0 && (
+                    <>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Shared with me</p>
+                      {sharedTrips.slice(0, 3).map(trip => (
+                        <li key={`shared-${trip.id}`}>
+                          <Link 
+                            to={`/trips/${trip.id}`}
+                            className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <span className="mr-3 h-2 w-2 rounded-full bg-yellow-500"></span>
+                            <span className="truncate">{trip.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </>
+                  )}
+
+                  {pastTrips.length > 0 && (
+                    <>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Past</p>
+                      {pastTrips.slice(0, 3).map(trip => (
+                        <li key={`past-${trip.id}`}>
+                          <Link 
+                            to={`/trips/${trip.id}`}
+                            className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <span className="mr-3 h-2 w-2 rounded-full bg-purple-500"></span>
+                            <span className="truncate">{trip.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </>
+                  )}
+                  
+                  {trips.length === 0 && (
+                    <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                      No trips yet
+                    </li>
+                  )}
+                </ul>
+              )}
             </div>
           </nav>
 
@@ -218,12 +287,6 @@ const AppLayout = () => {
               ) : (
                 <Moon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
               )}
-            </button>
-
-            {/* Notifications */}
-            <button className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative">
-              <Bell className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
             </button>
 
             {/* Profile dropdown */}
