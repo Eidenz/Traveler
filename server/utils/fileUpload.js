@@ -14,12 +14,10 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Create type-specific directories
     let typeDir;
-    
-    if (req.path.includes('/documents')) {
+    console.log(path.extname(file.originalname));
+    if (['.pdf','.doc','.docx','.txt'].includes(path.extname(file.originalname))) {
       typeDir = path.join(uploadsDir, 'documents');
-    } else if (req.path.includes('/profile')) {
-      typeDir = path.join(uploadsDir, 'profiles');
-    } else if (req.path.includes('/trips')) {
+    } else if (['.jpeg','.jpg','.png','.gif','.webp'].includes(path.extname(file.originalname))) {
       typeDir = path.join(uploadsDir, 'trips');
     } else {
       typeDir = uploadsDir;

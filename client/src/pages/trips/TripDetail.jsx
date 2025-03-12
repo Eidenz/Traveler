@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Calendar, ChevronDown, Map, Bed, User, Coffee, Ticket, PlusCircle, 
   Clock, Share2, Bell, Edit, Trash2, Home, ArrowLeft, Package,
-  Plane, Train, Bus, Car, Ship
+  Plane, Train, Bus, Car, Ship, Download, FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -12,6 +12,7 @@ import Modal from '../../components/ui/Modal';
 import TransportModal from '../../components/trips/TransportModal';
 import LodgingModal from '../../components/trips/LodgingModal';
 import ActivityModal from '../../components/trips/ActivityModal';
+import PDFViewerModal from '../../components/trips/PDFViewerModal';
 import { tripAPI, transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -37,6 +38,10 @@ const TripDetail = () => {
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [isLodgingModalOpen, setIsLodgingModalOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
+  const [currentPdfUrl, setCurrentPdfUrl] = useState('');
+  const [currentPdfName, setCurrentPdfName] = useState('');
+  const [currentDocumentId, setCurrentDocumentId] = useState(null);
   const [selectedTransportId, setSelectedTransportId] = useState(null);
   const [selectedLodgingId, setSelectedLodgingId] = useState(null);
   const [selectedActivityId, setSelectedActivityId] = useState(null);
@@ -111,13 +116,13 @@ const TripDetail = () => {
   const handleConfirmDelete = async () => {
     try {
       if (itemToDelete.type === 'transport') {
-        await transportAPI.deleteTransportation(itemToDelete.id);
+        await transportAPI.deleteTransportation(itemToDelete.id, tripId);
         toast.success('Transportation deleted successfully');
       } else if (itemToDelete.type === 'lodging') {
-        await lodgingAPI.deleteLodging(itemToDelete.id);
+        await lodgingAPI.deleteLodging(itemToDelete.id, tripId);
         toast.success('Accommodation deleted successfully');
       } else if (itemToDelete.type === 'activity') {
-        await activityAPI.deleteActivity(itemToDelete.id);
+        await activityAPI.deleteActivity(itemToDelete.id, tripId);
         toast.success('Activity deleted successfully');
       }
       
@@ -125,7 +130,12 @@ const TripDetail = () => {
       setShowConfirmDeleteModal(false);
     } catch (error) {
       console.error(`Error deleting ${itemToDelete.type}:`, error);
-      toast.error(`Failed to delete ${itemToDelete.type}`);
+      
+      if (error.response && error.response.status === 403) {
+        toast.error(`Permission denied. Make sure you have edit access to this trip.`);
+      } else {
+        toast.error(`Failed to delete ${itemToDelete.type}`);
+      }
     }
   };
   
@@ -216,6 +226,52 @@ const TripDetail = () => {
     } catch (error) {
       console.error('Error downloading document:', error);
       toast.error('Failed to download document');
+    }
+  };
+  
+  // Handle document view/download
+  const handleViewDocument = async (referenceType, referenceId) => {
+    try {
+      let documents = [];
+      
+      // Get documents based on the reference type
+      if (referenceType === 'transport') {
+        const response = await transportAPI.getTransportation(referenceId);
+        documents = response.data.documents || [];
+      } else if (referenceType === 'lodging') {
+        const response = await lodgingAPI.getLodging(referenceId);
+        documents = response.data.documents || [];
+      } else if (referenceType === 'activity') {
+        const response = await activityAPI.getActivity(referenceId);
+        documents = response.data.documents || [];
+      }
+      
+      // If no documents found
+      if (!documents.length) {
+        toast.error('No documents attached');
+        return;
+      }
+      
+      // Get the first document
+      const doc = documents[0];
+      
+      // Check if it's a PDF
+      if (doc.file_type.includes('pdf')) {
+        // Create URL for PDF viewer
+        const baseUrl = import.meta.env.VITE_BASE_URL || '';
+        // Make sure the URL is correct for the file path
+        const pdfUrl = `${baseUrl}/api/documents/${doc.id}/view`;
+        setCurrentPdfUrl(pdfUrl);
+        setCurrentPdfName(doc.file_name);
+        setCurrentDocumentId(doc.id);
+        setIsPdfViewerOpen(true);
+      } else {
+        // For other types, just download
+        handleDownloadDocument(doc.id, doc.file_name);
+      }
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast.error('Failed to retrieve document');
     }
   };
 
@@ -710,26 +766,33 @@ const TripDetail = () => {
                         </div>
                       </div>
                       
-                      {item.confirmation_code && (
-                        <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
                           <div className="flex justify-between">
                             <div>
                               <div className="text-sm text-gray-500 dark:text-gray-400">Confirmation code</div>
-                              <div className="font-mono font-medium">{item.confirmation_code}</div>
+                              <div className="font-mono font-medium">{item.confirmation_code ? item.confirmation_code : "-"}</div>
                             </div>
                             
-                            {canEdit() && (
+                            {/* Document buttons - show to all users, but different actions for editors vs viewers */}
+                            {item.has_documents > 0 ? (
                               <Button
-                                variant={item.has_documents > 0 ? 'secondary' : 'primary'}
-                                icon={item.has_documents > 0 ? <Ticket className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                                variant="secondary"
+                                icon={<FileText className="h-5 w-5" />}
+                                onClick={() => handleViewDocument('transport', item.id)}
+                              >
+                                View Ticket
+                              </Button>
+                            ) : canEdit() && (
+                              <Button
+                                variant="primary"
+                                icon={<PlusCircle className="h-5 w-5" />}
                                 onClick={() => handleOpenTransportModal(item.id)}
                               >
-                                {item.has_documents > 0 ? 'View Ticket' : 'Attach Ticket'}
+                                Attach Ticket
                               </Button>
                             )}
                           </div>
                         </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))
@@ -816,26 +879,33 @@ const TripDetail = () => {
                         </>
                       )}
                       
-                      {lodge.confirmation_code && (
-                        <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                      <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
                           <div className="flex justify-between">
                             <div>
                               <div className="text-sm text-gray-500 dark:text-gray-400">Confirmation code</div>
-                              <div className="font-mono font-medium">{lodge.confirmation_code}</div>
+                              <div className="font-mono font-medium">{lodge.confirmation_code ? lodge.confirmation_code : "-"}</div>
                             </div>
                             
-                            {canEdit() && (
+                            {/* Document buttons - show to all users, but different actions for editors vs viewers */}
+                            {lodge.has_documents > 0 ? (
                               <Button
-                                variant={lodge.has_documents > 0 ? 'secondary' : 'primary'}
-                                icon={lodge.has_documents > 0 ? <Ticket className="h-5 w-5" /> : <PlusCircle className="h-5 w-5" />}
+                                variant="secondary"
+                                icon={<FileText className="h-5 w-5" />}
+                                onClick={() => handleViewDocument('lodging', lodge.id)}
+                              >
+                                View Reservation
+                              </Button>
+                            ) : canEdit() && (
+                              <Button
+                                variant="primary"
+                                icon={<PlusCircle className="h-5 w-5" />}
                                 onClick={() => handleOpenLodgingModal(lodge.id)}
                               >
-                                {lodge.has_documents > 0 ? 'View Reservation' : 'Attach Reservation'}
+                                Attach Reservation
                               </Button>
                             )}
                           </div>
                         </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))
@@ -942,18 +1012,27 @@ const TripDetail = () => {
                         </div>
                       )}
                       
-                      {canEdit() && (
-                        <div className="flex justify-end">
+                      <div className="flex justify-end">
+                        {activity.has_documents > 0 ? (
                           <Button
                             size="sm"
-                            variant={activity.has_documents > 0 ? 'secondary' : 'primary'}
-                            icon={activity.has_documents > 0 ? <Ticket className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
+                            variant="secondary"
+                            icon={<FileText className="h-4 w-4" />}
+                            onClick={() => handleViewDocument('activity', activity.id)}
+                          >
+                            View Ticket
+                          </Button>
+                        ) : canEdit() && (
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            icon={<PlusCircle className="h-4 w-4" />}
                             onClick={() => handleOpenActivityModal(activity.id)}
                           >
-                            {activity.has_documents > 0 ? 'View Ticket' : 'Add Ticket'}
+                            Add Ticket
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))
@@ -1251,6 +1330,19 @@ const TripDetail = () => {
           </div>
         </div>
       </Modal>
+      
+      {/* PDF Viewer Modal */}
+      <PDFViewerModal
+        isOpen={isPdfViewerOpen}
+        onClose={() => setIsPdfViewerOpen(false)}
+        documentUrl={currentPdfUrl}
+        documentName={currentPdfName}
+        onDownload={() => {
+          if (currentDocumentId) {
+            handleDownloadDocument(currentDocumentId, currentPdfName);
+          }
+        }}
+      />
       
       {/* Transport Modal */}
       <TransportModal

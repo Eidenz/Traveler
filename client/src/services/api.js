@@ -89,27 +89,48 @@ export const tripAPI = {
 export const transportAPI = {
   getTripTransportation: (tripId) => api.get(`/transportation/trip/${tripId}`),
   getTransportation: (transportId) => api.get(`/transportation/${transportId}`),
-  createTransportation: (tripId, transportData) => api.post(`/transportation/trip/${tripId}`, transportData),
-  updateTransportation: (transportId, transportData) => api.put(`/transportation/${transportId}`, transportData),
-  deleteTransportation: (transportId) => api.delete(`/transportation/${transportId}`),
+  createTransportation: (tripId, transportData) => {
+    // Ensure trip_id is included in the data for middleware
+    const data = { ...transportData, trip_id: tripId };
+    return api.post(`/transportation/trip/${tripId}`, data);
+  },
+  updateTransportation: (transportId, transportData, tripId) => {
+    // Include tripId in the query parameters
+    return api.put(`/transportation/${transportId}?tripId=${tripId}`, transportData);
+  },
+  deleteTransportation: (transportId, tripId) => api.delete(`/transportation/${transportId}?tripId=${tripId}`),
 };
 
 // Lodging API
 export const lodgingAPI = {
   getTripLodging: (tripId) => api.get(`/lodging/trip/${tripId}`),
   getLodging: (lodgingId) => api.get(`/lodging/${lodgingId}`),
-  createLodging: (tripId, lodgingData) => api.post(`/lodging/trip/${tripId}`, lodgingData),
-  updateLodging: (lodgingId, lodgingData) => api.put(`/lodging/${lodgingId}`, lodgingData),
-  deleteLodging: (lodgingId) => api.delete(`/lodging/${lodgingId}`),
+  createLodging: (tripId, lodgingData) => {
+    // Ensure trip_id is included in the data for middleware
+    const data = { ...lodgingData, trip_id: tripId };
+    return api.post(`/lodging/trip/${tripId}`, data);
+  },
+  updateLodging: (lodgingId, lodgingData, tripId) => {
+    // Include tripId in the query parameters
+    return api.put(`/lodging/${lodgingId}?tripId=${tripId}`, lodgingData);
+  },
+  deleteLodging: (lodgingId, tripId) => api.delete(`/lodging/${lodgingId}?tripId=${tripId}`),
 };
 
 // Activity API
 export const activityAPI = {
   getTripActivities: (tripId) => api.get(`/activities/trip/${tripId}`),
   getActivity: (activityId) => api.get(`/activities/${activityId}`),
-  createActivity: (tripId, activityData) => api.post(`/activities/trip/${tripId}`, activityData),
-  updateActivity: (activityId, activityData) => api.put(`/activities/${activityId}`, activityData),
-  deleteActivity: (activityId) => api.delete(`/activities/${activityId}`),
+  createActivity: (tripId, activityData) => {
+    // Ensure trip_id is included in the data for middleware
+    const data = { ...activityData, trip_id: tripId };
+    return api.post(`/activities/trip/${tripId}`, data);
+  },
+  updateActivity: (activityId, activityData, tripId) => {
+    // Include tripId in the query parameters
+    return api.put(`/activities/${activityId}?tripId=${tripId}`, activityData);
+  },
+  deleteActivity: (activityId, tripId) => api.delete(`/activities/${activityId}?tripId=${tripId}`),
 };
 
 // Document API
@@ -123,7 +144,8 @@ export const documentAPI = {
   downloadDocument: (documentId) => api.get(`/documents/${documentId}/download`, {
     responseType: 'blob',
   }),
-  deleteDocument: (documentId) => api.delete(`/documents/${documentId}`),
+  deleteDocument: (documentId, tripId) => api.delete(`/documents/${documentId}?tripId=${tripId}`),
+  viewDocument: (documentId) => api.get(`/documents/${documentId}/view`),
 };
 
 export default api;

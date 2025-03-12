@@ -168,7 +168,7 @@ const LodgingModal = ({
         let response;
 
         if (isEditMode) {
-          response = await lodgingAPI.updateLodging(lodgingId, formattedData);
+          response = await lodgingAPI.updateLodging(lodgingId, formattedData, tripId);
           toast.success('Accommodation updated successfully');
         } else {
           response = await lodgingAPI.createLodging(tripId, formattedData);
@@ -203,7 +203,7 @@ const LodgingModal = ({
 
   const handleDeleteDocument = async (documentId) => {
     try {
-      await documentAPI.deleteDocument(documentId);
+      await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
     } catch (error) {

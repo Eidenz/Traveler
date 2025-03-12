@@ -22,9 +22,10 @@ router.get('/trip/:tripId', checkTripAccess(), getTripTransportation);
 router.get('/:transportId', getTransportation);
 
 // Create a new transportation item
+// Use checkTripAccess directly since we have tripId in the params
 router.post(
   '/trip/:tripId',
-  requireEditAccess,
+  checkTripAccess(['owner', 'editor']),
   [
     body('type').not().isEmpty().withMessage('Transportation type is required'),
     body('from_location').not().isEmpty().withMessage('From location is required'),

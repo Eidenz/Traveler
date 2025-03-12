@@ -91,7 +91,7 @@ const createTransportation = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
     
-    // Insert transportation
+    // Insert transportation - Ensure we're using the tripId from the URL parameters
     const insert = db.prepare(`
       INSERT INTO transportation (
         trip_id, type, company, from_location, to_location, 
@@ -101,7 +101,8 @@ const createTransportation = (req, res) => {
     `);
     
     const result = insert.run(
-      tripId, type, company, from_location, to_location,
+      tripId, // Use tripId from params, not from body
+      type, company, from_location, to_location,
       departure_date, departure_time, arrival_date, arrival_time,
       confirmation_code, notes
     );

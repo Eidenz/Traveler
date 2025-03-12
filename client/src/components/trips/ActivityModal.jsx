@@ -149,7 +149,7 @@ const ActivityModal = ({
         let response;
 
         if (isEditMode) {
-          response = await activityAPI.updateActivity(activityId, formattedData);
+          response = await activityAPI.updateActivity(activityId, formattedData, tripId);
           toast.success('Activity updated successfully');
         } else {
           response = await activityAPI.createActivity(tripId, formattedData);
@@ -184,7 +184,7 @@ const ActivityModal = ({
 
   const handleDeleteDocument = async (documentId) => {
     try {
-      await documentAPI.deleteDocument(documentId);
+      await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
     } catch (error) {

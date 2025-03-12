@@ -174,7 +174,7 @@ const TransportModal = ({
         let response;
         
         if (isEditMode) {
-          response = await transportAPI.updateTransportation(transportId, formattedData);
+          response = await transportAPI.updateTransportation(transportId, formattedData, tripId);
           toast.success('Transportation updated successfully');
         } else {
           response = await transportAPI.createTransportation(tripId, formattedData);
@@ -209,7 +209,7 @@ const TransportModal = ({
   
   const handleDeleteDocument = async (documentId) => {
     try {
-      await documentAPI.deleteDocument(documentId);
+      await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
     } catch (error) {

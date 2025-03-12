@@ -42,7 +42,13 @@ const authenticate = (req, res, next) => {
 const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
   return (req, res, next) => {
     try {
-      const { tripId } = req.params;
+      // Look for tripId in URL params, query params, or request body
+      const tripId = req.params.tripId || req.query.tripId || (req.body && req.body.trip_id);
+      
+      if (!tripId) {
+        return res.status(400).json({ message: 'Trip ID is required' });
+      }
+      
       const userId = req.user.id;
 
       // Check if user has access to this trip

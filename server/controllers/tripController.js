@@ -104,7 +104,7 @@ const createTrip = (req, res) => {
     
     let coverImage = null;
     if (req.file) {
-      coverImage = `/uploads/${req.file.filename}`;
+      coverImage = `/uploads/trips/${req.file.filename}`;
     }
 
     // Start a transaction
@@ -178,7 +178,7 @@ const updateTrip = (req, res) => {
           fs.unlinkSync(oldImagePath);
         }
       }
-      coverImage = `/uploads/${req.file.filename}`;
+      coverImage = `/uploads/trips/${req.file.filename}`;
     }
     
     // Update trip

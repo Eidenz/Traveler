@@ -5,19 +5,22 @@ const {
   uploadDocument,
   getDocument,
   deleteDocument,
-  downloadDocument
+  downloadDocument,
+  viewDocument,
+  getDocumentsByReference
 } = require('../controllers/documentController');
-const { authenticate, requireEditAccess } = require('../middleware/auth');
+const { authenticate, requireEditAccess, checkTripAccess } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
 
 const router = express.Router();
 
-// Authentication required for all document routes
+// Authentication required for most document routes
 router.use(authenticate);
 
 // Upload a document
 router.post(
   '/',
+  authenticate,
   upload.single('document'),
   [
     body('reference_type').isIn(['trip', 'transportation', 'lodging', 'activity'])
@@ -27,11 +30,17 @@ router.post(
   uploadDocument
 );
 
-// Get a document
+// Get a document's metadata
 router.get('/:documentId', getDocument);
 
-// Download a document
+// Download a document (with attachment header)
 router.get('/:documentId/download', downloadDocument);
+
+// View a document (for inline browser viewing)
+router.get('/:documentId/view', viewDocument);
+
+// Get all documents for a specific reference
+router.get('/reference/:reference_type/:reference_id', getDocumentsByReference);
 
 // Delete a document
 router.delete('/:documentId', requireEditAccess, deleteDocument);
