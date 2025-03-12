@@ -71,7 +71,7 @@ const AppLayout = () => {
         `}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">Voyager</h1>
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">Traveler</h1>
           <button 
             className="lg:hidden p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
             onClick={() => setIsSidebarOpen(false)}

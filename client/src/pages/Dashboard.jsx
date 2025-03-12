@@ -117,7 +117,7 @@ const Dashboard = () => {
             <div className="flex flex-col items-center justify-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
               <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2" />
               <div className="text-sm font-medium text-center">
-                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day')} days left
+                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') === "0" ? dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') + " days left" : "TOMORROW!"}
               </div>
             </div>
             <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">

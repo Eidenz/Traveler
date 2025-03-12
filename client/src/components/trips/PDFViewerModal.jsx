@@ -1,5 +1,5 @@
-// client/src/components/trips/PDFViewerModal.jsx
-import React, { useState } from 'react';
+// Updated PDFViewerModal.jsx
+import React, { useState, useEffect } from 'react';
 import { X, Download, FileText, RotateCw } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -7,12 +7,27 @@ import Button from '../ui/Button';
 const PDFViewerModal = ({ 
   isOpen, 
   onClose, 
-  documentUrl,
+  documentBlob, // Changed from documentUrl to documentBlob
   documentName,
   onDownload 
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+
+  // Create a blob URL from the document blob when the component mounts or when documentBlob changes
+  useEffect(() => {
+    if (documentBlob) {
+      // Create a blob URL from the document blob
+      const url = URL.createObjectURL(documentBlob);
+      setPdfUrl(url);
+      
+      // Clean up the blob URL when the component unmounts
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [documentBlob]);
 
   const handleLoad = () => {
     setLoading(false);
@@ -81,12 +96,14 @@ const PDFViewerModal = ({
             </Button>
           </div>
         ) : (
-          <iframe
-            src={`${documentUrl}#toolbar=0&navpanes=0&view=FitH`}
-            className="w-full h-[70vh]"
-            onLoad={handleLoad}
-            onError={handleError}
-          />
+          pdfUrl && (
+            <iframe
+              src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`}
+              className="w-full h-[70vh]"
+              onLoad={handleLoad}
+              onError={handleError}
+            />
+          )
         )}
       </div>
     </Modal>

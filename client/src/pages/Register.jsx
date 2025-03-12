@@ -92,7 +92,7 @@ const Register = () => {
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create an account</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Join Voyager to start planning your trips
+            Join Traveler to start planning your trips
           </p>
         </div>
         

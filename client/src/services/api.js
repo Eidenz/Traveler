@@ -145,7 +145,9 @@ export const documentAPI = {
     responseType: 'blob',
   }),
   deleteDocument: (documentId, tripId) => api.delete(`/documents/${documentId}?tripId=${tripId}`),
-  viewDocument: (documentId) => api.get(`/documents/${documentId}/view`),
+  viewDocumentAsBlob: (documentId) => api.get(`/documents/${documentId}/view`, {
+    responseType: 'blob',
+  }),
 };
 
 export default api;

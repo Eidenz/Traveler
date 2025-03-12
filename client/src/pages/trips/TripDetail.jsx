@@ -38,10 +38,10 @@ const TripDetail = () => {
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [isLodgingModalOpen, setIsLodgingModalOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
-  const [currentPdfUrl, setCurrentPdfUrl] = useState('');
+  const [currentPdfBlob, setCurrentPdfBlob] = useState(null);
   const [currentPdfName, setCurrentPdfName] = useState('');
   const [currentDocumentId, setCurrentDocumentId] = useState(null);
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
   const [selectedTransportId, setSelectedTransportId] = useState(null);
   const [selectedLodgingId, setSelectedLodgingId] = useState(null);
   const [selectedActivityId, setSelectedActivityId] = useState(null);
@@ -257,14 +257,19 @@ const TripDetail = () => {
       
       // Check if it's a PDF
       if (doc.file_type.includes('pdf')) {
-        // Create URL for PDF viewer
-        const baseUrl = import.meta.env.VITE_BASE_URL || '';
-        // Make sure the URL is correct for the file path
-        const pdfUrl = `${baseUrl}/api/documents/${doc.id}/view`;
-        setCurrentPdfUrl(pdfUrl);
-        setCurrentPdfName(doc.file_name);
-        setCurrentDocumentId(doc.id);
-        setIsPdfViewerOpen(true);
+        try {
+          // Fetch the PDF file with authentication
+          const response = await documentAPI.viewDocumentAsBlob(doc.id);
+          
+          // Set the blob for the PDF viewer
+          setCurrentPdfBlob(response.data);
+          setCurrentPdfName(doc.file_name);
+          setCurrentDocumentId(doc.id);
+          setIsPdfViewerOpen(true);
+        } catch (error) {
+          console.error('Error fetching PDF:', error);
+          toast.error('Failed to fetch PDF document');
+        }
       } else {
         // For other types, just download
         handleDownloadDocument(doc.id, doc.file_name);
@@ -1335,7 +1340,7 @@ const TripDetail = () => {
       <PDFViewerModal
         isOpen={isPdfViewerOpen}
         onClose={() => setIsPdfViewerOpen(false)}
-        documentUrl={currentPdfUrl}
+        documentBlob={currentPdfBlob}
         documentName={currentPdfName}
         onDownload={() => {
           if (currentDocumentId) {
