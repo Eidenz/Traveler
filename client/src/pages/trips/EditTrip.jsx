@@ -9,6 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 
 const EditTrip = () => {
   const { tripId } = useParams();
@@ -48,7 +49,7 @@ const EditTrip = () => {
         
         // Set existing cover image
         if (trip.cover_image) {
-          setExistingCoverImage(`${import.meta.env.VITE_API_URL}${trip.cover_image}`);
+          setExistingCoverImage(getImageUrl(trip.cover_image));
         }
       } catch (error) {
         console.error('Error fetching trip:', error);

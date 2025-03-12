@@ -12,6 +12,7 @@ import { tripAPI, transportAPI, lodgingAPI, activityAPI } from '../../services/a
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -173,8 +174,8 @@ const TripDetail = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent z-10 rounded-xl"></div>
         <img 
           src={trip.cover_image 
-            ? `${import.meta.env.VITE_API_URL}${trip.cover_image}`
-            : 'https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1'
+            ? getImageUrl(trip.cover_image)
+            : getFallbackImageUrl('trip')
           } 
           alt={trip.name}
           className="w-full h-full object-cover rounded-xl"

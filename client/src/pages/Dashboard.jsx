@@ -11,6 +11,7 @@ import { tripAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
 
 // Extend dayjs with relativeTime
 dayjs.extend(relativeTime);
@@ -91,8 +92,8 @@ const Dashboard = () => {
           <div className="h-48 w-full relative">
             <img 
               src={upcomingTrip.cover_image 
-                ? `${import.meta.env.VITE_API_URL}${upcomingTrip.cover_image}`
-                : 'https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1'
+                ? getImageUrl(upcomingTrip.cover_image)
+                : getFallbackImageUrl('trip')
               } 
               alt={upcomingTrip.name}
               className="h-full w-full object-cover rounded-t-xl"

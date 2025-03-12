@@ -1,4 +1,4 @@
-travel-companion/
+traveler/
 ├── client/               # React frontend
 │   ├── public/           # Static assets
 │   └── src/              # Source code

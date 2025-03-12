@@ -102,10 +102,9 @@ const createTrip = (req, res) => {
     const { name, description, location, start_date, end_date } = req.body;
     const userId = req.user.id;
     
-    // Insert cover image if provided
     let coverImage = null;
     if (req.file) {
-      coverImage = `/uploads/trips/${req.file.filename}`;
+      coverImage = `/uploads/${req.file.filename}`;
     }
 
     // Start a transaction
@@ -179,7 +178,7 @@ const updateTrip = (req, res) => {
           fs.unlinkSync(oldImagePath);
         }
       }
-      coverImage = `/uploads/trips/${req.file.filename}`;
+      coverImage = `/uploads/${req.file.filename}`;
     }
     
     // Update trip

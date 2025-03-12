@@ -10,6 +10,7 @@ import Modal from '../../components/ui/Modal';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
@@ -181,8 +182,8 @@ const MyTrips = () => {
                   <div className="h-48 relative">
                     <img 
                       src={trip.cover_image 
-                        ? `${import.meta.env.VITE_API_URL}${trip.cover_image}`
-                        : 'https://images.unsplash.com/photo-1454942901704-3c44c11b2ad1'
+                        ? getImageUrl(trip.cover_image)
+                        : getFallbackImageUrl('trip')
                       } 
                       alt={trip.name}
                       className="h-full w-full object-cover rounded-t-xl"

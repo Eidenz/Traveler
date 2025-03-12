@@ -8,6 +8,7 @@ import {
 import useAuthStore from '../stores/authStore';
 import useThemeStore from '../stores/themeStore';
 import toast from 'react-hot-toast';
+import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
 
 const AppLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -234,7 +235,7 @@ const AppLayout = () => {
                 <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                   {user?.profile_image ? (
                     <img 
-                      src={`${import.meta.env.VITE_API_URL}${user.profile_image}`} 
+                      src={getImageUrl(user.profile_image)} 
                       alt={user.name} 
                       className="h-full w-full object-cover"
                     />
