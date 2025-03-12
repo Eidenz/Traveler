@@ -20,6 +20,9 @@ RUN cd client && npm install
 # Copy the rest of the application code
 COPY . .
 
+# Rewrite .env for production
+RUN printf 'VITE_API_URL=/api\nVITE_BASE_URL=' > ./client/.env
+
 # Create needed directories
 RUN mkdir -p server/uploads/documents server/uploads/trips server/uploads/profiles server/db/data
 

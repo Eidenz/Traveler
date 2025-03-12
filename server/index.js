@@ -37,7 +37,18 @@ if (!fs.existsSync(dbDir)) {
 }
 
 // Middleware
-app.use(helmet()); // Security headers
+if (process.env.NODE_ENV === 'production') {
+  // Use a more relaxed helmet configuration in production
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Disable CSP for simplicity
+      strictTransportSecurity: false, // Disable HSTS to prevent forcing HTTPS
+    })
+  );
+} else {
+  app.use(helmet()); // Standard helmet in development
+}
+
 app.use(morgan('dev')); // Logging
 app.use(cors()); // CORS handling
 app.use(express.json()); // Parse JSON bodies
@@ -57,20 +68,6 @@ app.use('/api/documents', documentRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
-  // Set security headers for React app
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
-        connectSrc: ["'self'"]
-      }
-    }
-  }));
-  
   // Serve the static files from the React app
   app.use(express.static(path.join(__dirname, '../client/dist')));
   
@@ -97,8 +94,10 @@ app.use((err, req, res, next) => {
 // Initialize database and start server
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
+    // Listen on all network interfaces (0.0.0.0) instead of just localhost
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
+      console.log(`Access the app at http://localhost:${PORT} or http://<your-ip-address>:${PORT}`);
     });
   })
   .catch(err => {
