@@ -24,7 +24,7 @@ RUN mkdir -p server/uploads/documents server/uploads/trips server/uploads/profil
 RUN chmod -R 777 server/uploads server/db/data
 
 # Build production frontend
-RUN cd client && npm build
+RUN cd client && npm run build
 
 # Expose only the backend port (will serve static frontend)
 EXPOSE 5000
