@@ -1,0 +1,17 @@
+travel-companion/
+├── client/               # React frontend
+│   ├── public/           # Static assets
+│   └── src/              # Source code
+│       ├── components/   # UI components
+│       ├── layouts/      # Layout components
+│       ├── pages/        # Page components
+│       ├── services/     # API services
+│       └── stores/       # Zustand state stores
+├── server/               # Node.js backend
+│   ├── controllers/      # Route controllers
+│   ├── db/               # Database setup
+│   ├── middleware/       # Express middleware
+│   ├── routes/           # API routes
+│   ├── uploads/          # File uploads storage
+│   └── utils/            # Utility functions
+└── package.json          # Root package.json for scripts

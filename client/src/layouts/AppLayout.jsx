@@ -1,0 +1,293 @@
+// client/src/layouts/AppLayout.jsx
+import React, { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { 
+  Menu, X, Search, Bell, User, LogOut, Settings, Sun, Moon, PlusCircle,
+  Compass, Calendar, Package, Home
+} from 'lucide-react';
+import useAuthStore from '../stores/authStore';
+import useThemeStore from '../stores/themeStore';
+import toast from 'react-hot-toast';
+
+const AppLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const { user, logout } = useAuthStore();
+  const { theme, toggleTheme } = useThemeStore();
+  const navigate = useNavigate();
+
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    // Set initial state based on window size
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isProfileDropdownOpen && !event.target.closest('.profile-dropdown')) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isProfileDropdownOpen]);
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Logged out successfully');
+    navigate('/login');
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={`
+          fixed inset-y-0 left-0 z-30 w-64 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 
+          transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-auto lg:z-auto
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">Voyager</h1>
+          <button 
+            className="lg:hidden p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <X className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          <nav className="space-y-6">
+            <div>
+              <p className="px-2 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Main
+              </p>
+              <ul className="space-y-1">
+                <li>
+                  <NavLink 
+                    to="/dashboard" 
+                    className={({ isActive }) => `
+                      flex items-center px-3 py-2 rounded-lg text-sm font-medium
+                      ${isActive 
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    <Home className="mr-3 h-5 w-5" />
+                    Dashboard
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink 
+                    to="/trips" 
+                    className={({ isActive }) => `
+                      flex items-center px-3 py-2 rounded-lg text-sm font-medium
+                      ${isActive 
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    <Compass className="mr-3 h-5 w-5" />
+                    My Trips
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink 
+                    to="/calendar" 
+                    className={({ isActive }) => `
+                      flex items-center px-3 py-2 rounded-lg text-sm font-medium
+                      ${isActive 
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    <Calendar className="mr-3 h-5 w-5" />
+                    Calendar
+                  </NavLink>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="px-2 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Your Trips
+              </p>
+              <ul className="space-y-1">
+                {/* This would be populated from API in a real app */}
+                <li>
+                  <a 
+                    href="#" 
+                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <span className="mr-3 h-2 w-2 rounded-full bg-green-500"></span>
+                    Upcoming Trip
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="#" 
+                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <span className="mr-3 h-2 w-2 rounded-full bg-purple-500"></span>
+                    Past Trip
+                  </a>
+                </li>
+                <li>
+                  <a 
+                    href="#" 
+                    className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <span className="mr-3 h-2 w-2 rounded-full bg-yellow-500"></span>
+                    Shared Trip
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </nav>
+
+          <div className="mt-6">
+            <button 
+              onClick={() => navigate('/trips/new')}
+              className="flex items-center justify-center w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+            >
+              <PlusCircle className="mr-2 h-5 w-5" />
+              New Trip
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Header */}
+        <header className="flex items-center h-16 px-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
+          <button 
+            className="p-1 mr-4 rounded-full lg:hidden hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <Menu className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+          </button>
+
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search className="h-5 w-5 text-gray-400" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search..."
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div className="flex items-center ml-auto space-x-4">
+            {/* Theme toggle */}
+            <button 
+              onClick={toggleTheme}
+              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              ) : (
+                <Moon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              )}
+            </button>
+
+            {/* Notifications */}
+            <button className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+              <Bell className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+            </button>
+
+            {/* Profile dropdown */}
+            <div className="relative profile-dropdown">
+              <button 
+                className="flex items-center focus:outline-none"
+                onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+              >
+                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  {user?.profile_image ? (
+                    <img 
+                      src={`${import.meta.env.VITE_API_URL}${user.profile_image}`} 
+                      alt={user.name} 
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <User className="h-full w-full p-1 text-gray-500 dark:text-gray-400" />
+                  )}
+                </div>
+                <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 hidden md:block">
+                  {user?.name}
+                </span>
+              </button>
+
+              {isProfileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 rounded-lg bg-white dark:bg-gray-800 py-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+                  </div>
+                  <a 
+                    href="#" 
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <User className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
+                    Profile
+                  </a>
+                  <a 
+                    href="#" 
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
+                    Settings
+                  </a>
+                  <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                  <button 
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <LogOut className="h-4 w-4 mr-3 text-red-500" />
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default AppLayout;
