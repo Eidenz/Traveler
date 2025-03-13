@@ -36,7 +36,7 @@ function initializeDatabase() {
       // Create Trips table
       db.exec(`
         CREATE TABLE IF NOT EXISTS trips (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           description TEXT,
           location TEXT,

@@ -1,14 +1,37 @@
 // client/src/utils/offlineStorage.js
-
 /**
  * Utility functions for handling offline storage of trip data
  * Uses IndexedDB for storing trip details and document blobs
+ * Updated to work with both legacy numeric IDs and new string IDs
  */
 
 const DB_NAME = 'traveler_offline_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Increment version to trigger migration
 const TRIPS_STORE = 'trips';
 const DOCUMENTS_STORE = 'documents';
+
+/**
+ * Ensure the ID is in the correct format for storage/retrieval
+ * Handles both numeric IDs (legacy) and string IDs (new format)
+ * 
+ * @param {string|number} id - The ID to normalize
+ * @returns {string|number} The normalized ID
+ */
+const normalizeId = (id) => {
+  // If it's already a string that starts with 'trip_', return as is
+  if (typeof id === 'string' && id.startsWith('trip_')) {
+    return id;
+  }
+  
+  // If it can be parsed as an integer, it's a legacy ID
+  const numericId = parseInt(id, 10);
+  if (!isNaN(numericId) && numericId.toString() === id.toString()) {
+    return numericId;
+  }
+  
+  // Otherwise, return as string
+  return id.toString();
+};
 
 /**
  * Initialize the IndexedDB database
@@ -30,20 +53,24 @@ export const initDB = () => {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
       
-      // Create trips store
+      // Create trips store or update it if needed
       if (!db.objectStoreNames.contains(TRIPS_STORE)) {
         const tripsStore = db.createObjectStore(TRIPS_STORE, { keyPath: 'id' });
         tripsStore.createIndex('start_date', 'start_date', { unique: false });
         tripsStore.createIndex('end_date', 'end_date', { unique: false });
       }
       
-      // Create documents store
+      // Create documents store or update it if needed
       if (!db.objectStoreNames.contains(DOCUMENTS_STORE)) {
         const documentsStore = db.createObjectStore(DOCUMENTS_STORE, { keyPath: 'id' });
         documentsStore.createIndex('trip_id', 'trip_id', { unique: false });
         documentsStore.createIndex('reference_type', 'reference_type', { unique: false });
         documentsStore.createIndex('reference_id', 'reference_id', { unique: false });
       }
+      
+      // Migration: If we're upgrading from version 1 to 2, we don't need
+      // to do anything to the existing data as the keyPath type is flexible
+      console.log('IndexedDB upgraded to version', event.newVersion);
     };
   });
 };
@@ -72,14 +99,15 @@ export const saveTripOffline = async (tripData) => {
     const transaction = db.transaction([TRIPS_STORE], 'readwrite');
     const store = transaction.objectStore(TRIPS_STORE);
     
-    // Add timestamp for when it was saved
-    const tripToSave = {
+    // Ensure ID is saved in the correct format
+    const normalizedTripData = {
       ...tripData,
+      id: normalizeId(tripData.id),
       offlineSavedAt: new Date().toISOString()
     };
     
     return new Promise((resolve, reject) => {
-      const request = store.put(tripToSave);
+      const request = store.put(normalizedTripData);
       
       request.onsuccess = () => resolve();
       request.onerror = (event) => reject(event.target.error);
@@ -102,8 +130,12 @@ export const saveDocumentOffline = async (documentInfo, blob) => {
     const transaction = db.transaction([DOCUMENTS_STORE], 'readwrite');
     const store = transaction.objectStore(DOCUMENTS_STORE);
     
+    // Normalize IDs for storage
     const docToSave = {
       ...documentInfo,
+      id: normalizeId(documentInfo.id),
+      trip_id: normalizeId(documentInfo.trip_id),
+      reference_id: normalizeId(documentInfo.reference_id),
       blob: blob,
       offlineSavedAt: new Date().toISOString()
     };
@@ -131,8 +163,11 @@ export const getTripOffline = async (tripId) => {
     const transaction = db.transaction([TRIPS_STORE], 'readonly');
     const store = transaction.objectStore(TRIPS_STORE);
     
+    // Normalize the ID for retrieval
+    const normalizedId = normalizeId(tripId);
+    
     return new Promise((resolve, reject) => {
-      const request = store.get(parseInt(tripId, 10));
+      const request = store.get(normalizedId);
       
       request.onsuccess = (event) => resolve(event.target.result);
       request.onerror = (event) => reject(event.target.error);
@@ -155,8 +190,11 @@ export const getTripDocumentsOffline = async (tripId) => {
     const store = transaction.objectStore(DOCUMENTS_STORE);
     const tripIdIndex = store.index('trip_id');
     
+    // Normalize the ID for retrieval
+    const normalizedId = normalizeId(tripId);
+    
     return new Promise((resolve, reject) => {
-      const request = tripIdIndex.getAll(parseInt(tripId, 10));
+      const request = tripIdIndex.getAll(normalizedId);
       
       request.onsuccess = (event) => resolve(event.target.result);
       request.onerror = (event) => reject(event.target.error);
@@ -178,8 +216,11 @@ export const getDocumentOffline = async (documentId) => {
     const transaction = db.transaction([DOCUMENTS_STORE], 'readonly');
     const store = transaction.objectStore(DOCUMENTS_STORE);
     
+    // Normalize the ID for retrieval
+    const normalizedId = normalizeId(documentId);
+    
     return new Promise((resolve, reject) => {
-      const request = store.get(parseInt(documentId, 10));
+      const request = store.get(normalizedId);
       
       request.onsuccess = (event) => resolve(event.target.result);
       request.onerror = (event) => reject(event.target.error);
@@ -202,18 +243,21 @@ export const getDocumentsForReference = async (referenceType, referenceId) => {
     const transaction = db.transaction([DOCUMENTS_STORE], 'readonly');
     const store = transaction.objectStore(DOCUMENTS_STORE);
     
-    // Use a compound index for reference_type and reference_id if available
-    // Otherwise, get all documents and filter
+    // Normalize the reference ID
+    const normalizedRefId = normalizeId(referenceId);
+    
+    // Get all documents and filter
     const allDocs = await new Promise((resolve, reject) => {
       const request = store.getAll();
       request.onsuccess = (event) => resolve(event.target.result);
       request.onerror = (event) => reject(event.target.error);
     });
     
-    // Filter the documents by reference type and ID
+    // Filter the documents by reference type and normalized ID
+    // Using loose comparison with toString() to handle both string and numeric IDs
     return allDocs.filter(doc => 
       doc.reference_type === referenceType && 
-      parseInt(doc.reference_id, 10) === parseInt(referenceId, 10)
+      normalizeId(doc.reference_id) === normalizedRefId
     );
   } catch (error) {
     console.error('Error getting documents by reference from offline storage:', error);
@@ -245,6 +289,9 @@ export const removeTripOffline = async (tripId) => {
   try {
     const db = await getDB();
     
+    // Normalize the trip ID
+    const normalizedTripId = normalizeId(tripId);
+    
     // First get all documents for this trip
     const documents = await getTripDocumentsOffline(tripId);
     
@@ -256,7 +303,7 @@ export const removeTripOffline = async (tripId) => {
       // Use Promise.all to handle all document deletions
       await Promise.all(documents.map(doc => {
         return new Promise((resolve, reject) => {
-          const request = docStore.delete(parseInt(doc.id, 10));
+          const request = docStore.delete(normalizeId(doc.id));
           request.onsuccess = resolve;
           request.onerror = event => reject(event.target.error);
         });
@@ -268,7 +315,7 @@ export const removeTripOffline = async (tripId) => {
     const tripStore = tripTx.objectStore(TRIPS_STORE);
     
     return new Promise((resolve, reject) => {
-      const request = tripStore.delete(parseInt(tripId, 10));
+      const request = tripStore.delete(normalizedTripId);
       request.onsuccess = () => resolve();
       request.onerror = event => reject(event.target.error);
     });

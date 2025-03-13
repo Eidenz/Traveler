@@ -1,6 +1,7 @@
 // server/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const { db } = require('../db/database');
+const { isValidTripId } = require('../utils/idGenerator');
 
 /**
  * Middleware to authenticate JWT tokens
@@ -48,6 +49,11 @@ const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
       if (!tripId) {
         return res.status(400).json({ message: 'Trip ID is required' });
       }
+      
+      // Validate trip ID format
+     if (!isValidTripId(tripId)) {
+       return res.status(400).json({ message: 'Invalid trip ID format' });
+     }
       
       const userId = req.user.id;
 

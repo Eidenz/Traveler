@@ -3,6 +3,7 @@ const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const fs = require('fs');
 const path = require('path');
+const { generateTripId, isValidTripId } = require('../utils/idGenerator');
 
 /**
  * Get all trips for the current user
@@ -89,7 +90,7 @@ const getTripById = (req, res) => {
 };
 
 /**
- * Create a new trip
+ * Create a new trip with a random ID
  */
 const createTrip = (req, res) => {
   try {
@@ -111,14 +112,15 @@ const createTrip = (req, res) => {
     db.prepare('BEGIN TRANSACTION').run();
 
     try {
-      // Insert trip
-      const insertTrip = db.prepare(`
-        INSERT INTO trips (name, description, location, start_date, end_date, cover_image, owner_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `);
-      const result = insertTrip.run(name, description, location, start_date, end_date, coverImage, userId);
+      // Generate a random trip ID
+      const tripId = generateTripId();
       
-      const tripId = result.lastInsertRowid;
+      // Insert trip with the random ID
+      const insertTrip = db.prepare(`
+        INSERT INTO trips (id, name, description, location, start_date, end_date, cover_image, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      insertTrip.run(tripId, name, description, location, start_date, end_date, coverImage, userId);
       
       // Add user as owner in trip_members
       const insertMember = db.prepare(`

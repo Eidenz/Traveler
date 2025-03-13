@@ -429,8 +429,9 @@ const TripDetail = () => {
       setIsSavingOffline(true);
       
       // First save the trip data
+      // Ensure we're passing the ID as-is without any conversions
       await saveTripOffline({
-        id: parseInt(tripId, 10),
+        id: tripId, // Don't use parseInt here
         ...trip,
         members,
         transportation,
@@ -464,12 +465,13 @@ const TripDetail = () => {
                   const blobResponse = await documentAPI.viewDocumentAsBlob(doc.id);
                   
                   // Save the document and blob to IndexedDB
+                  // Make sure to pass IDs as-is
                   await saveDocumentOffline({
                     ...doc,
-                    trip_id: parseInt(tripId, 10),
+                    trip_id: tripId, // Keep as string
                     reference_type: refType,
-                    reference_id: item.id,
-                    id: parseInt(doc.id, 10)
+                    reference_id: item.id, // No need to parse
+                    id: doc.id // No need to parse
                   }, blobResponse.data);
                   
                   docCount++;

@@ -186,6 +186,7 @@ const Dashboard = () => {
           } catch (error) {
             console.error('Error fetching ongoing trip details:', error);
             // Try offline fallback
+            // No need to parse ID as integer
             const offlineTrip = await getTripOffline(ongoingTrip.id);
             if (offlineTrip) {
               setOngoingTripDetails(offlineTrip);
@@ -201,6 +202,7 @@ const Dashboard = () => {
           } catch (error) {
             console.error('Error fetching upcoming trip details:', error);
             // Try offline fallback
+            // No need to parse ID as integer
             const offlineTrip = await getTripOffline(upcomingTrip.id);
             if (offlineTrip) {
               setUpcomingTripDetails(offlineTrip);
