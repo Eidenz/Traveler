@@ -186,6 +186,16 @@
       "viewFailed": "Impossible d'afficher le document",
       "downloadInstead": "Le document n'a pas pu être affiché dans le navigateur. Vous pouvez le télécharger à la place."
     },
+    "offline": {
+      "saveOffline" : "Sauvegarder hors ligne",
+      "removeOffline" : "Supprimer sauvegarde hors ligne",
+      "savedSuccessfully" : "Voyage sauvegardé pour une utilisation hors ligne",
+      "removedSuccessfully" : "Trajet retiré du stockage hors ligne",
+      "saveFailed" : "Échec de l'enregistrement du voyage pour une utilisation hors ligne",
+      "removeFailed" : "Échec de la suppression de la sauvegarde hors ligne",
+      "availableOffline" : "Disponible hors ligne",
+      "documentsCount" : "documents enregistrés pour une utilisation hors ligne"
+    },
     "sharing": {
       "shareTrip": "Partager le voyage",
       "invite": "Inviter",

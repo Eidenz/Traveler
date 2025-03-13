@@ -1,6 +1,6 @@
 // client/src/components/trips/PDFViewerModal.jsx
-import React, { useState, useEffect } from 'react';
-import { X, Download, FileText, RotateCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Download, FileText, RotateCw, ZoomIn, ZoomOut } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 const PDFViewerModal = ({ 
   isOpen, 
   onClose, 
-  documentBlob, // Changed from documentUrl to documentBlob
+  documentBlob,
   documentName,
   onDownload 
 }) => {
@@ -16,18 +16,28 @@ const PDFViewerModal = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfObject, setPdfObject] = useState(null);
+  const embedRef = useRef(null);
+  const [zoom, setZoom] = useState(100);
 
   // Create a blob URL from the document blob when the component mounts or when documentBlob changes
   useEffect(() => {
     if (documentBlob) {
-      // Create a blob URL from the document blob
-      const url = URL.createObjectURL(documentBlob);
-      setPdfUrl(url);
-      
-      // Clean up the blob URL when the component unmounts
-      return () => {
-        URL.revokeObjectURL(url);
-      };
+      try {
+        // Create a blob URL from the document blob
+        const url = URL.createObjectURL(documentBlob);
+        setPdfUrl(url);
+        setPdfObject(documentBlob);
+        
+        // Clean up the blob URL when the component unmounts
+        return () => {
+          URL.revokeObjectURL(url);
+        };
+      } catch (err) {
+        console.error("Error creating PDF URL:", err);
+        setError(true);
+        setLoading(false);
+      }
     }
   }, [documentBlob]);
 
@@ -38,6 +48,48 @@ const PDFViewerModal = ({
   const handleError = () => {
     setError(true);
     setLoading(false);
+  };
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 20, 200));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 20, 60));
+  };
+
+  // Direct data URL approach as fallback
+  const renderPdfViewer = () => {
+    if (!pdfUrl) return null;
+    
+    // Try different approaches to display the PDF
+    return (
+      <div className="relative w-full h-[70vh] bg-white">
+        {/* Primary method: Using object tag */}
+        <object
+          ref={embedRef}
+          data={pdfUrl}
+          type="application/pdf"
+          className="w-full h-full"
+          style={{ zoom: `${zoom}%` }}
+          onLoad={handleLoad}
+          onError={handleError}
+        >
+          {/* Fallback: Using iframe if object fails */}
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full"
+            onLoad={handleLoad}
+            onError={handleError}
+          >
+            {/* Final fallback: Text message */}
+            <p className="text-center mt-4">
+              {t('documents.viewFailed')}
+            </p>
+          </iframe>
+        </object>
+      </div>
+    );
   };
 
   return (
@@ -53,6 +105,23 @@ const PDFViewerModal = ({
           <span className="font-medium truncate max-w-md">{documentName}</span>
         </div>
         <div className="flex space-x-2">
+          <div className="flex items-center space-x-1 mr-2">
+            <button
+              onClick={handleZoomOut}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+              aria-label="Zoom out"
+            >
+              <ZoomOut className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </button>
+            <span className="text-sm text-gray-600 dark:text-gray-400">{zoom}%</span>
+            <button
+              onClick={handleZoomIn}
+              className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+              aria-label="Zoom in"
+            >
+              <ZoomIn className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </button>
+          </div>
           <Button
             variant="secondary"
             size="sm"
@@ -94,18 +163,11 @@ const PDFViewerModal = ({
               onClick={onDownload}
               icon={<Download className="h-5 w-5" />}
             >
-              {t('documents.uploadDocument')}
+              {t('common.download')}
             </Button>
           </div>
         ) : (
-          pdfUrl && (
-            <iframe
-              src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`}
-              className="w-full h-[70vh]"
-              onLoad={handleLoad}
-              onError={handleError}
-            />
-          )
+          renderPdfViewer()
         )}
       </div>
     </Modal>

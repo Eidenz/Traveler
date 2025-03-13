@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Calendar, ChevronDown, Map, Bed, User, Coffee, Ticket, PlusCircle, 
   Clock, Share2, Bell, Edit, Trash2, Home, ArrowLeft, Package,
-  Plane, Train, Bus, Car, Ship, Download, FileText
+  Plane, Train, Bus, Car, Ship, Download, FileText, Wifi, WifiOff, CheckCircle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -19,6 +19,10 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
+import { 
+  isTripAvailableOffline, saveTripOffline, removeTripOffline, 
+  saveDocumentOffline, getDocumentOffline 
+} from '../../utils/offlineStorage';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -52,9 +56,20 @@ const TripDetail = () => {
   const [isSharing, setIsSharing] = useState(false);
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState({ type: '', id: null });
+  const [isAvailableOffline, setIsAvailableOffline] = useState(false);
+  const [isSavingOffline, setIsSavingOffline] = useState(false);
+  const [offlineSaveSuccess, setOfflineSaveSuccess] = useState(false);
 
   useEffect(() => {
     fetchTripData();
+    
+    // Check if trip is available offline
+    const checkOfflineAvailability = async () => {
+      const available = await isTripAvailableOffline(tripId);
+      setIsAvailableOffline(available);
+    };
+    
+    checkOfflineAvailability();
   }, [tripId]);
 
   const fetchTripData = async () => {
@@ -266,11 +281,24 @@ const TripDetail = () => {
       // Check if it's a PDF
       if (doc.file_type.includes('pdf')) {
         try {
-          // Fetch the PDF file with authentication
-          const response = await documentAPI.viewDocumentAsBlob(doc.id);
+          // Try to get from offline storage first if available offline
+          let blob = null;
+          
+          if (isAvailableOffline) {
+            const offlineDoc = await getDocumentOffline(doc.id);
+            if (offlineDoc && offlineDoc.blob) {
+              blob = offlineDoc.blob;
+            }
+          }
+          
+          // If not in offline storage, fetch from server
+          if (!blob) {
+            const response = await documentAPI.viewDocumentAsBlob(doc.id);
+            blob = response.data;
+          }
           
           // Set the blob for the PDF viewer
-          setCurrentPdfBlob(response.data);
+          setCurrentPdfBlob(blob);
           setCurrentPdfName(doc.file_name);
           setCurrentDocumentId(doc.id);
           setIsPdfViewerOpen(true);
@@ -285,6 +313,104 @@ const TripDetail = () => {
     } catch (error) {
       console.error('Error viewing document:', error);
       toast.error(t('documents.viewFailed'));
+    }
+  };
+  
+  // Save trip for offline use
+  const handleSaveOffline = async () => {
+    try {
+      setIsSavingOffline(true);
+      
+      // First save the trip data
+      await saveTripOffline({
+        id: parseInt(tripId, 10),
+        ...trip,
+        members,
+        transportation,
+        lodging,
+        activities
+      });
+      
+      // Save each document
+      let docCount = 0;
+      
+      // Helper function to fetch and save documents
+      const fetchAndSaveDocuments = async (items, refType) => {
+        for (const item of items) {
+          if (item.has_documents) {
+            let response;
+            try {
+              // Get the document details based on reference type
+              if (refType === 'transport') {
+                response = await transportAPI.getTransportation(item.id);
+              } else if (refType === 'lodging') {
+                response = await lodgingAPI.getLodging(item.id);
+              } else if (refType === 'activity') {
+                response = await activityAPI.getActivity(item.id);
+              }
+              
+              const documents = response?.data?.documents || [];
+              
+              for (const doc of documents) {
+                try {
+                  // Fetch the document blob
+                  const blobResponse = await documentAPI.viewDocumentAsBlob(doc.id);
+                  
+                  // Save the document and blob to IndexedDB
+                  await saveDocumentOffline({
+                    ...doc,
+                    trip_id: parseInt(tripId, 10),
+                    reference_type: refType,
+                    reference_id: item.id,
+                    id: parseInt(doc.id, 10)
+                  }, blobResponse.data);
+                  
+                  docCount++;
+                } catch (docError) {
+                  console.error(`Error saving document ${doc.id}:`, docError);
+                }
+              }
+            } catch (itemError) {
+              console.error(`Error fetching ${refType} ${item.id} documents:`, itemError);
+            }
+          }
+        }
+      };
+      
+      // Save documents for each type
+      await fetchAndSaveDocuments(transportation, 'transport');
+      await fetchAndSaveDocuments(lodging, 'lodging');
+      await fetchAndSaveDocuments(activities, 'activity');
+      
+      // Show success notification
+      toast.success(`Trip saved for offline use with ${docCount} documents`);
+      setIsAvailableOffline(true);
+      setOfflineSaveSuccess(true);
+      
+      // Reset success indicator after 3 seconds
+      setTimeout(() => {
+        setOfflineSaveSuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error saving trip for offline use:', error);
+      toast.error('Failed to save trip for offline use');
+    } finally {
+      setIsSavingOffline(false);
+    }
+  };
+  
+  // Remove trip from offline storage
+  const handleRemoveOffline = async () => {
+    try {
+      setIsSavingOffline(true);
+      await removeTripOffline(tripId);
+      toast.success('Trip removed from offline storage');
+      setIsAvailableOffline(false);
+    } catch (error) {
+      console.error('Error removing trip from offline storage:', error);
+      toast.error('Failed to remove trip from offline storage');
+    } finally {
+      setIsSavingOffline(false);
     }
   };
 
@@ -419,12 +545,12 @@ const TripDetail = () => {
           className="w-full h-full object-cover rounded-xl"
         />
         <div className="absolute bottom-0 left-0 p-6 z-20 w-full">
-          <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-3xl font-bold text-white">{trip.name}</h1>
+          <div className="flex flex-col md:flex-row md:justify-between md:items-end">
+            <div className="mb-4 md:mb-0">
+              <h1 className="text-2xl md:text-3xl font-bold text-white">{trip.name}</h1>
               <div className="flex items-center text-white mt-2">
-                <Clock size={16} className="mr-2" />
-                <span>{formatDateRange(trip.start_date, trip.end_date)}</span>
+                <Clock size={16} className="mr-2 flex-shrink-0" />
+                <span className="text-sm md:text-base">{formatDateRange(trip.start_date, trip.end_date)}</span>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -433,6 +559,8 @@ const TripDetail = () => {
                   variant="secondary"
                   icon={<Edit className="h-5 w-5" />}
                   onClick={() => navigate(`/trips/${tripId}/edit`)}
+                  size="sm"
+                  className="whitespace-nowrap"
                 >
                   {t('trips.editTrip')}
                 </Button>
@@ -441,8 +569,26 @@ const TripDetail = () => {
                 variant="primary"
                 icon={<Share2 className="h-5 w-5" />}
                 onClick={() => setIsShareModalOpen(true)}
+                size="sm"
+                className="whitespace-nowrap"
               >
                 {t('sharing.shareTrip')}
+              </Button>
+              
+              {/* Offline button */}
+              <Button
+                variant={isAvailableOffline ? "transparent" : "secondary"}
+                onClick={isAvailableOffline ? handleRemoveOffline : handleSaveOffline}
+                size="sm"
+                loading={isSavingOffline}
+                className={`whitespace-nowrap ${isAvailableOffline ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' : ''} ${offlineSaveSuccess ? 'animate-pulse' : ''}`}
+                icon={
+                  isAvailableOffline ? 
+                    <WifiOff className="h-5 w-5" /> : 
+                    <Wifi className="h-5 w-5" />
+                }
+              >
+                {isAvailableOffline ? t('offline.removeOffline') : t('offline.saveOffline')}
               </Button>
             </div>
           </div>
@@ -646,7 +792,7 @@ const TripDetail = () => {
                                 className="h-full w-full object-cover"
                               />
                             ) : (
-                              <User className="h-full w-full p-2 text-gray-500 dark:text-gray-400" />
+                              <User className="h-full w-full p-1 text-gray-500 dark:text-gray-400" />
                             )}
                           </div>
                           <div>

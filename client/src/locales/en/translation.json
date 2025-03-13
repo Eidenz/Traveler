@@ -186,6 +186,16 @@
       "viewFailed": "Failed to display document",
       "downloadInstead": "The document could not be displayed in the browser. You can download it instead."
     },
+    "offline": {
+      "saveOffline": "Save Offline",
+      "removeOffline": "Remove Offline",
+      "savedSuccessfully": "Trip saved for offline use",
+      "removedSuccessfully": "Trip removed from offline storage",
+      "saveFailed": "Failed to save trip for offline use",
+      "removeFailed": "Failed to remove trip from offline storage",
+      "availableOffline": "Available offline",
+      "documentsCount": "documents saved for offline use"
+    },
     "sharing": {
       "shareTrip": "Share Trip",
       "invite": "Invite",
