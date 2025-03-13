@@ -312,7 +312,7 @@ const AppLayout = () => {
 
               {isProfileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-56 rounded-lg bg-white dark:bg-gray-800 py-2 shadow-xl border border-gray-200 dark:border-gray-700 z-50">
-                  <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700">
+                  <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 my-1">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                   </div>
@@ -323,13 +323,6 @@ const AppLayout = () => {
                     <User className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
                     {t('auth.profile')}
                   </button>
-                  <a 
-                    href="#" 
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
-                    {t('auth.settings')}
-                  </a>
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                   <button 
                     onClick={handleLogout}
