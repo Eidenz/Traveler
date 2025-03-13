@@ -194,7 +194,9 @@
       "saveFailed": "Failed to save trip for offline use",
       "removeFailed": "Failed to remove trip from offline storage",
       "availableOffline": "Available offline",
-      "documentsCount": "documents saved for offline use"
+      "documentsCount": "documents saved for offline use",
+      "usingOfflineData": "Using offline data",
+      "offline_mode_message": "You're currently in offline mode. Only trips saved for offline use are shown."
     },
     "sharing": {
       "shareTrip": "Share Trip",

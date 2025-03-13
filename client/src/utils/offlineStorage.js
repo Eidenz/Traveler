@@ -191,6 +191,37 @@ export const getDocumentOffline = async (documentId) => {
 };
 
 /**
+ * Get documents for a specific reference type and ID from offline storage
+ * @param {string} referenceType - The type of reference ('transport', 'lodging', 'activity')
+ * @param {number|string} referenceId - The ID of the reference
+ * @returns {Promise<Array>} A promise that resolves with an array of documents
+ */
+export const getDocumentsForReference = async (referenceType, referenceId) => {
+  try {
+    const db = await getDB();
+    const transaction = db.transaction([DOCUMENTS_STORE], 'readonly');
+    const store = transaction.objectStore(DOCUMENTS_STORE);
+    
+    // Use a compound index for reference_type and reference_id if available
+    // Otherwise, get all documents and filter
+    const allDocs = await new Promise((resolve, reject) => {
+      const request = store.getAll();
+      request.onsuccess = (event) => resolve(event.target.result);
+      request.onerror = (event) => reject(event.target.error);
+    });
+    
+    // Filter the documents by reference type and ID
+    return allDocs.filter(doc => 
+      doc.reference_type === referenceType && 
+      parseInt(doc.reference_id, 10) === parseInt(referenceId, 10)
+    );
+  } catch (error) {
+    console.error('Error getting documents by reference from offline storage:', error);
+    throw error;
+  }
+};
+
+/**
  * Check if a trip is available offline
  * @param {number|string} tripId - The ID of the trip to check
  * @returns {Promise<boolean>} A promise that resolves with true if the trip is available offline

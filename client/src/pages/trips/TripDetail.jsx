@@ -21,7 +21,8 @@ import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import { 
   isTripAvailableOffline, saveTripOffline, removeTripOffline, 
-  saveDocumentOffline, getDocumentOffline 
+  saveDocumentOffline, getDocumentOffline, getDocumentsForReference, 
+  getTripOffline 
 } from '../../utils/offlineStorage';
 
 const TripDetail = () => {
@@ -75,6 +76,37 @@ const TripDetail = () => {
   const fetchTripData = async () => {
     try {
       setLoading(true);
+      
+      // First check if trip is available offline
+      const isOffline = !navigator.onLine;
+      const offlineAvailable = await isTripAvailableOffline(tripId);
+      setIsAvailableOffline(offlineAvailable);
+      
+      // If we're offline and the trip is available offline, use that data
+      if ((isOffline || navigator.connection?.effectiveType === '2g') && offlineAvailable) {
+        console.log('Loading trip from offline storage');
+        // Get trip data from IndexedDB
+        const offlineTrip = await getTripOffline(tripId);
+        
+        if (offlineTrip) {
+          setTrip(offlineTrip);
+          setMembers(offlineTrip.members || []);
+          setTransportation(offlineTrip.transportation || []);
+          setLodging(offlineTrip.lodging || []);
+          setActivities(offlineTrip.activities || []);
+          
+          // Set a toast notification to indicate offline mode
+          toast.info(t('offline.usingOfflineData') || 'Using offline data', {
+            icon: <WifiOff size={16} />,
+            duration: 3000,
+          });
+          
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // If not available offline or we're online, fetch from API
       const response = await tripAPI.getTripById(tripId);
       
       setTrip(response.data.trip);
@@ -84,6 +116,28 @@ const TripDetail = () => {
       setActivities(response.data.activities);
     } catch (error) {
       console.error('Error fetching trip:', error);
+      
+      // If we're offline, check again for offline data as a fallback
+      const isOffline = !navigator.onLine;
+      if (isOffline) {
+        const offlineTrip = await getTripOffline(tripId);
+        if (offlineTrip) {
+          setTrip(offlineTrip);
+          setMembers(offlineTrip.members || []);
+          setTransportation(offlineTrip.transportation || []);
+          setLodging(offlineTrip.lodging || []);
+          setActivities(offlineTrip.activities || []);
+          
+          toast.info(t('offline.usingOfflineData') || 'Using offline data', {
+            icon: <WifiOff size={16} />,
+            duration: 3000,
+          });
+          
+          setLoading(false);
+          return;
+        }
+      }
+      
       toast.error(t('errors.failedFetch'));
       navigate('/trips');
     } finally {
@@ -255,6 +309,59 @@ const TripDetail = () => {
   // Handle document view/download
   const handleViewDocument = async (referenceType, referenceId) => {
     try {
+      // Check if we're offline
+      const isOffline = !navigator.onLine;
+      
+      // If we're offline but have offline data available, get documents from offline storage
+      if (isOffline && isAvailableOffline) {
+        try {
+          // Get the full offline trip data
+          const offlineTrip = await getTripOffline(tripId);
+          
+          // Find the correct item based on reference type and ID
+          let item = null;
+          if (referenceType === 'transport') {
+            item = offlineTrip.transportation.find(t => t.id === referenceId);
+          } else if (referenceType === 'lodging') {
+            item = offlineTrip.lodging.find(l => l.id === referenceId);
+          } else if (referenceType === 'activity') {
+            item = offlineTrip.activities.find(a => a.id === referenceId);
+          }
+          
+          if (!item || !item.has_documents) {
+            toast.error('No documents available offline for this item');
+            return;
+          }
+          
+          // Get all documents for this item type from offline storage
+          const offlineDocs = await getDocumentsForReference(referenceType, referenceId);
+          
+          if (!offlineDocs || offlineDocs.length === 0) {
+            toast.error('No documents available offline for this item');
+            return;
+          }
+          
+          // Use the first document
+          const doc = offlineDocs[0];
+          
+          if (doc.blob) {
+            // Set the blob for the PDF viewer
+            setCurrentPdfBlob(doc.blob);
+            setCurrentPdfName(doc.file_name);
+            setCurrentDocumentId(doc.id);
+            setIsPdfViewerOpen(true);
+          } else {
+            toast.error('Document blob not available offline');
+          }
+          return;
+        } catch (offlineError) {
+          console.error('Error retrieving offline document:', offlineError);
+          toast.error('Failed to retrieve offline document');
+          return;
+        }
+      }
+      
+      // Online mode - proceed with normal API calls
       let documents = [];
       
       // Get documents based on the reference type
@@ -533,6 +640,18 @@ const TripDetail = () => {
         </Link>
       </div>
 
+      {/* Offline mode banner */}
+      {!navigator.onLine && isAvailableOffline && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-center">
+            <WifiOff className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+            <p className="text-yellow-800 dark:text-yellow-200">
+              {t('offline.offline_mode_message', "You're currently in offline mode. You're viewing a saved offline version of this trip.")}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Trip Header */}
       <div className="relative h-64 w-full mb-6">
         <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent z-10 rounded-xl"></div>
@@ -565,15 +684,6 @@ const TripDetail = () => {
                   {t('trips.editTrip')}
                 </Button>
               )}
-              <Button 
-                variant="primary"
-                icon={<Share2 className="h-5 w-5" />}
-                onClick={() => setIsShareModalOpen(true)}
-                size="sm"
-                className="whitespace-nowrap"
-              >
-                {t('sharing.shareTrip')}
-              </Button>
               
               {/* Offline button */}
               <Button

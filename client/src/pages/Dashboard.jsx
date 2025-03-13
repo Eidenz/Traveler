@@ -1,8 +1,9 @@
+// client/src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   PlusCircle, Calendar, Compass, Map, Clock, Bed, 
-  ArrowRight, Package, Coffee 
+  ArrowRight, Package, Coffee, WifiOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -12,6 +13,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
+import { getAllOfflineTrips, getTripOffline } from '../utils/offlineStorage';
 
 // Extend dayjs with relativeTime
 dayjs.extend(relativeTime);
@@ -24,73 +26,186 @@ const Dashboard = () => {
   const [upcomingTripDetails, setUpcomingTripDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
+  // Monitor online/offline status
   useEffect(() => {
-    const fetchTrips = async () => {
-      try {
-        setLoading(true);
-        const response = await tripAPI.getUserTrips();
+    const handleOnline = () => setOnlineStatus(true);
+    const handleOffline = () => setOnlineStatus(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Fetch trips based on online status
+  useEffect(() => {
+    if (onlineStatus) {
+      fetchTripsFromServer();
+    } else {
+      fetchOfflineTrips();
+    }
+  }, [onlineStatus, t]);
+
+  const fetchTripsFromServer = async () => {
+    try {
+      setLoading(true);
+      const response = await tripAPI.getUserTrips();
+      
+      if (response.data.trips && response.data.trips.length > 0) {
+        // Sort by start date (ascending)
+        const sortedTrips = response.data.trips.sort((a, b) => 
+          new Date(a.start_date) - new Date(b.start_date)
+        );
         
-        if (response.data.trips && response.data.trips.length > 0) {
-          // Sort by start date (ascending)
-          const sortedTrips = response.data.trips.sort((a, b) => 
-            new Date(a.start_date) - new Date(b.start_date)
-          );
+        setTrips(sortedTrips);
+        
+        // Find current ongoing trip (where current date is between start_date and end_date)
+        const today = new Date();
+        const ongoingTrips = sortedTrips.filter(trip => {
+          // Set end date to end of day (23:59:59)
+          const tripEndDate = dayjs(trip.end_date).endOf('day').toDate();
+          return new Date(trip.start_date) <= today && tripEndDate >= today;
+        });
+        
+        if (ongoingTrips.length > 0) {
+          setOngoingTrip(ongoingTrips[0]); // Set the first ongoing trip
+        }
+        
+        // Find upcoming trip (closest start date in the future)
+        const upcomingTrips = sortedTrips.filter(trip => 
+          new Date(trip.start_date) > today
+        );
+        
+        if (upcomingTrips.length > 0) {
+          setUpcomingTrip(upcomingTrips[0]);
+        }
+      }
+      
+      setIsOfflineMode(false);
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+      toast.error(t('errors.failedFetch'));
+      
+      // If server fetch fails, try offline fallback
+      fetchOfflineTrips();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOfflineTrips = async () => {
+    try {
+      setLoading(true);
+      // Get all trips saved offline
+      const offlineTrips = await getAllOfflineTrips();
+      
+      if (offlineTrips && offlineTrips.length > 0) {
+        setIsOfflineMode(true);
+        // Sort by start date
+        const sortedTrips = offlineTrips.sort((a, b) => 
+          new Date(a.start_date) - new Date(b.start_date)
+        );
+        
+        setTrips(sortedTrips);
+        
+        // Find current ongoing trip
+        const today = new Date();
+        const ongoingTrips = sortedTrips.filter(trip => {
+          const tripEndDate = dayjs(trip.end_date).endOf('day').toDate();
+          return new Date(trip.start_date) <= today && tripEndDate >= today;
+        });
+        
+        if (ongoingTrips.length > 0) {
+          setOngoingTrip(ongoingTrips[0]);
           
-          setTrips(sortedTrips);
-          
-          // Find current ongoing trip (where current date is between start_date and end_date)
-          const today = new Date();
-          const ongoingTrips = sortedTrips.filter(trip => {
-            // Set end date to end of day (23:59:59)
-            const tripEndDate = dayjs(trip.end_date).endOf('day').toDate();
-            return new Date(trip.start_date) <= today && tripEndDate >= today;
-          });
-          
-          if (ongoingTrips.length > 0) {
-            setOngoingTrip(ongoingTrips[0]); // Set the first ongoing trip
-          }
-          
-          // Find upcoming trip (closest start date in the future)
-          const upcomingTrips = sortedTrips.filter(trip => 
-            new Date(trip.start_date) > today
-          );
-          
-          if (upcomingTrips.length > 0) {
-            setUpcomingTrip(upcomingTrips[0]);
+          // Also set trip details for the ongoing trip
+          if (ongoingTrips[0].transportation && ongoingTrips[0].lodging && ongoingTrips[0].activities) {
+            setOngoingTripDetails(ongoingTrips[0]);
           }
         }
-      } catch (error) {
-        console.error('Error fetching trips:', error);
-        toast.error(t('errors.failedFetch'));
-      } finally {
-        setLoading(false);
+        
+        // Find upcoming trip
+        const upcomingTrips = sortedTrips.filter(trip => 
+          new Date(trip.start_date) > today
+        );
+        
+        if (upcomingTrips.length > 0) {
+          setUpcomingTrip(upcomingTrips[0]);
+          
+          // Also set trip details for the upcoming trip
+          if (upcomingTrips[0].transportation && upcomingTrips[0].lodging && upcomingTrips[0].activities) {
+            setUpcomingTripDetails(upcomingTrips[0]);
+          }
+        }
+        
+        // Show a toast notification that we're in offline mode
+        toast.success(t('offline.usingOfflineData', 'Using offline data'), {
+          icon: <WifiOff size={16} />,
+          duration: 3000,
+        });
+      } else {
+        // No offline trips available
+        setTrips([]);
+        setOngoingTrip(null);
+        setUpcomingTrip(null);
+        setOngoingTripDetails(null);
+        setUpcomingTripDetails(null);
       }
-    };
-
-    fetchTrips();
-  }, [t]);
+    } catch (error) {
+      console.error('Error fetching offline trips:', error);
+      setTrips([]);
+      setOngoingTrip(null);
+      setUpcomingTrip(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fetch trip details when ongoing or upcoming trips are set
   useEffect(() => {
     const fetchTripDetails = async () => {
       if (!ongoingTrip && !upcomingTrip) return;
+      if (isOfflineMode) return; // Skip API calls in offline mode
       
       setDetailsLoading(true);
       
       try {
         // Fetch details for ongoing trip
         if (ongoingTrip) {
-          const ongoingResponse = await tripAPI.getTripById(ongoingTrip.id);
-          setOngoingTripDetails(ongoingResponse.data);
+          try {
+            const ongoingResponse = await tripAPI.getTripById(ongoingTrip.id);
+            setOngoingTripDetails(ongoingResponse.data);
+          } catch (error) {
+            console.error('Error fetching ongoing trip details:', error);
+            // Try offline fallback
+            const offlineTrip = await getTripOffline(ongoingTrip.id);
+            if (offlineTrip) {
+              setOngoingTripDetails(offlineTrip);
+            }
+          }
         }
         
         // Fetch details for upcoming trip
         if (upcomingTrip) {
-          const upcomingResponse = await tripAPI.getTripById(upcomingTrip.id);
-          setUpcomingTripDetails(upcomingResponse.data);
+          try {
+            const upcomingResponse = await tripAPI.getTripById(upcomingTrip.id);
+            setUpcomingTripDetails(upcomingResponse.data);
+          } catch (error) {
+            console.error('Error fetching upcoming trip details:', error);
+            // Try offline fallback
+            const offlineTrip = await getTripOffline(upcomingTrip.id);
+            if (offlineTrip) {
+              setUpcomingTripDetails(offlineTrip);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching trip details:', error);
@@ -100,7 +215,7 @@ const Dashboard = () => {
     };
     
     fetchTripDetails();
-  }, [ongoingTrip, upcomingTrip]);
+  }, [ongoingTrip, upcomingTrip, isOfflineMode]);
 
   const getDateRangeString = (startDate, endDate) => {
     const start = dayjs(startDate);
@@ -166,7 +281,7 @@ const Dashboard = () => {
                 {detailsLoading || !ongoingTripDetails ? (
                   <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
                 ) : (
-                  `${ongoingTripDetails.lodging.length} ${t('lodging.title')}`
+                  `${ongoingTripDetails.lodging?.length || 0} ${t('lodging.title')}`
                 )}
               </div>
             </div>
@@ -177,7 +292,7 @@ const Dashboard = () => {
                 {detailsLoading || !ongoingTripDetails ? (
                   <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
                 ) : (
-                  `${ongoingTripDetails.activities.length} ${t('activities.title')}`
+                  `${ongoingTripDetails.activities?.length || 0} ${t('activities.title')}`
                 )}
               </div>
             </div>
@@ -208,6 +323,7 @@ const Dashboard = () => {
                 variant="primary"
                 icon={<PlusCircle className="h-5 w-5" />}
                 onClick={() => navigate('/trips/new')}
+                disabled={isOfflineMode}
               >
                 {t('trips.createTrip')}
               </Button>
@@ -259,7 +375,7 @@ const Dashboard = () => {
                 {detailsLoading || !upcomingTripDetails ? (
                   <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
                 ) : (
-                  `${upcomingTripDetails.lodging.length} ${t('lodging.title')}`
+                  `${upcomingTripDetails.lodging?.length || 0} ${t('lodging.title')}`
                 )}
               </div>
             </div>
@@ -270,7 +386,7 @@ const Dashboard = () => {
                 {detailsLoading || !upcomingTripDetails ? (
                   <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
                 ) : (
-                  `${upcomingTripDetails.activities.length} ${t('activities.title')}`
+                  `${upcomingTripDetails.activities?.length || 0} ${t('activities.title')}`
                 )}
               </div>
             </div>
@@ -307,11 +423,24 @@ const Dashboard = () => {
             variant="primary"
             onClick={() => navigate('/trips/new')}
             icon={<PlusCircle className="h-5 w-5" />}
+            disabled={isOfflineMode}
           >
             {t('trips.createTrip')}
           </Button>
         </div>
       </div>
+
+      {/* Offline mode banner */}
+      {isOfflineMode && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-center">
+            <WifiOff className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+            <p className="text-yellow-800 dark:text-yellow-200">
+              {t('offline.offline_mode_message', "You're currently in offline mode. Only trips saved for offline use are shown.")}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Ongoing & Upcoming Trip Column */}
@@ -408,8 +537,10 @@ const Dashboard = () => {
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.sharedTrips')}</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {loading ? (
-                        <div className="h-6 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                      {loading || isOfflineMode ? (
+                        isOfflineMode ? "N/A" : (
+                          <div className="h-6 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
+                        )
                       ) : (
                         trips.filter(trip => trip.role !== 'owner').length
                       )}

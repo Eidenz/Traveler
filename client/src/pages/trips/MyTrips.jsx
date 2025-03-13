@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  PlusCircle, Calendar, MapPin, User, Trash2, Edit, Clock, Search
+  PlusCircle, Calendar, MapPin, User, Trash2, Edit, Clock, Search,
+  Wifi, WifiOff, AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -12,6 +13,7 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
+import { getAllOfflineTrips, removeTripOffline } from '../../utils/offlineStorage';
 
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
@@ -20,22 +22,73 @@ const MyTrips = () => {
   const [selectedTripId, setSelectedTripId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [offlineTrips, setOfflineTrips] = useState([]);
+  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
   const { t } = useTranslation();
   
   const navigate = useNavigate();
 
+  // Monitor online/offline status
   useEffect(() => {
-    fetchTrips();
+    const handleOnline = () => setOnlineStatus(true);
+    const handleOffline = () => setOnlineStatus(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
-  const fetchTrips = async () => {
+  // Fetch trips based on online status
+  useEffect(() => {
+    if (onlineStatus) {
+      fetchTripsFromServer();
+    } else {
+      fetchOfflineTrips();
+      setIsOfflineMode(true);
+    }
+  }, [onlineStatus]);
+
+  const fetchTripsFromServer = async () => {
     try {
       setLoading(true);
       const response = await tripAPI.getUserTrips();
       setTrips(response.data.trips || []);
+      
+      // Also fetch offline trips to mark which ones are available offline
+      fetchOfflineTrips(false);
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast.error(t('errors.failedFetch'));
+      
+      // If server fetch fails, try offline fallback
+      fetchOfflineTrips();
+      setIsOfflineMode(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOfflineTrips = async (setAsMainTrips = true) => {
+    try {
+      const offlineData = await getAllOfflineTrips();
+      
+      if (setAsMainTrips) {
+        // If we're in offline mode, use these as the main trips
+        setTrips(offlineData || []);
+      } else {
+        // Otherwise just track which trips are available offline
+        setOfflineTrips(offlineData || []);
+      }
+    } catch (error) {
+      console.error('Error fetching offline trips:', error);
+      if (setAsMainTrips) {
+        setTrips([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -53,9 +106,27 @@ const MyTrips = () => {
     
     try {
       setIsDeleting(true);
-      await tripAPI.deleteTrip(selectedTripId);
-      setTrips(trips.filter(trip => trip.id !== selectedTripId));
-      toast.success(t('trips.deleteSuccess'));
+      
+      if (isOfflineMode) {
+        // If offline, just remove from IndexedDB
+        await removeTripOffline(selectedTripId);
+        setTrips(trips.filter(trip => trip.id !== selectedTripId));
+        toast.success(t('trips.deleteSuccess'));
+      } else {
+        // Otherwise delete from server
+        await tripAPI.deleteTrip(selectedTripId);
+        setTrips(trips.filter(trip => trip.id !== selectedTripId));
+        
+        // Also remove from offline storage if it exists there
+        try {
+          await removeTripOffline(selectedTripId);
+        } catch (err) {
+          // Ignore errors removing from offline storage
+        }
+        
+        toast.success(t('trips.deleteSuccess'));
+      }
+      
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error('Error deleting trip:', error);
@@ -114,8 +185,13 @@ const MyTrips = () => {
     }
   };
 
+  // Check if a trip is available offline
+  const isTripOffline = (tripId) => {
+    return offlineTrips.some(trip => trip.id === tripId);
+  };
+
   const filteredTrips = trips.filter(trip => 
-    trip.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    trip.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (trip.location && trip.location.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -123,18 +199,38 @@ const MyTrips = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('trips.title')}</h1>
-          <p className="text-gray-500 dark:text-gray-400">{t('trips.tagline2')}</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {isOfflineMode ? 'Offline Trips' : t('trips.title')}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            {isOfflineMode 
+              ? 'Showing trips available offline' 
+              : t('trips.tagline2')}
+          </p>
         </div>
-        <Button
-          variant="primary"
-          className="mt-4 md:mt-0"
-          onClick={() => navigate('/trips/new')}
-          icon={<PlusCircle className="h-5 w-5" />}
-        >
-          {t('trips.createTrip')}
-        </Button>
+        {!isOfflineMode && (
+          <Button
+            variant="primary"
+            className="mt-4 md:mt-0"
+            onClick={() => navigate('/trips/new')}
+            icon={<PlusCircle className="h-5 w-5" />}
+          >
+            {t('trips.createTrip')}
+          </Button>
+        )}
       </div>
+
+      {/* Offline mode banner */}
+      {isOfflineMode && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-center">
+            <WifiOff className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+            <p className="text-yellow-800 dark:text-yellow-200">
+              You're currently in offline mode. Only trips saved for offline use are shown.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Search and filters */}
       <div className="mb-6">
@@ -173,6 +269,7 @@ const MyTrips = () => {
           {filteredTrips.map((trip) => {
             const tripStatus = getTripStatus(trip.start_date, trip.end_date);
             const roleLabel = getRoleLabel(trip.role);
+            const isOfflineAvailable = isOfflineMode || isTripOffline(trip.id);
             
             return (
               <Link 
@@ -192,8 +289,15 @@ const MyTrips = () => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
                     <div className="absolute top-3 right-3 flex space-x-2">
+                      {/* Offline indicator */}
+                      {isOfflineAvailable && (
+                        <div className="p-1.5 bg-green-500/80 hover:bg-green-500 rounded-full text-white" title="Available offline">
+                          <WifiOff size={16} />
+                        </div>
+                      )}
+                      
                       {/* Edit button */}
-                      {(trip.role === 'owner' || trip.role === 'editor') && (
+                      {!isOfflineMode && (trip.role === 'owner' || trip.role === 'editor') && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -207,7 +311,7 @@ const MyTrips = () => {
                       )}
                       
                       {/* Delete button (only for owners) */}
-                      {trip.role === 'owner' && (
+                      {(isOfflineMode || trip.role === 'owner') && (
                         <button
                           onClick={(e) => handleDeleteClick(trip.id, e)}
                           className="p-1.5 bg-white/80 hover:bg-white rounded-full text-red-600 hover:text-red-700 transition-colors"
@@ -237,9 +341,17 @@ const MyTrips = () => {
                         {tripStatus.label}
                       </span>
                       
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleLabel.className}`}>
-                        {roleLabel.label}
-                      </span>
+                      {!isOfflineMode && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleLabel.className}`}>
+                          {roleLabel.label}
+                        </span>
+                      )}
+                      
+                      {isOfflineAvailable && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                          Offline
+                        </span>
+                      )}
                     </div>
                     
                     <div className="flex justify-between items-center">
@@ -263,13 +375,19 @@ const MyTrips = () => {
           <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
             <Calendar className="h-8 w-8 text-gray-500 dark:text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('trips.noTrips')}</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            {isOfflineMode 
+              ? 'No offline trips available' 
+              : t('trips.noTrips')}
+          </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-            {searchTerm 
-              ? t('trips.noTripsMatching', {searchTerm})
-              : t('trips.noTripsMessage')}
+            {isOfflineMode 
+              ? 'You haven\'t saved any trips for offline use. When online, visit a trip and click "Save Offline".'
+              : searchTerm 
+                ? t('trips.noTripsMatching', {searchTerm})
+                : t('trips.noTripsMessage')}
           </p>
-          {!searchTerm && (
+          {!isOfflineMode && !searchTerm && (
             <Button
               variant="primary"
               onClick={() => navigate('/trips/new')}
@@ -285,12 +403,14 @@ const MyTrips = () => {
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="Delete Trip"
+        title={isOfflineMode ? "Remove Offline Trip" : "Delete Trip"}
         size="sm"
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            {t('trips.deleteConfirm')}
+            {isOfflineMode
+              ? "Are you sure you want to remove this trip from offline storage?"
+              : t('trips.deleteConfirm')}
           </p>
           <div className="flex justify-end space-x-3">
             <Button
@@ -306,7 +426,7 @@ const MyTrips = () => {
               loading={isDeleting}
               icon={<Trash2 className="h-5 w-5" />}
             >
-              {t('common.delete')}
+              {isOfflineMode ? "Remove" : t('common.delete')}
             </Button>
           </div>
         </div>

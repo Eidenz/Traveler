@@ -187,14 +187,16 @@
       "downloadInstead": "Le document n'a pas pu être affiché dans le navigateur. Vous pouvez le télécharger à la place."
     },
     "offline": {
-      "saveOffline" : "Sauvegarder hors ligne",
-      "removeOffline" : "Supprimer sauvegarde hors ligne",
-      "savedSuccessfully" : "Voyage sauvegardé pour une utilisation hors ligne",
-      "removedSuccessfully" : "Trajet retiré du stockage hors ligne",
-      "saveFailed" : "Échec de l'enregistrement du voyage pour une utilisation hors ligne",
-      "removeFailed" : "Échec de la suppression de la sauvegarde hors ligne",
-      "availableOffline" : "Disponible hors ligne",
-      "documentsCount" : "documents enregistrés pour une utilisation hors ligne"
+      "saveOffline": "Sauvegarder hors ligne",
+      "removeOffline": "Supprimer sauvegarde hors ligne",
+      "savedSuccessfully": "Voyage sauvegardé pour une utilisation hors ligne",
+      "removedSuccessfully": "Trajet retiré du stockage hors ligne",
+      "saveFailed": "Échec de l'enregistrement du voyage pour une utilisation hors ligne",
+      "removeFailed": "Échec de la suppression de la sauvegarde hors ligne",
+      "availableOffline": "Disponible hors ligne",
+      "documentsCount": "documents enregistrés pour une utilisation hors ligne",
+      "usingOfflineData": "Utilisation des données hors ligne",
+      "offline_mode_message": "Vous êtes actuellement en mode hors ligne. Seuls les voyages enregistrés pour une utilisation hors ligne sont affichés."
     },
     "sharing": {
       "shareTrip": "Partager le voyage",
