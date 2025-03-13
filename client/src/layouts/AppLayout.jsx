@@ -22,6 +22,7 @@ const AppLayout = () => {
   const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { isOfflineMode } = useAuthStore();
 
   // Fetch user trips for the sidebar
   useEffect(() => {

@@ -1,7 +1,8 @@
 // client/src/stores/authStore.js
 import { create } from 'zustand';
 import { authAPI } from '../services/api';
-import { jwtDecode } from 'jwt-decode'; // Note: using named export here for v4
+import { jwtDecode } from 'jwt-decode';
+import { getAllOfflineTrips } from '../utils/offlineStorage';
 
 const getStoredAuth = () => {
   const token = localStorage.getItem('token');
@@ -18,7 +19,7 @@ const getStoredAuth = () => {
   // Check if token is valid and not expired
   if (token) {
     try {
-      const decodedToken = jwtDecode(token); // Using named export directly
+      const decodedToken = jwtDecode(token);
       const currentTime = Date.now() / 1000;
       
       if (decodedToken.exp < currentTime) {
@@ -46,6 +47,45 @@ const useAuthStore = create((set, get) => ({
   ...getStoredAuth(),
   loading: false,
   error: null,
+  isOfflineMode: false, // New state for offline mode
+
+  // Check if offline mode should be enabled
+  checkOfflineMode: async () => {
+    // Only check if not already authenticated or already in offline mode
+    if (!get().isAuthenticated || !get().isOfflineMode) {
+      try {
+        const offlineTrips = await getAllOfflineTrips();
+        if (offlineTrips && offlineTrips.length > 0) {
+          console.log('Entering offline mode, found trips:', offlineTrips.length);
+          // We have offline data, enter offline mode
+          set({ 
+            isOfflineMode: true,
+            // Create a temporary offline user
+            user: { 
+              id: 'offline-user',
+              name: 'Offline User',
+              email: 'offline@example.com'
+            },
+            isAuthenticated: true // Treat as authenticated
+          });
+          return true;
+        }
+      } catch (error) {
+        console.error('Error checking offline trips:', error);
+      }
+    }
+    return get().isOfflineMode; // Return current state if already in offline mode
+  },
+
+  // Exit offline mode
+  exitOfflineMode: () => {
+    set({
+      isOfflineMode: false,
+      token: null,
+      user: null,
+      isAuthenticated: false
+    });
+  },
 
   // Register a new user
   register: async (userData) => {
@@ -62,7 +102,8 @@ const useAuthStore = create((set, get) => ({
         user,
         isAuthenticated: true,
         loading: false,
-        error: null
+        error: null,
+        isOfflineMode: false // Reset offline mode when logging in
       });
       
       return response.data;
@@ -88,7 +129,8 @@ const useAuthStore = create((set, get) => ({
         user,
         isAuthenticated: true,
         loading: false,
-        error: null
+        error: null,
+        isOfflineMode: false // Reset offline mode when logging in
       });
       
       return response.data;
@@ -108,7 +150,8 @@ const useAuthStore = create((set, get) => ({
       token: null,
       user: null,
       isAuthenticated: false,
-      error: null
+      error: null,
+      isOfflineMode: false // Reset offline mode when logging out
     });
   },
 

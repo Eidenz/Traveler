@@ -245,28 +245,32 @@ export const removeTripOffline = async (tripId) => {
   try {
     const db = await getDB();
     
-    // Remove trip
-    const tripTx = db.transaction([TRIPS_STORE], 'readwrite');
-    const tripStore = tripTx.objectStore(TRIPS_STORE);
-    
-    // Get all documents for this trip
+    // First get all documents for this trip
     const documents = await getTripDocumentsOffline(tripId);
     
-    // Remove each document
+    // Now create a new transaction for documents if needed
     if (documents && documents.length > 0) {
       const docTx = db.transaction([DOCUMENTS_STORE], 'readwrite');
       const docStore = docTx.objectStore(DOCUMENTS_STORE);
       
-      for (const doc of documents) {
-        docStore.delete(doc.id);
-      }
+      // Use Promise.all to handle all document deletions
+      await Promise.all(documents.map(doc => {
+        return new Promise((resolve, reject) => {
+          const request = docStore.delete(parseInt(doc.id, 10));
+          request.onsuccess = resolve;
+          request.onerror = event => reject(event.target.error);
+        });
+      }));
     }
+    
+    // Create a separate transaction for deleting the trip
+    const tripTx = db.transaction([TRIPS_STORE], 'readwrite');
+    const tripStore = tripTx.objectStore(TRIPS_STORE);
     
     return new Promise((resolve, reject) => {
       const request = tripStore.delete(parseInt(tripId, 10));
-      
       request.onsuccess = () => resolve();
-      request.onerror = (event) => reject(event.target.error);
+      request.onerror = event => reject(event.target.error);
     });
   } catch (error) {
     console.error('Error removing trip from offline storage:', error);

@@ -1,7 +1,7 @@
 // client/src/pages/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn } from 'lucide-react';
+import { Mail, Lock, LogIn, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
 import Input from '../components/ui/Input';
@@ -14,8 +14,9 @@ const Login = () => {
     password: '',
   });
   const [errors, setErrors] = useState({});
+  const [checkingOffline, setCheckingOffline] = useState(!navigator.onLine);
   
-  const { login, isAuthenticated, loading, error, clearError } = useAuthStore();
+  const { login, isAuthenticated, loading, error, clearError, checkOfflineMode } = useAuthStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
   
@@ -25,6 +26,26 @@ const Login = () => {
       navigate('/dashboard');
     }
   }, [isAuthenticated, navigate]);
+  
+  // Check for offline data when offline
+  useEffect(() => {
+    const checkForOfflineData = async () => {
+      if (!navigator.onLine && !isAuthenticated) {
+        const hasOfflineData = await checkOfflineMode();
+        if (hasOfflineData) {
+          // If we got offline data, the auth store will handle authentication
+          navigate('/dashboard');
+        }
+        setCheckingOffline(false);
+      } else {
+        setCheckingOffline(false);
+      }
+    };
+
+    if (checkingOffline) {
+      checkForOfflineData();
+    }
+  }, [checkOfflineMode, navigate, isAuthenticated, checkingOffline]);
   
   // Show error toast if login fails
   useEffect(() => {
@@ -74,6 +95,51 @@ const Login = () => {
     }
   };
   
+  // Show offline mode UI when offline
+  if (!navigator.onLine) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow">
+          <div className="text-center">
+            <WifiOff className="mx-auto h-12 w-12 text-yellow-500" />
+            <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+              {t('offline.offline_title', 'You are offline')}
+            </h1>
+            
+            {checkingOffline ? (
+              <div className="mt-4 flex justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : (
+              <>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                  {t('offline.login_message', 'You are currently offline. Please check your internet connection and try again.')}
+                </p>
+                
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="w-full mt-6"
+                  onClick={async () => {
+                    const hasOfflineData = await checkOfflineMode();
+                    if (hasOfflineData) {
+                      navigate('/dashboard');
+                    } else {
+                      toast.error(t('offline.no_offline_data', 'No offline data available'));
+                    }
+                  }}
+                >
+                  {t('offline.check_offline_data', 'Check for Offline Data')}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Regular login form when online
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow">
