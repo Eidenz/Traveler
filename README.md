@@ -172,11 +172,6 @@ traveler/
 
 ## Future Enhancements
 
-- Email notifications for trip updates and shared trips
-- Integration with external travel APIs (flights, hotels)
-- Mobile app with React Native
-- Offline support
-- Trip templates and suggestions
 - Travel budget tracking
 - Weather forecasts for destinations
 - Map integration
