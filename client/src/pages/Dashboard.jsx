@@ -1,4 +1,3 @@
-// client/src/pages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
@@ -20,6 +19,7 @@ dayjs.extend(relativeTime);
 const Dashboard = () => {
   const [trips, setTrips] = useState([]);
   const [upcomingTrip, setUpcomingTrip] = useState(null);
+  const [ongoingTrip, setOngoingTrip] = useState(null); // New state for ongoing trip
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -38,8 +38,19 @@ const Dashboard = () => {
           
           setTrips(sortedTrips);
           
-          // Find upcoming trip (closest start date in the future)
+          // Find current ongoing trip (where current date is between start_date and end_date)
           const today = new Date();
+          const ongoingTrips = sortedTrips.filter(trip => {
+            // Set end date to end of day (23:59:59)
+            const tripEndDate = dayjs(trip.end_date).endOf('day').toDate();
+            return new Date(trip.start_date) <= today && tripEndDate >= today;
+          });
+          
+          if (ongoingTrips.length > 0) {
+            setOngoingTrip(ongoingTrips[0]); // Set the first ongoing trip
+          }
+          
+          // Find upcoming trip (closest start date in the future)
           const upcomingTrips = sortedTrips.filter(trip => 
             new Date(trip.start_date) > today
           );
@@ -57,13 +68,87 @@ const Dashboard = () => {
     };
 
     fetchTrips();
-  }, []);
+  }, [t]);
 
   const getDateRangeString = (startDate, endDate) => {
     const start = dayjs(startDate);
     const end = dayjs(endDate);
     
     return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
+  };
+
+  // New function to render ongoing trip
+  const renderOngoingTrip = () => {
+    if (!ongoingTrip) {
+      return null;
+    }
+
+    return (
+      <Card>
+        <CardHeader className="relative p-0 pb-0">
+          <div className="h-48 w-full relative">
+            <img 
+              src={ongoingTrip.cover_image 
+                ? getImageUrl(ongoingTrip.cover_image)
+                : getFallbackImageUrl('trip')
+              } 
+              alt={ongoingTrip.name}
+              className="h-full w-full object-cover rounded-t-xl"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
+            <div className="absolute bottom-0 left-0 p-6">
+              <div className="inline-block px-3 py-1 rounded-full bg-green-500 text-white text-sm font-medium mb-2">
+                {t('trips.ongoing', 'Ongoing Trip')}
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">{ongoingTrip.name}</h2>
+              <div className="flex items-center text-white/80">
+                <Calendar className="h-4 w-4 mr-2" />
+                <span>{getDateRangeString(ongoingTrip.start_date, ongoingTrip.end_date)}</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            {/* Quick Info Cards */}
+            <div className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+              <Map className="h-6 w-6 text-blue-600 dark:text-blue-400 mb-2" />
+              <div className="text-sm font-medium text-center">{ongoingTrip.location || t('common.noLocation')}</div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
+              <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2" />
+              <div className="text-sm font-medium text-center">
+                {(() => {
+                  // Create a date object with time set to end of day (23:59:59)
+                  const endDate = dayjs(ongoingTrip.end_date).endOf('day');
+                  const daysLeft = endDate.diff(dayjs(), 'day');
+                  return daysLeft + t('common.daysLeft');
+                })()}
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
+              <Bed className="h-6 w-6 text-green-600 dark:text-green-400 mb-2" />
+              <div className="text-sm font-medium text-center">{t('lodging.title')}</div>
+            </div>
+            
+            <div className="flex flex-col items-center justify-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
+              <Coffee className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2" />
+              <div className="text-sm font-medium text-center">{t('activities.title')}</div>
+            </div>
+          </div>
+          
+          <Link 
+            to={`/trips/${ongoingTrip.id}`}
+            className="flex items-center justify-center w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+          >
+            {t('trips.viewDetails')}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </CardContent>
+      </Card>
+    );
   };
 
   const renderUpcomingTrip = () => {
@@ -116,16 +201,19 @@ const Dashboard = () => {
               <Map className="h-6 w-6 text-blue-600 dark:text-blue-400 mb-2" />
               <div className="text-sm font-medium text-center">{upcomingTrip.location || t('common.noLocation')}</div>
             </div>
+            
             <div className="flex flex-col items-center justify-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
               <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2" />
               <div className="text-sm font-medium text-center">
-                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') === "0" ? dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') + t('common.daysLeft') : t('common.tomorrow')}
+                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') === 0 ? t('common.tomorrow') : dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') + t('common.daysLeft')}
               </div>
             </div>
+            
             <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
               <Bed className="h-6 w-6 text-green-600 dark:text-green-400 mb-2" />
               <div className="text-sm font-medium text-center">{t('lodging.title')}</div>
             </div>
+            
             <div className="flex flex-col items-center justify-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
               <Coffee className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2" />
               <div className="text-sm font-medium text-center">{t('activities.title')}</div>
@@ -170,9 +258,31 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Upcoming Trip Column */}
+        {/* Ongoing & Upcoming Trip Column */}
         <div className="md:col-span-2">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('trips.upcoming')}</h2>
+          {/* Ongoing Trip Section - Only show if there's an ongoing trip */}
+          {ongoingTrip && (
+            <>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('trips.ongoing', 'Ongoing Trip')}</h2>
+              {loading ? (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="animate-pulse flex flex-col items-center">
+                      <div className="h-10 w-10 bg-gray-300 dark:bg-gray-700 rounded-full mb-4"></div>
+                      <div className="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded-md mb-2"></div>
+                      <div className="h-4 w-32 bg-gray-300 dark:bg-gray-700 rounded-md mb-6"></div>
+                      <div className="h-10 w-32 bg-gray-300 dark:bg-gray-700 rounded-md"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                renderOngoingTrip()
+              )}
+            </>
+          )}
+          
+          {/* Upcoming Trip Section */}
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 mt-6">{t('trips.upcoming')}</h2>
           {loading ? (
             <Card>
               <CardContent className="py-12">

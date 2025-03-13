@@ -209,7 +209,8 @@
       "totalTrips": "Total Trips",
       "upcomingTrips": "Upcoming Trips",
       "sharedTrips": "Shared Trips",
-      "viewAllTrips": "View All Trips"
+      "viewAllTrips": "View All Trips",
+      "ongoing": "Ongoing Trip"
     },
     "errors": {
       "required": "{{field}} is required",
