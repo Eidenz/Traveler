@@ -9,9 +9,11 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 const CreateTrip = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -74,19 +76,22 @@ const CreateTrip = () => {
     const newErrors = {};
     
     if (!formData.name.trim()) {
-      newErrors.name = 'Trip name is required';
+      newErrors.name = t('errors.required', { field: t('trips.tripName') });
     }
     
     if (!formData.start_date) {
-      newErrors.start_date = 'Start date is required';
+      newErrors.start_date = t('errors.required', { field: t('trips.startDate') });
     }
     
     if (!formData.end_date) {
-      newErrors.end_date = 'End date is required';
+      newErrors.end_date = t('errors.required', { field: t('trips.endDate') });
     }
     
     if (formData.start_date && formData.end_date && formData.start_date > formData.end_date) {
-      newErrors.end_date = 'End date must be after start date';
+      newErrors.end_date = t('errors.dateAfter', {
+        endField: t('trips.endDate'),
+        startField: t('trips.startDate')
+      });
     }
     
     setErrors(newErrors);
@@ -122,11 +127,11 @@ const CreateTrip = () => {
         
         const response = await tripAPI.createTrip(tripFormData);
         
-        toast.success('Trip created successfully');
+        toast.success(t('trips.createSuccess'));
         navigate(`/trips/${response.data.trip.id}`);
       } catch (error) {
         console.error('Error creating trip:', error);
-        toast.error(error.response?.data?.message || 'Failed to create trip');
+        toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('trips.title').toLowerCase() }));
       } finally {
         setLoading(false);
       }
@@ -141,25 +146,25 @@ const CreateTrip = () => {
           className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
         >
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to trips
+          {t('common.back', 'Back to trips')}
         </Link>
       </div>
       
       <Card>
         <CardHeader>
-          <CardTitle>Create New Trip</CardTitle>
+          <CardTitle>{t('trips.createTrip')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               {/* Trip Name */}
               <Input
-                label="Trip Name"
+                label={t('trips.tripName')}
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Summer in Tokyo"
+                placeholder={t('trips.tripNamePlaceholder', 'Summer in Tokyo')}
                 error={errors.name}
                 required
               />
@@ -170,14 +175,14 @@ const CreateTrip = () => {
                   htmlFor="description" 
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Description
+                  {t('trips.description')}
                 </label>
                 <textarea
                   id="description"
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
-                  placeholder="A brief description of your trip"
+                  placeholder={t('trips.descriptionPlaceholder', 'A brief description of your trip')}
                   className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   rows={3}
                 />
@@ -185,12 +190,12 @@ const CreateTrip = () => {
               
               {/* Trip Location */}
               <Input
-                label="Location"
+                label={t('trips.location')}
                 id="location"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                placeholder="Tokyo, Japan"
+                placeholder={t('trips.locationPlaceholder', 'Tokyo, Japan')}
                 icon={<MapPin className="h-5 w-5 text-gray-400" />}
               />
               
@@ -201,7 +206,7 @@ const CreateTrip = () => {
                     htmlFor="start_date" 
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    Start Date <span className="text-red-500">*</span>
+                    {t('trips.startDate')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -237,7 +242,7 @@ const CreateTrip = () => {
                     htmlFor="end_date" 
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    End Date <span className="text-red-500">*</span>
+                    {t('trips.endDate')} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -275,7 +280,7 @@ const CreateTrip = () => {
                 <label 
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Cover Image
+                  {t('trips.coverImage')}
                 </label>
                 
                 {coverImagePreview ? (
@@ -302,7 +307,7 @@ const CreateTrip = () => {
                           htmlFor="cover_image"
                           className="relative cursor-pointer rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                         >
-                          <span>Upload a file</span>
+                          <span>{t('trips.uploadCover')}</span>
                           <input
                             id="cover_image"
                             name="cover_image"
@@ -312,7 +317,7 @@ const CreateTrip = () => {
                             onChange={handleImageChange}
                           />
                         </label>
-                        <p className="pl-1">or drag and drop</p>
+                        <p className="pl-1">{t('trips.dragDrop')}</p>
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         PNG, JPG, GIF up to 10MB
@@ -336,14 +341,14 @@ const CreateTrip = () => {
                 onClick={() => navigate('/trips')}
                 disabled={loading}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 variant="primary"
                 loading={loading}
               >
-                Create Trip
+                {t('trips.createTrip')}
               </Button>
             </div>
           </form>
