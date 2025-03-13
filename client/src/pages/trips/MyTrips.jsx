@@ -266,7 +266,7 @@ const MyTrips = () => {
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('trips.noTrips')}</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
             {searchTerm 
-              ? `No trips matching "${searchTerm}". Try a different search term.` 
+              ? t('trips.noTripsMatching', {searchTerm})
               : t('trips.noTripsMessage')}
           </p>
           {!searchTerm && (

@@ -1,8 +1,9 @@
-// Updated PDFViewerModal.jsx
+// client/src/components/trips/PDFViewerModal.jsx
 import React, { useState, useEffect } from 'react';
 import { X, Download, FileText, RotateCw } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
+import { useTranslation } from 'react-i18next';
 
 const PDFViewerModal = ({ 
   isOpen, 
@@ -11,6 +12,7 @@ const PDFViewerModal = ({
   documentName,
   onDownload 
 }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -42,7 +44,7 @@ const PDFViewerModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={documentName || "View Document"}
+      title={documentName || t('documents.title')}
       size="xl"
     >
       <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
@@ -57,7 +59,7 @@ const PDFViewerModal = ({
             onClick={onDownload}
             icon={<Download className="h-4 w-4" />}
           >
-            Download
+            {t('common.download', 'Download')}
           </Button>
           <button
             onClick={onClose}
@@ -73,7 +75,7 @@ const PDFViewerModal = ({
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 bg-opacity-80 dark:bg-opacity-80 z-10">
             <div className="flex flex-col items-center">
               <RotateCw className="h-8 w-8 text-blue-500 animate-spin mb-2" />
-              <span className="text-gray-600 dark:text-gray-300">Loading document...</span>
+              <span className="text-gray-600 dark:text-gray-300">{t('common.loading')}</span>
             </div>
           </div>
         )}
@@ -82,17 +84,17 @@ const PDFViewerModal = ({
           <div className="flex flex-col items-center justify-center text-center p-8">
             <FileText className="h-16 w-16 text-red-500 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Unable to display document
+              {t('documents.viewFailed')}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              The document could not be displayed in the browser. You can download it instead.
+              {t('documents.downloadInstead')}
             </p>
             <Button
               variant="primary"
               onClick={onDownload}
               icon={<Download className="h-5 w-5" />}
             >
-              Download Document
+              {t('documents.uploadDocument')}
             </Button>
           </div>
         ) : (

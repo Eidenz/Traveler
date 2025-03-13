@@ -75,6 +75,7 @@
       "updateSuccess": "Voyage mis à jour avec succès",
       "deleteSuccess": "Voyage supprimé avec succès",
       "noTrips": "Aucun voyage trouvé",
+      "noTripsMatching": "Aucun voyage correspondant à {{searchTerm}}. Essayez un autre terme.",
       "noTripsMessage": "Vous n'avez pas encore créé de voyages. Commencez à planifier votre prochaine aventure !",
       "search": "Recherchez des voyages par nom ou lieu...",
       "upcoming": "À venir",
@@ -121,7 +122,8 @@
       "ferry": "Ferry",
       "other": "Autre",
       "noTransport": "Aucun transport ajouté",
-      "noTransportMessage": "Ajoutez vos vols, trains ou autres détails de transport pour garder toutes vos informations de voyage au même endroit."
+      "noTransportMessage": "Ajoutez vos vols, trains ou autres détails de transport pour garder toutes vos informations de voyage au même endroit.",
+      "deleteSuccess": "Transport supprimé avec succès"
     },
     "lodging": {
       "title": "Hébergements",
@@ -139,7 +141,8 @@
       "viewReservation": "Voir la réservation",
       "stay": "Séjour",
       "noLodging": "Aucun hébergement ajouté",
-      "noLodgingMessage": "Ajoutez vos hôtels, locations ou autres informations d'hébergement pour suivre où vous séjournerez."
+      "noLodgingMessage": "Ajoutez vos hôtels, locations ou autres informations d'hébergement pour suivre où vous séjournerez.",
+      "deleteSuccess": "Hébergement supprimé avec succès"
     },
     "activities": {
       "title": "Activités",
@@ -156,7 +159,8 @@
       "attachTicket": "Ajouter un billet",
       "viewTicket": "Voir le billet",
       "noActivities": "Aucune activité planifiée",
-      "noActivitiesMessage": "Ajoutez des visites, excursions ou autres activités pour profiter au maximum de votre voyage."
+      "noActivitiesMessage": "Ajoutez des visites, excursions ou autres activités pour profiter au maximum de votre voyage.",
+      "deleteSuccess": "Activité supprimé avec succès"
     },
     "calendar": {
       "title": "Calendrier",

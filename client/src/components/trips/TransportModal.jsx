@@ -9,6 +9,7 @@ import Input from '../ui/Input';
 import { transportAPI, documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const TransportModal = ({ 
   isOpen, 
@@ -18,6 +19,7 @@ const TransportModal = ({
   onSuccess,
   initialData = null 
 }) => {
+  const { t } = useTranslation();
   const isEditMode = !!transportId;
   
   const [formData, setFormData] = useState({
@@ -95,7 +97,7 @@ const TransportModal = ({
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching transportation:', error);
-      toast.error('Failed to load transportation details');
+      toast.error(t('errors.loadFailed', { item: t('transportation.title').toLowerCase() }));
     } finally {
       setFetchLoading(false);
     }
@@ -132,19 +134,19 @@ const TransportModal = ({
     const newErrors = {};
     
     if (!formData.type) {
-      newErrors.type = 'Transportation type is required';
+      newErrors.type = t('errors.required', { field: t('transportation.type') });
     }
     
     if (!formData.from_location.trim()) {
-      newErrors.from_location = 'From location is required';
+      newErrors.from_location = t('errors.required', { field: t('transportation.fromLocation') });
     }
     
     if (!formData.to_location.trim()) {
-      newErrors.to_location = 'To location is required';
+      newErrors.to_location = t('errors.required', { field: t('transportation.toLocation') });
     }
     
     if (!formData.departure_date) {
-      newErrors.departure_date = 'Departure date is required';
+      newErrors.departure_date = t('errors.required', { field: t('transportation.departureDate') });
     }
     
     setErrors(newErrors);
@@ -175,10 +177,10 @@ const TransportModal = ({
         
         if (isEditMode) {
           response = await transportAPI.updateTransportation(transportId, formattedData, tripId);
-          toast.success('Transportation updated successfully');
+          toast.success(t('transportation.updateSuccess', 'Transportation updated successfully'));
         } else {
           response = await transportAPI.createTransportation(tripId, formattedData);
-          toast.success('Transportation added successfully');
+          toast.success(t('transportation.createSuccess', 'Transportation added successfully'));
         }
         
         // Upload document if selected
@@ -189,7 +191,7 @@ const TransportModal = ({
           documentData.append('reference_id', isEditMode ? transportId : response.data.transportation.id);
           
           await documentAPI.uploadDocument(documentData);
-          toast.success('Document uploaded successfully');
+          toast.success(t('documents.uploadSuccess'));
         }
         
         // Callback to refresh parent component
@@ -200,7 +202,7 @@ const TransportModal = ({
         onClose();
       } catch (error) {
         console.error('Error saving transportation:', error);
-        toast.error(error.response?.data?.message || 'Failed to save transportation');
+        toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('transportation.title').toLowerCase() }));
       } finally {
         setLoading(false);
       }
@@ -211,10 +213,10 @@ const TransportModal = ({
     try {
       await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
-      toast.success('Document deleted successfully');
+      toast.success(t('documents.deleteSuccess'));
     } catch (error) {
       console.error('Error deleting document:', error);
-      toast.error('Failed to delete document');
+      toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
     }
   };
   
@@ -238,7 +240,7 @@ const TransportModal = ({
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error downloading document:', error);
-      toast.error('Failed to download document');
+      toast.error(t('documents.downloadFailed'));
     }
   };
   
@@ -265,7 +267,7 @@ const TransportModal = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Loading..."
+        title={t('common.loading')}
         size="lg"
       >
         <div className="p-6 flex justify-center">
@@ -279,7 +281,7 @@ const TransportModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditMode ? "Edit Transportation" : "Add Transportation"}
+      title={isEditMode ? t('transportation.edit') : t('transportation.add')}
       size="lg"
     >
       <form onSubmit={handleSubmit}>
@@ -288,7 +290,7 @@ const TransportModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Type <span className="text-red-500">*</span>
+                {t('transportation.type')} <span className="text-red-500">*</span>
               </label>
               <select
                 name="type"
@@ -303,13 +305,13 @@ const TransportModal = ({
                   focus:border-transparent
                 `}
               >
-                <option value="Flight">Flight</option>
-                <option value="Train">Train</option>
-                <option value="Bus">Bus</option>
-                <option value="Car">Car</option>
-                <option value="Ship">Ship</option>
-                <option value="Ferry">Ferry</option>
-                <option value="Other">Other</option>
+                <option value="Flight">{t('transportation.flight')}</option>
+                <option value="Train">{t('transportation.train')}</option>
+                <option value="Bus">{t('transportation.bus')}</option>
+                <option value="Car">{t('transportation.car')}</option>
+                <option value="Ship">{t('transportation.ship')}</option>
+                <option value="Ferry">{t('transportation.ferry')}</option>
+                <option value="Other">{t('transportation.other')}</option>
               </select>
               {errors.type && (
                 <p className="mt-1 text-sm text-red-500 dark:text-red-400">
@@ -319,36 +321,36 @@ const TransportModal = ({
             </div>
             
             <Input
-              label="Company / Airline"
+              label={t('transportation.company')}
               id="company"
               name="company"
               value={formData.company}
               onChange={handleChange}
-              placeholder="e.g. United Airlines"
+              placeholder={t('transportation.companyPlaceholder', 'e.g. United Airlines')}
             />
           </div>
           
           {/* From & To Locations */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
-              label="From Location"
+              label={t('transportation.fromLocation')}
               id="from_location"
               name="from_location"
               value={formData.from_location}
               onChange={handleChange}
-              placeholder="e.g. New York (JFK)"
+              placeholder={t('transportation.fromLocationPlaceholder', 'e.g. New York (JFK)')}
               error={errors.from_location}
               required
               icon={<MapPin className="h-5 w-5 text-gray-400" />}
             />
             
             <Input
-              label="To Location"
+              label={t('transportation.toLocation')}
               id="to_location"
               name="to_location"
               value={formData.to_location}
               onChange={handleChange}
-              placeholder="e.g. London (LHR)"
+              placeholder={t('transportation.toLocationPlaceholder', 'e.g. London (LHR)')}
               error={errors.to_location}
               required
               icon={<MapPin className="h-5 w-5 text-gray-400" />}
@@ -359,7 +361,7 @@ const TransportModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Departure Date <span className="text-red-500">*</span>
+                {t('transportation.departureDate')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -388,12 +390,12 @@ const TransportModal = ({
             </div>
             
             <Input
-              label="Departure Time"
+              label={t('transportation.departureTime')}
               id="departure_time"
               name="departure_time"
               value={formData.departure_time}
               onChange={handleChange}
-              placeholder="e.g. 14:30"
+              placeholder={t('transportation.departureTimePlaceholder', 'e.g. 14:30')}
               icon={<Clock className="h-5 w-5 text-gray-400" />}
             />
           </div>
@@ -402,7 +404,7 @@ const TransportModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Arrival Date
+                {t('transportation.arrivalDate')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -420,43 +422,43 @@ const TransportModal = ({
                     focus:outline-none focus:ring-2 focus:ring-blue-500 
                     focus:border-transparent
                   `}
-                  placeholderText="Same as departure"
+                  placeholderText={t('transportation.arrivalDatePlaceholder', 'Same as departure')}
                 />
               </div>
             </div>
             
             <Input
-              label="Arrival Time"
+              label={t('transportation.arrivalTime')}
               id="arrival_time"
               name="arrival_time"
               value={formData.arrival_time}
               onChange={handleChange}
-              placeholder="e.g. 16:45"
+              placeholder={t('transportation.arrivalTimePlaceholder', 'e.g. 16:45')}
               icon={<Clock className="h-5 w-5 text-gray-400" />}
             />
           </div>
           
           {/* Confirmation Code */}
           <Input
-            label="Confirmation / Booking Code"
+            label={t('transportation.confirmationCode')}
             id="confirmation_code"
             name="confirmation_code"
             value={formData.confirmation_code}
             onChange={handleChange}
-            placeholder="e.g. ABC123"
+            placeholder={t('transportation.confirmationCodePlaceholder', 'e.g. ABC123')}
           />
           
           {/* Notes */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Notes
+              {t('transportation.notes')}
             </label>
             <textarea
               id="notes"
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Any additional information"
+              placeholder={t('transportation.notesPlaceholder', 'Any additional information')}
               className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
@@ -466,7 +468,7 @@ const TransportModal = ({
           {documents.length > 0 && (
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Attached Documents
+                {t('documents.attachedDocuments')}
               </label>
               <div className="space-y-2">
                 {documents.map(doc => (
@@ -532,7 +534,7 @@ const TransportModal = ({
           {/* Upload Document */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Upload Ticket or Confirmation
+              {t('documents.upload')}
             </label>
             {documentFileName ? (
               <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -563,7 +565,7 @@ const TransportModal = ({
                       htmlFor="document-file"
                       className="relative cursor-pointer rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
                     >
-                      <span>Upload a file</span>
+                      <span>{t('documents.upload')}</span>
                       <input
                         id="document-file"
                         name="document"
@@ -572,10 +574,10 @@ const TransportModal = ({
                         onChange={handleDocumentChange}
                       />
                     </label>
-                    <p className="pl-1">or drag and drop</p>
+                    <p className="pl-1">{t('documents.dragDrop')}</p>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    PDF, DOC, DOCX, TXT up to 10MB
+                    {t('documents.fileTypes')}
                   </p>
                 </div>
               </div>
@@ -590,7 +592,7 @@ const TransportModal = ({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -598,7 +600,7 @@ const TransportModal = ({
             loading={loading}
             icon={getTransportIcon(formData.type)}
           >
-            {isEditMode ? 'Update Transportation' : 'Add Transportation'}
+            {isEditMode ? t('transportation.edit') : t('transportation.add')}
           </Button>
         </div>
       </form>

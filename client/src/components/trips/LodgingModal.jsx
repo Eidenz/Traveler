@@ -9,6 +9,7 @@ import Input from '../ui/Input';
 import { lodgingAPI, documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const LodgingModal = ({
   isOpen,
@@ -18,6 +19,7 @@ const LodgingModal = ({
   onSuccess,
   initialData = null
 }) => {
+  const { t } = useTranslation();
   const isEditMode = !!lodgingId;
 
   const [formData, setFormData] = useState({
@@ -83,7 +85,7 @@ const LodgingModal = ({
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching lodging:', error);
-      toast.error('Failed to load lodging details');
+      toast.error(t('errors.loadFailed', { item: t('lodging.title').toLowerCase() }));
     } finally {
       setFetchLoading(false);
     }
@@ -128,19 +130,22 @@ const LodgingModal = ({
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Accommodation name is required';
+      newErrors.name = t('errors.required', { field: t('lodging.name') });
     }
 
     if (!formData.check_in) {
-      newErrors.check_in = 'Check-in date is required';
+      newErrors.check_in = t('errors.required', { field: t('lodging.checkIn') });
     }
 
     if (!formData.check_out) {
-      newErrors.check_out = 'Check-out date is required';
+      newErrors.check_out = t('errors.required', { field: t('lodging.checkOut') });
     }
 
     if (formData.check_in && formData.check_out && formData.check_in >= formData.check_out) {
-      newErrors.check_out = 'Check-out date must be after check-in date';
+      newErrors.check_out = t('errors.dateAfter', { 
+        endField: t('lodging.checkOut'), 
+        startField: t('lodging.checkIn')
+      });
     }
 
     setErrors(newErrors);
@@ -169,10 +174,10 @@ const LodgingModal = ({
 
         if (isEditMode) {
           response = await lodgingAPI.updateLodging(lodgingId, formattedData, tripId);
-          toast.success('Accommodation updated successfully');
+          toast.success(t('lodging.updateSuccess', 'Accommodation updated successfully'));
         } else {
           response = await lodgingAPI.createLodging(tripId, formattedData);
-          toast.success('Accommodation added successfully');
+          toast.success(t('lodging.createSuccess', 'Accommodation added successfully'));
         }
 
         // Upload document if selected
@@ -183,7 +188,7 @@ const LodgingModal = ({
           documentData.append('reference_id', isEditMode ? lodgingId : response.data.lodging.id);
 
           await documentAPI.uploadDocument(documentData);
-          toast.success('Document uploaded successfully');
+          toast.success(t('documents.uploadSuccess'));
         }
 
         // Callback to refresh parent component
@@ -194,7 +199,7 @@ const LodgingModal = ({
         onClose();
       } catch (error) {
         console.error('Error saving lodging:', error);
-        toast.error(error.response?.data?.message || 'Failed to save accommodation');
+        toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('lodging.title').toLowerCase() }));
       } finally {
         setLoading(false);
       }
@@ -205,10 +210,10 @@ const LodgingModal = ({
     try {
       await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
-      toast.success('Document deleted successfully');
+      toast.success(t('documents.deleteSuccess'));
     } catch (error) {
       console.error('Error deleting document:', error);
-      toast.error('Failed to delete document');
+      toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
     }
   };
 
@@ -232,7 +237,7 @@ const LodgingModal = ({
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error downloading document:', error);
-      toast.error('Failed to download document');
+      toast.error(t('documents.downloadFailed'));
     }
   };
 
@@ -241,7 +246,7 @@ const LodgingModal = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Loading..."
+        title={t('common.loading')}
         size="lg"
       >
         <div className="p-6 flex justify-center">
@@ -255,19 +260,19 @@ const LodgingModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditMode ? "Edit Accommodation" : "Add Accommodation"}
+      title={isEditMode ? t('lodging.edit') : t('lodging.add')}
       size="lg"
     >
       <form onSubmit={handleSubmit}>
         <div className="p-6 space-y-4">
           {/* Accommodation Name */}
           <Input
-            label="Accommodation Name"
+            label={t('lodging.name')}
             id="name"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            placeholder="e.g. Hilton Hotel"
+            placeholder={t('lodging.namePlaceholder', 'e.g. Hilton Hotel')}
             error={errors.name}
             required
             icon={<Building className="h-5 w-5 text-gray-400" />}
@@ -276,7 +281,7 @@ const LodgingModal = ({
           {/* Address */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Address
+              {t('lodging.address')}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -287,7 +292,7 @@ const LodgingModal = ({
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Full address of the accommodation"
+                placeholder={t('lodging.addressPlaceholder', 'Full address of the accommodation')}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 pl-10 pr-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={2}
               />
@@ -298,7 +303,7 @@ const LodgingModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Check-in Date <span className="text-red-500">*</span>
+                {t('lodging.checkIn')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -331,7 +336,7 @@ const LodgingModal = ({
 
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Check-out Date <span className="text-red-500">*</span>
+                {t('lodging.checkOut')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -366,26 +371,26 @@ const LodgingModal = ({
 
           {/* Confirmation Code */}
           <Input
-            label="Confirmation / Booking Code"
+            label={t('lodging.confirmationCode')}
             id="confirmation_code"
             name="confirmation_code"
             value={formData.confirmation_code}
             onChange={handleChange}
-            placeholder="e.g. ABC123"
+            placeholder={t('lodging.confirmationCodePlaceholder', 'e.g. ABC123')}
             icon={<Tag className="h-5 w-5 text-gray-400" />}
           />
 
           {/* Notes */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Notes
+              {t('lodging.notes')}
             </label>
             <textarea
               id="notes"
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Any additional information about your stay"
+              placeholder={t('lodging.notesPlaceholder', 'Any additional information about your stay')}
               className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
@@ -395,7 +400,7 @@ const LodgingModal = ({
           {documents.length > 0 && (
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Attached Documents
+                {t('documents.attachedDocuments')}
               </label>
               <div className="space-y-2">
                 {documents.map(doc => (
@@ -461,7 +466,7 @@ const LodgingModal = ({
           {/* Upload Document */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Upload Reservation Document
+              {t('lodging.attachReservation')}
             </label>
             {documentFileName ? (
               <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -492,7 +497,7 @@ const LodgingModal = ({
                       htmlFor="document-file"
                       className="relative cursor-pointer rounded-md font-medium text-green-600 dark:text-green-400 hover:text-green-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-green-500"
                     >
-                      <span>Upload a file</span>
+                      <span>{t('documents.upload')}</span>
                       <input
                         id="document-file"
                         name="document"
@@ -501,10 +506,10 @@ const LodgingModal = ({
                         onChange={handleDocumentChange}
                       />
                     </label>
-                    <p className="pl-1">or drag and drop</p>
+                    <p className="pl-1">{t('documents.dragDrop')}</p>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    PDF, DOC, DOCX, TXT up to 10MB
+                    {t('documents.fileTypes')}
                   </p>
                 </div>
               </div>
@@ -519,7 +524,7 @@ const LodgingModal = ({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -527,7 +532,7 @@ const LodgingModal = ({
             loading={loading}
             icon={<Bed className="h-5 w-5" />}
           >
-            {isEditMode ? 'Update Accommodation' : 'Add Accommodation'}
+            {isEditMode ? t('lodging.edit') : t('lodging.add')}
           </Button>
         </div>
       </form>

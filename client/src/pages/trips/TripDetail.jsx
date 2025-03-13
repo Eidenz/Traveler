@@ -18,11 +18,13 @@ import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 const TripDetail = () => {
   const { tripId } = useParams();
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // State
   const [activeTab, setActiveTab] = useState('overview');
@@ -67,7 +69,7 @@ const TripDetail = () => {
       setActivities(response.data.activities);
     } catch (error) {
       console.error('Error fetching trip:', error);
-      toast.error('Failed to load trip details');
+      toast.error(t('errors.failedFetch'));
       navigate('/trips');
     } finally {
       setLoading(false);
@@ -78,11 +80,11 @@ const TripDetail = () => {
     try {
       setIsDeleting(true);
       await tripAPI.deleteTrip(tripId);
-      toast.success('Trip deleted successfully');
+      toast.success(t('trips.deleteSuccess'));
       navigate('/trips');
     } catch (error) {
       console.error('Error deleting trip:', error);
-      toast.error('Failed to delete trip');
+      toast.error(t('errors.deleteFailed', { item: t('trips.title').toLowerCase() }));
     } finally {
       setIsDeleting(false);
       setIsDeleteModalOpen(false);
@@ -117,13 +119,13 @@ const TripDetail = () => {
     try {
       if (itemToDelete.type === 'transport') {
         await transportAPI.deleteTransportation(itemToDelete.id, tripId);
-        toast.success('Transportation deleted successfully');
+        toast.success(t('transportation.deleteSuccess'));
       } else if (itemToDelete.type === 'lodging') {
         await lodgingAPI.deleteLodging(itemToDelete.id, tripId);
-        toast.success('Accommodation deleted successfully');
+        toast.success(t('lodging.deleteSuccess'));
       } else if (itemToDelete.type === 'activity') {
         await activityAPI.deleteActivity(itemToDelete.id, tripId);
-        toast.success('Activity deleted successfully');
+        toast.success(t('activities.deleteSuccess'));
       }
       
       fetchTripData(); // Refresh data
@@ -132,9 +134,15 @@ const TripDetail = () => {
       console.error(`Error deleting ${itemToDelete.type}:`, error);
       
       if (error.response && error.response.status === 403) {
-        toast.error(`Permission denied. Make sure you have edit access to this trip.`);
+        toast.error(t('errors.permissionDenied'));
       } else {
-        toast.error(`Failed to delete ${itemToDelete.type}`);
+        toast.error(t('errors.deleteFailed', { 
+          item: itemToDelete.type === 'transport' 
+            ? t('transportation.title').toLowerCase() 
+            : itemToDelete.type === 'lodging' 
+              ? t('lodging.title').toLowerCase() 
+              : t('activities.title').toLowerCase() 
+        }));
       }
     }
   };
@@ -144,7 +152,7 @@ const TripDetail = () => {
     e.preventDefault();
     
     if (!shareEmail) {
-      toast.error('Please enter an email address');
+      toast.error(t('errors.required', { field: t('auth.email') }));
       return;
     }
     
@@ -156,12 +164,12 @@ const TripDetail = () => {
         role: shareRole
       });
       
-      toast.success(`Trip shared successfully with ${shareEmail}`);
+      toast.success(t('sharing.shareSuccess'));
       setShareEmail('');
       fetchTripData(); // Refresh members list
     } catch (error) {
       console.error('Error sharing trip:', error);
-      toast.error(error.response?.data?.message || 'Failed to share trip');
+      toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('trips.title').toLowerCase() }));
     } finally {
       setIsSharing(false);
     }
@@ -171,11 +179,11 @@ const TripDetail = () => {
   const handleRemoveMember = async (userId) => {
     try {
       await tripAPI.removeTripMember(tripId, userId);
-      toast.success('Member removed successfully');
+      toast.success(t('sharing.memberRemoved'));
       fetchTripData(); // Refresh members list
     } catch (error) {
       console.error('Error removing member:', error);
-      toast.error('Failed to remove member');
+      toast.error(t('errors.deleteFailed', { item: t('sharing.currentMembers').toLowerCase() }));
     }
   };
   
@@ -196,11 +204,11 @@ const TripDetail = () => {
         role: newRole
       });
       
-      toast.success(`Member role updated successfully`);
+      toast.success(t('sharing.memberRoleUpdated'));
       fetchTripData(); // Refresh members list
     } catch (error) {
       console.error('Error updating member role:', error);
-      toast.error('Failed to update member role');
+      toast.error(t('errors.saveFailed', { item: t('sharing.permissionLevel').toLowerCase() }));
     }
   };
   
@@ -225,7 +233,7 @@ const TripDetail = () => {
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error downloading document:', error);
-      toast.error('Failed to download document');
+      toast.error(t('documents.downloadFailed'));
     }
   };
   
@@ -248,7 +256,7 @@ const TripDetail = () => {
       
       // If no documents found
       if (!documents.length) {
-        toast.error('No documents attached');
+        toast.error(t('documents.fileTypes'));
         return;
       }
       
@@ -268,7 +276,7 @@ const TripDetail = () => {
           setIsPdfViewerOpen(true);
         } catch (error) {
           console.error('Error fetching PDF:', error);
-          toast.error('Failed to fetch PDF document');
+          toast.error(t('documents.viewFailed'));
         }
       } else {
         // For other types, just download
@@ -276,7 +284,7 @@ const TripDetail = () => {
       }
     } catch (error) {
       console.error('Error viewing document:', error);
-      toast.error('Failed to retrieve document');
+      toast.error(t('documents.viewFailed'));
     }
   };
 
@@ -395,7 +403,7 @@ const TripDetail = () => {
           className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
         >
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to trips
+          {t('common.back', 'Back to trips')}
         </Link>
       </div>
 
@@ -426,7 +434,7 @@ const TripDetail = () => {
                   icon={<Edit className="h-5 w-5" />}
                   onClick={() => navigate(`/trips/${tripId}/edit`)}
                 >
-                  Edit Trip
+                  {t('trips.editTrip')}
                 </Button>
               )}
               <Button 
@@ -434,7 +442,7 @@ const TripDetail = () => {
                 icon={<Share2 className="h-5 w-5" />}
                 onClick={() => setIsShareModalOpen(true)}
               >
-                Share
+                {t('sharing.shareTrip')}
               </Button>
             </div>
           </div>
@@ -452,7 +460,7 @@ const TripDetail = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            Overview
+            {t('trips.tripOverview')}
           </button>
           
           <button 
@@ -463,7 +471,7 @@ const TripDetail = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            Transport
+            {t('transportation.title')}
           </button>
           
           <button 
@@ -474,7 +482,7 @@ const TripDetail = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            Lodging
+            {t('lodging.title')}
           </button>
           
           <button 
@@ -485,7 +493,7 @@ const TripDetail = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            Activities
+            {t('activities.title')}
           </button>
           
           <button 
@@ -496,7 +504,7 @@ const TripDetail = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
             }`}
           >
-            Calendar
+            {t('calendar.title')}
           </button>
         </div>
       </div>
@@ -509,7 +517,7 @@ const TripDetail = () => {
             <div className="col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Trip Overview</CardTitle>
+                  <CardTitle>{t('trips.tripOverview')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -517,17 +525,17 @@ const TripDetail = () => {
                     <div className="flex items-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/30">
                       <Map className="text-blue-500 dark:text-blue-400 mr-4" size={24} />
                       <div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Destination</div>
-                        <div className="font-medium">{trip.location || 'Not specified'}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.destination')}</div>
+                        <div className="font-medium">{trip.location || t('common.noLocation')}</div>
                       </div>
                     </div>
                     
                     <div className="flex items-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/30">
                       <Calendar className="text-purple-500 dark:text-purple-400 mr-4" size={24} />
                       <div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Duration</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.duration')}</div>
                         <div className="font-medium">
-                          {dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day')} days
+                          {dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day')} {t('trips.days')}
                         </div>
                       </div>
                     </div>
@@ -535,16 +543,16 @@ const TripDetail = () => {
                     <div className="flex items-center p-4 rounded-lg bg-green-50 dark:bg-green-900/30">
                       <Bed className="text-green-500 dark:text-green-400 mr-4" size={24} />
                       <div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Accommodations</div>
-                        <div className="font-medium">{lodging.length} places</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{t('lodging.title')}</div>
+                        <div className="font-medium">{lodging.length} {t('lodging.title').toLowerCase()}</div>
                       </div>
                     </div>
                     
                     <div className="flex items-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/30">
                       <Coffee className="text-orange-500 dark:text-orange-400 mr-4" size={24} />
                       <div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Activities</div>
-                        <div className="font-medium">{activities.length} planned</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{t('activities.title')}</div>
+                        <div className="font-medium">{activities.length} {t('activities.title').toLowerCase()}</div>
                       </div>
                     </div>
                   </div>
@@ -552,14 +560,14 @@ const TripDetail = () => {
                   {/* Trip Description */}
                   {trip.description && (
                     <div className="mb-6">
-                      <h3 className="font-medium mb-2">Description</h3>
+                      <h3 className="font-medium mb-2">{t('trips.description')}</h3>
                       <p className="text-gray-600 dark:text-gray-300" style={{whiteSpace: 'pre-wrap'}}>{trip.description}</p>
                     </div>
                   )}
                   
                   {/* Upcoming Events */}
                   <div>
-                    <h3 className="font-medium mb-3">Upcoming Events</h3>
+                    <h3 className="font-medium mb-3">{t('calendar.upcomingTrips')}</h3>
                     <div className="space-y-3">
                       {activities.length > 0 ? (
                         activities.slice(0, 3).map(activity => (
@@ -579,7 +587,7 @@ const TripDetail = () => {
                                   ? 'text-green-600 dark:text-green-400' 
                                   : 'text-yellow-600 dark:text-yellow-400'
                               }>
-                                {activity.has_documents > 0 ? 'Ticket attached' : 'No ticket'}
+                                {activity.has_documents > 0 ? t('transportation.ticketAttached') : t('transportation.noTicket')}
                               </div>
                             </div>
                           </div>
@@ -587,7 +595,7 @@ const TripDetail = () => {
                       ) : (
                         <div className="text-center py-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <Coffee className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-gray-500 dark:text-gray-400">No activities planned yet</p>
+                          <p className="text-gray-500 dark:text-gray-400">{t('activities.noActivities')}</p>
                           {canEdit() && (
                             <Button
                               variant="outline"
@@ -596,7 +604,7 @@ const TripDetail = () => {
                               icon={<PlusCircle className="h-4 w-4" />}
                               onClick={() => setActiveTab('activities')}
                             >
-                              Add Activity
+                              {t('activities.add')}
                             </Button>
                           )}
                         </div>
@@ -613,7 +621,7 @@ const TripDetail = () => {
                     icon={<Trash2 className="h-5 w-5" />}
                     onClick={() => setIsDeleteModalOpen(true)}
                   >
-                    Delete Trip
+                    {t('trips.deleteTrip')}
                   </Button>
                 </div>
               )}
@@ -623,7 +631,7 @@ const TripDetail = () => {
             <div>
               <Card>
                 <CardHeader>
-                  <CardTitle>Trip Members</CardTitle>
+                  <CardTitle>{t('sharing.currentMembers')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -653,9 +661,9 @@ const TripDetail = () => {
                             defaultValue={member.role}
                             onChange={(e) => handleChangeMemberRole(member.id, e.target.value)}
                           >
-                            <option value="editor">Editor</option>
-                            <option value="viewer">Viewer</option>
-                            <option value="remove">Remove</option>
+                            <option value="editor">{t('trips.editor')}</option>
+                            <option value="viewer">{t('trips.viewer')}</option>
+                            <option value="remove">{t('sharing.remove')}</option>
                           </select>
                         ) : (
                           <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -665,7 +673,7 @@ const TripDetail = () => {
                                 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}>
-                            {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                            {t(`trips.${member.role}`)}
                           </div>
                         )}
                       </div>
@@ -679,7 +687,7 @@ const TripDetail = () => {
                       icon={<User className="h-5 w-5" />}
                       onClick={() => setIsShareModalOpen(true)}
                     >
-                      Invite People
+                      {t('sharing.invite')}
                     </Button>
                   )}
                 </CardContent>
@@ -692,14 +700,14 @@ const TripDetail = () => {
         {activeTab === 'transport' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Transportation</h2>
+              <h2 className="text-xl font-semibold">{t('transportation.title')}</h2>
               {canEdit() && (
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
                   onClick={() => handleOpenTransportModal()}
                 >
-                  Add Transport
+                  {t('transportation.add')}
                 </Button>
               )}
             </div>
@@ -714,7 +722,7 @@ const TripDetail = () => {
                           {getTransportIcon(item.type)}
                         </div>
                         <div>
-                          <h3 className="font-semibold">{item.type} - {item.company || 'Not specified'}</h3>
+                          <h3 className="font-semibold">{t(`transportation.${item.type.toLowerCase()}`)} - {item.company || t('common.noLocation')}</h3>
                           <div className="text-sm text-gray-500 dark:text-gray-400">{item.departure_date}</div>
                         </div>
                       </div>
@@ -722,7 +730,7 @@ const TripDetail = () => {
                         {item.has_documents > 0 && (
                           <div className="flex items-center px-3 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 mr-3">
                             <Ticket size={12} className="mr-1" />
-                            Ticket attached
+                            {t('transportation.ticketAttached')}
                           </div>
                         )}
                         
@@ -748,9 +756,9 @@ const TripDetail = () => {
                     <CardContent className="p-4">
                       <div className="flex flex-col md:flex-row justify-between mb-4">
                         <div className="mb-4 md:mb-0">
-                          <div className="text-sm text-gray-500 dark:text-gray-400">From</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{t('transportation.from')}</div>
                           <div className="font-medium">{item.from_location}</div>
-                          <div className="mt-1 text-sm">{item.departure_date}, {item.departure_time || 'Time not specified'}</div>
+                          <div className="mt-1 text-sm">{item.departure_date}, {item.departure_time || t('transportation.departureTime')}</div>
                         </div>
                         
                         <div className="hidden md:flex items-center px-4">
@@ -762,7 +770,7 @@ const TripDetail = () => {
                         </div>
                         
                         <div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">To</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{t('transportation.to')}</div>
                           <div className="font-medium">{item.to_location}</div>
                           <div className="mt-1 text-sm">
                             {item.arrival_date || item.departure_date}, 
@@ -774,7 +782,7 @@ const TripDetail = () => {
                       <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
                           <div className="flex justify-between">
                             <div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">Confirmation code</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{t('transportation.confirmationCode')}</div>
                               <div className="font-mono font-medium">{item.confirmation_code ? item.confirmation_code : "-"}</div>
                             </div>
                             
@@ -785,7 +793,7 @@ const TripDetail = () => {
                                 icon={<FileText className="h-5 w-5" />}
                                 onClick={() => handleViewDocument('transport', item.id)}
                               >
-                                View Ticket
+                                {t('transportation.viewTicket')}
                               </Button>
                             ) : canEdit() && (
                               <Button
@@ -793,7 +801,7 @@ const TripDetail = () => {
                                 icon={<PlusCircle className="h-5 w-5" />}
                                 onClick={() => handleOpenTransportModal(item.id)}
                               >
-                                Attach Ticket
+                                {t('transportation.attachTicket')}
                               </Button>
                             )}
                           </div>
@@ -804,9 +812,9 @@ const TripDetail = () => {
               ) : (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
                   <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No transportation added</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('transportation.noTransport')}</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                    Add your flights, trains, or other transportation details to keep all your travel information in one place.
+                    {t('transportation.noTransportMessage')}
                   </p>
                   {canEdit() && (
                     <Button
@@ -814,7 +822,7 @@ const TripDetail = () => {
                       icon={<PlusCircle className="h-5 w-5" />}
                       onClick={() => handleOpenTransportModal()}
                     >
-                      Add First Transportation
+                      {t('transportation.add')}
                     </Button>
                   )}
                 </div>
@@ -827,14 +835,14 @@ const TripDetail = () => {
         {activeTab === 'lodging' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Accommodations</h2>
+              <h2 className="text-xl font-semibold">{t('lodging.title')}</h2>
               {canEdit() && (
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
                   onClick={() => handleOpenLodgingModal()}
                 >
-                  Add Accommodation
+                  {t('lodging.add')}
                 </Button>
               )}
             </div>
@@ -879,7 +887,7 @@ const TripDetail = () => {
                     <CardContent className="p-4">
                       {lodge.address && (
                         <>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">Address</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{t('lodging.address')}</div>
                           <div className="mt-1 mb-4">{lodge.address}</div>
                         </>
                       )}
@@ -887,7 +895,7 @@ const TripDetail = () => {
                       <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
                           <div className="flex justify-between">
                             <div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400">Confirmation code</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{t('lodging.confirmationCode')}</div>
                               <div className="font-mono font-medium">{lodge.confirmation_code ? lodge.confirmation_code : "-"}</div>
                             </div>
                             
@@ -898,7 +906,7 @@ const TripDetail = () => {
                                 icon={<FileText className="h-5 w-5" />}
                                 onClick={() => handleViewDocument('lodging', lodge.id)}
                               >
-                                View Reservation
+                                {t('lodging.viewReservation')}
                               </Button>
                             ) : canEdit() && (
                               <Button
@@ -906,7 +914,7 @@ const TripDetail = () => {
                                 icon={<PlusCircle className="h-5 w-5" />}
                                 onClick={() => handleOpenLodgingModal(lodge.id)}
                               >
-                                Attach Reservation
+                                {t('lodging.attachReservation')}
                               </Button>
                             )}
                           </div>
@@ -917,9 +925,9 @@ const TripDetail = () => {
               ) : (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow col-span-full">
                   <Bed className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No accommodations added</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('lodging.noLodging')}</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                    Add your hotels, rentals, or other lodging information to keep track of where you'll be staying.
+                    {t('lodging.noLodgingMessage')}
                   </p>
                   {canEdit() && (
                     <Button
@@ -927,7 +935,7 @@ const TripDetail = () => {
                       icon={<PlusCircle className="h-5 w-5" />}
                       onClick={() => handleOpenLodgingModal()}
                     >
-                      Add First Accommodation
+                      {t('lodging.add')}
                     </Button>
                   )}
                 </div>
@@ -940,14 +948,14 @@ const TripDetail = () => {
         {activeTab === 'activities' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Activities</h2>
+              <h2 className="text-xl font-semibold">{t('activities.title')}</h2>
               {canEdit() && (
                 <Button
                   variant="primary"
                   icon={<PlusCircle className="h-5 w-5" />}
                   onClick={() => handleOpenActivityModal()}
                 >
-                  Add Activity
+                  {t('activities.add')}
                 </Button>
               )}
             </div>
@@ -985,7 +993,7 @@ const TripDetail = () => {
                         {activity.has_documents > 0 && (
                           <div className="flex items-center px-3 py-1 rounded-full text-xs bg-green-500 text-white">
                             <Ticket size={12} className="mr-1" />
-                            Ticket
+                            {t('transportation.ticketAttached')}
                           </div>
                         )}
                       </div>
@@ -1012,7 +1020,7 @@ const TripDetail = () => {
                       
                       {activity.confirmation_code && (
                         <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 text-sm mb-4">
-                          <div className="text-gray-500 dark:text-gray-400">Confirmation:</div>
+                          <div className="text-gray-500 dark:text-gray-400">{t('activities.confirmationCode')}:</div>
                           <div className="font-mono font-medium">{activity.confirmation_code}</div>
                         </div>
                       )}
@@ -1025,7 +1033,7 @@ const TripDetail = () => {
                             icon={<FileText className="h-4 w-4" />}
                             onClick={() => handleViewDocument('activity', activity.id)}
                           >
-                            View Ticket
+                            {t('activities.viewTicket')}
                           </Button>
                         ) : canEdit() && (
                           <Button
@@ -1034,7 +1042,7 @@ const TripDetail = () => {
                             icon={<PlusCircle className="h-4 w-4" />}
                             onClick={() => handleOpenActivityModal(activity.id)}
                           >
-                            Add Ticket
+                            {t('activities.attachTicket')}
                           </Button>
                         )}
                       </div>
@@ -1044,9 +1052,9 @@ const TripDetail = () => {
               ) : (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow col-span-full">
                   <Coffee className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No activities planned</h3>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('activities.noActivities')}</h3>
                   <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                    Add tours, excursions, or other activities to make the most of your trip.
+                    {t('activities.noActivitiesMessage')}
                   </p>
                   {canEdit() && (
                     <Button
@@ -1054,7 +1062,7 @@ const TripDetail = () => {
                       icon={<PlusCircle className="h-5 w-5" />}
                       onClick={() => handleOpenActivityModal()}
                     >
-                      Add First Activity
+                      {t('activities.add')}
                     </Button>
                   )}
                 </div>
@@ -1067,7 +1075,7 @@ const TripDetail = () => {
         {activeTab === 'calendar' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Trip Calendar</h2>
+              <h2 className="text-xl font-semibold">{t('calendar.title')}</h2>
             </div>
             
             <Card>
@@ -1104,7 +1112,7 @@ const TripDetail = () => {
                             </div>
                             {isToday && (
                               <div className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                Today
+                                {t('common.today')}
                               </div>
                             )}
                           </div>
@@ -1113,7 +1121,7 @@ const TripDetail = () => {
                         <div className="p-3 min-h-32">
                           {dayActivities.length === 0 && transports.length === 0 && lodgings.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
-                              No events
+                              {t('calendar.noEvents')}
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1122,8 +1130,8 @@ const TripDetail = () => {
                                   key={`transport-${transport.id}`}
                                   className="p-2 rounded-md text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
                                 >
-                                  <div className="font-medium">{transport.type}: {transport.from_location}</div>
-                                  <div>{transport.departure_time || 'No time specified'}</div>
+                                  <div className="font-medium">{t(`transportation.${transport.type.toLowerCase()}`)}: {transport.from_location}</div>
+                                  <div>{transport.departure_time || t('transportation.departureTime')}</div>
                                 </div>
                               ))}
                               
@@ -1132,7 +1140,7 @@ const TripDetail = () => {
                                   key={`lodge-${lodge.id}`}
                                   className="p-2 rounded-md text-xs bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200"
                                 >
-                                  <div className="font-medium">Stay: {lodge.name}</div>
+                                  <div className="font-medium">{t('lodging.stay')}: {lodge.name}</div>
                                 </div>
                               ))}
                               
@@ -1142,7 +1150,7 @@ const TripDetail = () => {
                                   className="p-2 rounded-md text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
                                 >
                                   <div className="font-medium">{activity.name}</div>
-                                  <div>{activity.time ? activity.time.split(' - ')[0] : 'No time specified'}</div>
+                                  <div>{activity.time ? activity.time.split(' - ')[0] : t('activities.time')}</div>
                                 </div>
                               ))}
                             </div>
@@ -1162,12 +1170,12 @@ const TripDetail = () => {
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title="Delete Trip"
+        title={t('trips.deleteTrip')}
         size="sm"
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Are you sure you want to delete this trip? This action cannot be undone and will remove all associated data including transportation, lodging, activities, and documents.
+            {t('trips.deleteConfirm')}
           </p>
           <div className="flex justify-end space-x-3">
             <Button
@@ -1175,7 +1183,7 @@ const TripDetail = () => {
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={isDeleting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
@@ -1183,7 +1191,7 @@ const TripDetail = () => {
               loading={isDeleting}
               icon={<Trash2 className="h-5 w-5" />}
             >
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         </div>
@@ -1193,30 +1201,34 @@ const TripDetail = () => {
       <Modal
         isOpen={showConfirmDeleteModal}
         onClose={() => setShowConfirmDeleteModal(false)}
-        title={`Delete ${itemToDelete.type === 'transport' ? 'Transportation' : 
-                itemToDelete.type === 'lodging' ? 'Accommodation' : 'Activity'}`}
+        title={itemToDelete.type === 'transport' 
+          ? t('transportation.delete') 
+          : itemToDelete.type === 'lodging' 
+            ? t('lodging.delete') 
+            : t('activities.delete')}
         size="sm"
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Are you sure you want to delete this {
-              itemToDelete.type === 'transport' ? 'transportation' : 
-              itemToDelete.type === 'lodging' ? 'accommodation' : 'activity'
-            }? This action cannot be undone.
+            {itemToDelete.type === 'transport' 
+              ? t('transportation.deleteConfirm')
+              : itemToDelete.type === 'lodging' 
+                ? t('lodging.deleteConfirm')
+                : t('activities.deleteConfirm')}
           </p>
           <div className="flex justify-end space-x-3">
             <Button
               variant="secondary"
               onClick={() => setShowConfirmDeleteModal(false)}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={handleConfirmDelete}
               icon={<Trash2 className="h-5 w-5" />}
             >
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         </div>
@@ -1226,17 +1238,17 @@ const TripDetail = () => {
       <Modal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        title="Share Trip"
+        title={t('sharing.shareTrip')}
         size="md"
       >
         <div className="p-6">
           <form onSubmit={handleShareTrip}>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Invite by email</label>
+              <label className="block text-sm font-medium mb-2">{t('sharing.inviteByEmail')}</label>
               <div className="flex">
                 <input
                   type="email"
-                  placeholder="Email address"
+                  placeholder={t('sharing.emailPlaceholder')}
                   value={shareEmail}
                   onChange={(e) => setShareEmail(e.target.value)}
                   className="flex-1 px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
@@ -1247,26 +1259,26 @@ const TripDetail = () => {
                   className="rounded-l-none rounded-r-lg"
                   loading={isSharing}
                 >
-                  Invite
+                  {t('sharing.invite')}
                 </Button>
               </div>
             </div>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Permission level</label>
+              <label className="block text-sm font-medium mb-2">{t('sharing.permissionLevel')}</label>
               <select 
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600"
                 value={shareRole}
                 onChange={(e) => setShareRole(e.target.value)}
               >
-                <option value="editor">Can edit</option>
-                <option value="viewer">Can view</option>
+                <option value="editor">{t('sharing.canEdit')}</option>
+                <option value="viewer">{t('sharing.canView')}</option>
               </select>
             </div>
           </form>
           
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Share link</label>
+            <label className="block text-sm font-medium mb-2">{t('sharing.shareLink')}</label>
             <div className="flex">
               <input
                 type="text"
@@ -1279,16 +1291,16 @@ const TripDetail = () => {
                 className="rounded-l-none rounded-r-lg"
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/invite/${tripId}`);
-                  toast.success('Link copied to clipboard');
+                  toast.success(t('sharing.linkCopied'));
                 }}
               >
-                Copy
+                {t('common.copy', 'Copy')}
               </Button>
             </div>
           </div>
           
           <div className="space-y-3">
-            <h4 className="font-medium text-sm mb-2">Current members</h4>
+            <h4 className="font-medium text-sm mb-2">{t('sharing.currentMembers')}</h4>
             {members.map(member => (
               <div key={member.id} className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -1315,9 +1327,9 @@ const TripDetail = () => {
                     defaultValue={member.role}
                     onChange={(e) => handleChangeMemberRole(member.id, e.target.value)}
                   >
-                    <option value="editor">Editor</option>
-                    <option value="viewer">Viewer</option>
-                    <option value="remove">Remove</option>
+                    <option value="editor">{t('trips.editor')}</option>
+                    <option value="viewer">{t('trips.viewer')}</option>
+                    <option value="remove">{t('sharing.remove')}</option>
                   </select>
                 ) : (
                   <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1327,7 +1339,7 @@ const TripDetail = () => {
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                         : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                   }`}>
-                    {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                    {t(`trips.${member.role}`)}
                   </div>
                 )}
               </div>

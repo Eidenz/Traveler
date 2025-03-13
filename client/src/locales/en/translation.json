@@ -75,6 +75,7 @@
       "updateSuccess": "Trip updated successfully",
       "deleteSuccess": "Trip deleted successfully",
       "noTrips": "No trips found",
+      "noTripsMatching": "No trips matching {{searchTerm}}. Try a different search term.",
       "noTripsMessage": "You haven't created any trips yet. Start planning your next adventure!",
       "search": "Search trips by name or location...",
       "upcoming": "Upcoming",
@@ -121,7 +122,8 @@
       "ferry": "Ferry",
       "other": "Other",
       "noTransport": "No transportation added",
-      "noTransportMessage": "Add your flights, trains, or other transportation details to keep all your travel information in one place."
+      "noTransportMessage": "Add your flights, trains, or other transportation details to keep all your travel information in one place.",
+      "deleteSuccess": "Transportation deleted successfully"
     },
     "lodging": {
       "title": "Accommodations",
@@ -139,7 +141,8 @@
       "viewReservation": "View Reservation",
       "stay": "Stay",
       "noLodging": "No accommodations added",
-      "noLodgingMessage": "Add your hotels, rentals, or other lodging information to keep track of where you'll be staying."
+      "noLodgingMessage": "Add your hotels, rentals, or other lodging information to keep track of where you'll be staying.",
+      "deleteSuccess": "Accommodation deleted successfully"
     },
     "activities": {
       "title": "Activities",
@@ -156,7 +159,8 @@
       "attachTicket": "Add Ticket",
       "viewTicket": "View Ticket",
       "noActivities": "No activities planned",
-      "noActivitiesMessage": "Add tours, excursions, or other activities to make the most of your trip."
+      "noActivitiesMessage": "Add tours, excursions, or other activities to make the most of your trip.",
+      "deleteSuccess": "Activity deleted successfully"
     },
     "calendar": {
       "title": "Calendar",

@@ -9,6 +9,7 @@ import Input from '../ui/Input';
 import { activityAPI, documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const ActivityModal = ({
   isOpen,
@@ -18,6 +19,7 @@ const ActivityModal = ({
   onSuccess,
   initialData = null
 }) => {
+  const { t } = useTranslation();
   const isEditMode = !!activityId;
 
   const [formData, setFormData] = useState({
@@ -83,7 +85,7 @@ const ActivityModal = ({
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching activity:', error);
-      toast.error('Failed to load activity details');
+      toast.error(t('errors.loadFailed', { item: t('activities.title').toLowerCase() }));
     } finally {
       setFetchLoading(false);
     }
@@ -120,11 +122,11 @@ const ActivityModal = ({
     const newErrors = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'Activity name is required';
+      newErrors.name = t('errors.required', { field: t('activities.name') });
     }
 
     if (!formData.date) {
-      newErrors.date = 'Activity date is required';
+      newErrors.date = t('errors.required', { field: t('activities.date') });
     }
 
     setErrors(newErrors);
@@ -150,10 +152,10 @@ const ActivityModal = ({
 
         if (isEditMode) {
           response = await activityAPI.updateActivity(activityId, formattedData, tripId);
-          toast.success('Activity updated successfully');
+          toast.success(t('activities.updateSuccess', 'Activity updated successfully'));
         } else {
           response = await activityAPI.createActivity(tripId, formattedData);
-          toast.success('Activity added successfully');
+          toast.success(t('activities.createSuccess', 'Activity added successfully'));
         }
 
         // Upload document if selected
@@ -164,7 +166,7 @@ const ActivityModal = ({
           documentData.append('reference_id', isEditMode ? activityId : response.data.activity.id);
 
           await documentAPI.uploadDocument(documentData);
-          toast.success('Document uploaded successfully');
+          toast.success(t('documents.uploadSuccess'));
         }
 
         // Callback to refresh parent component
@@ -175,7 +177,7 @@ const ActivityModal = ({
         onClose();
       } catch (error) {
         console.error('Error saving activity:', error);
-        toast.error(error.response?.data?.message || 'Failed to save activity');
+        toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('activities.title').toLowerCase() }));
       } finally {
         setLoading(false);
       }
@@ -186,10 +188,10 @@ const ActivityModal = ({
     try {
       await documentAPI.deleteDocument(documentId, tripId);
       setDocuments(documents.filter(doc => doc.id !== documentId));
-      toast.success('Document deleted successfully');
+      toast.success(t('documents.deleteSuccess'));
     } catch (error) {
       console.error('Error deleting document:', error);
-      toast.error('Failed to delete document');
+      toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
     }
   };
 
@@ -213,7 +215,7 @@ const ActivityModal = ({
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Error downloading document:', error);
-      toast.error('Failed to download document');
+      toast.error(t('documents.downloadFailed'));
     }
   };
 
@@ -222,7 +224,7 @@ const ActivityModal = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="Loading..."
+        title={t('common.loading')}
         size="lg"
       >
         <div className="p-6 flex justify-center">
@@ -236,19 +238,19 @@ const ActivityModal = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditMode ? "Edit Activity" : "Add Activity"}
+      title={isEditMode ? t('activities.edit') : t('activities.add')}
       size="lg"
     >
       <form onSubmit={handleSubmit}>
         <div className="p-6 space-y-4">
           {/* Activity Name */}
           <Input
-            label="Activity Name"
+            label={t('activities.name')}
             id="name"
             name="name"
             value={formData.name}
             onChange={handleChange}
-            placeholder="e.g. Museum Tour"
+            placeholder={t('activities.namePlaceholder', 'e.g. Museum Tour')}
             error={errors.name}
             required
             icon={<Coffee className="h-5 w-5 text-gray-400" />}
@@ -258,7 +260,7 @@ const ActivityModal = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Date <span className="text-red-500">*</span>
+                {t('activities.date')} <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -287,49 +289,49 @@ const ActivityModal = ({
             </div>
 
             <Input
-              label="Time"
+              label={t('activities.time')}
               id="time"
               name="time"
               value={formData.time}
               onChange={handleChange}
-              placeholder="e.g. 14:30 or 2:30 PM - 4:00 PM"
+              placeholder={t('activities.timePlaceholder', 'e.g. 14:30 or 2:30 PM - 4:00 PM')}
               icon={<Clock className="h-5 w-5 text-gray-400" />}
             />
           </div>
 
           {/* Location */}
           <Input
-            label="Location"
+            label={t('activities.location')}
             id="location"
             name="location"
             value={formData.location}
             onChange={handleChange}
-            placeholder="e.g. National Museum"
+            placeholder={t('activities.locationPlaceholder', 'e.g. National Museum')}
             icon={<MapPin className="h-5 w-5 text-gray-400" />}
           />
 
           {/* Confirmation Code */}
           <Input
-            label="Confirmation / Booking Code"
+            label={t('activities.confirmationCode')}
             id="confirmation_code"
             name="confirmation_code"
             value={formData.confirmation_code}
             onChange={handleChange}
-            placeholder="e.g. ABC123"
+            placeholder={t('activities.confirmationCodePlaceholder', 'e.g. ABC123')}
             icon={<Tag className="h-5 w-5 text-gray-400" />}
           />
 
           {/* Notes */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Notes
+              {t('activities.notes')}
             </label>
             <textarea
               id="notes"
               name="notes"
               value={formData.notes}
               onChange={handleChange}
-              placeholder="Any additional information about the activity"
+              placeholder={t('activities.notesPlaceholder', 'Any additional information about the activity')}
               className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
             />
@@ -339,7 +341,7 @@ const ActivityModal = ({
           {documents.length > 0 && (
             <div className="space-y-3">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Attached Documents
+                {t('documents.attachedDocuments')}
               </label>
               <div className="space-y-2">
                 {documents.map(doc => (
@@ -405,7 +407,7 @@ const ActivityModal = ({
           {/* Upload Document */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Upload Ticket or Reservation
+              {t('activities.attachTicket')}
             </label>
             {documentFileName ? (
               <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -436,7 +438,7 @@ const ActivityModal = ({
                       htmlFor="document-file"
                       className="relative cursor-pointer rounded-md font-medium text-purple-600 dark:text-purple-400 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-purple-500"
                     >
-                      <span>Upload a file</span>
+                      <span>{t('documents.upload')}</span>
                       <input
                         id="document-file"
                         name="document"
@@ -445,10 +447,10 @@ const ActivityModal = ({
                         onChange={handleDocumentChange}
                       />
                     </label>
-                    <p className="pl-1">or drag and drop</p>
+                    <p className="pl-1">{t('documents.dragDrop')}</p>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    PDF, DOC, DOCX, TXT up to 10MB
+                    {t('documents.fileTypes')}
                   </p>
                 </div>
               </div>
@@ -463,7 +465,7 @@ const ActivityModal = ({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             type="submit"
@@ -471,7 +473,7 @@ const ActivityModal = ({
             loading={loading}
             icon={<Ticket className="h-5 w-5" />}
           >
-            {isEditMode ? 'Update Activity' : 'Add Activity'}
+            {isEditMode ? t('activities.edit') : t('activities.add')}
           </Button>
         </div>
       </form>
