@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, 
-  Plane, Coffee, Bed, Info, PlusCircle
+  Plane, Coffee, Bed, Info, PlusCircle, WifiOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -11,6 +11,7 @@ import { tripAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import { getAllOfflineTrips } from '../utils/offlineStorage';
 
 const Calendar = () => {
   const navigate = useNavigate();
@@ -18,11 +19,32 @@ const Calendar = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
+  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
   const { t } = useTranslation();
   
+  // Monitor online/offline status
   useEffect(() => {
-    fetchTrips();
+    const handleOnline = () => setOnlineStatus(true);
+    const handleOffline = () => setOnlineStatus(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
+
+  // Fetch trips based on online status
+  useEffect(() => {
+    if (onlineStatus) {
+      fetchTripsFromServer();
+    } else {
+      fetchOfflineTrips();
+    }
+  }, [onlineStatus]);
   
   useEffect(() => {
     if (trips.length > 0) {
@@ -30,14 +52,45 @@ const Calendar = () => {
     }
   }, [trips, currentDate]);
   
-  const fetchTrips = async () => {
+  const fetchTripsFromServer = async () => {
     try {
       setLoading(true);
       const response = await tripAPI.getUserTrips();
       setTrips(response.data.trips || []);
+      setIsOfflineMode(false);
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast.error(t('errors.failedFetch'));
+      
+      // If server fetch fails, try offline fallback
+      fetchOfflineTrips();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOfflineTrips = async () => {
+    try {
+      setLoading(true);
+      const offlineData = await getAllOfflineTrips();
+      
+      if (offlineData && offlineData.length > 0) {
+        setTrips(offlineData);
+        setIsOfflineMode(true);
+        
+        // Show a toast notification that we're in offline mode
+        toast.success(t('offline.usingOfflineData'), {
+          icon: <WifiOff size={16} />,
+          duration: 3000,
+        });
+      } else {
+        setTrips([]);
+        setIsOfflineMode(true);
+        toast.error(t('offline.no_offline_data', 'No offline data available'));
+      }
+    } catch (error) {
+      console.error('Error fetching offline trips:', error);
+      setTrips([]);
     } finally {
       setLoading(false);
     }
@@ -182,9 +235,15 @@ const Calendar = () => {
                   ${event.type === 'trip-start' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : ''}
                   ${event.type === 'trip-end' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' : ''}
                   ${event.type === 'trip-day' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : ''}
+                  ${isOfflineMode ? 'border-l-2 border-yellow-400 dark:border-yellow-600' : ''}
                 `}
               >
                 {event.title}
+                {isOfflineMode && (
+                  <span className="ml-1 opacity-70">
+                    <WifiOff className="inline-block h-2 w-2" />
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -231,9 +290,13 @@ const Calendar = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('calendar.title')}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {isOfflineMode ? 'Offline Calendar' : t('calendar.title')}
+          </h1>
           <p className="text-gray-500 dark:text-gray-400">
-          {t('calendar.tagline')}
+            {isOfflineMode 
+              ? 'Viewing your saved offline trips' 
+              : t('calendar.tagline')}
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
@@ -248,27 +311,40 @@ const Calendar = () => {
             variant="primary"
             onClick={() => navigate('/trips/new')}
             icon={<PlusCircle className="h-5 w-5" />}
+            disabled={isOfflineMode}
           >
             {t('trips.createTrip')}
           </Button>
         </div>
       </div>
       
+      {/* Offline mode banner */}
+      {isOfflineMode && (
+        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg animate-pulse">
+          <div className="flex items-center">
+            <WifiOff className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+            <p className="text-yellow-800 dark:text-yellow-200">
+              {t('offline.offline_mode_message', "You're currently in offline mode. Only trips saved for offline use are shown.")}
+            </p>
+          </div>
+        </div>
+      )}
+      
       <Card>
         <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
             <button
               onClick={handlePrevMonth}
-              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
-            <h2 className="text-lg font-semibold mx-4">
+            <h2 className="text-lg font-semibold mx-4 transition-all">
               {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
             </h2>
             <button
               onClick={handleNextMonth}
-              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <ChevronRight className="h-5 w-5 text-gray-600 dark:text-gray-400" />
             </button>
@@ -287,6 +363,14 @@ const Calendar = () => {
               <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
               <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.tripEnd')}</span>
             </div>
+            {isOfflineMode && (
+              <div className="flex items-center ml-4">
+                <div className="flex items-center px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                  <WifiOff className="h-3 w-3 text-yellow-600 dark:text-yellow-400 mr-1" />
+                  <span className="text-xs text-yellow-600 dark:text-yellow-400">Offline</span>
+                </div>
+              </div>
+            )}
           </div>
         </CardHeader>
         
@@ -308,18 +392,24 @@ const Calendar = () => {
             <div className="h-96 flex flex-col items-center justify-center p-6">
               <CalendarIcon className="h-16 w-16 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-               {t('calendar.noUpcomingTrips')}
+                {isOfflineMode 
+                  ? 'No offline trips available' 
+                  : t('calendar.noUpcomingTrips')}
               </h3>
               <p className="text-gray-500 dark:text-gray-400 text-center mb-6 max-w-md">
-                {t('calendar.noUpcomingMessage')}
+                {isOfflineMode 
+                  ? 'Save trips for offline use by visiting a trip and clicking "Save Offline"' 
+                  : t('calendar.noUpcomingMessage')}
               </p>
-              <Button
-                variant="primary"
-                onClick={() => navigate('/trips/new')}
-                icon={<PlusCircle className="h-5 w-5" />}
-              >
-                {t('trips.createFirst')}
-              </Button>
+              {!isOfflineMode && (
+                <Button
+                  variant="primary"
+                  onClick={() => navigate('/trips/new')}
+                  icon={<PlusCircle className="h-5 w-5" />}
+                >
+                  {t('trips.createFirst')}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -331,7 +421,7 @@ const Calendar = () => {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...Array(3)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
+              <Card key={i} className="animate-pulse transition-all">
                 <CardContent className="p-4">
                   <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
                   <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
@@ -348,7 +438,7 @@ const Calendar = () => {
               .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
               .slice(0, 3)
               .map(trip => (
-                <Card key={trip.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/trips/${trip.id}`)}>
+                <Card key={trip.id} className="cursor-pointer hover:shadow-md transition-all" onClick={() => navigate(`/trips/${trip.id}`)}>
                   <CardContent className="p-4">
                     <h3 className="font-medium text-lg mb-1">{trip.name}</h3>
                     <div className="flex items-center text-gray-500 dark:text-gray-400 mb-3">
@@ -369,6 +459,11 @@ const Calendar = () => {
                         <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-900/30">
                           <Coffee className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                         </div>
+                        {isOfflineMode && (
+                          <div className="p-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                            <WifiOff className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
@@ -383,18 +478,22 @@ const Calendar = () => {
               <div className="col-span-full text-center p-6 bg-white dark:bg-gray-800 rounded-lg">
                 <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No upcoming trips
+                  {isOfflineMode ? 'No upcoming offline trips' : 'No upcoming trips'}
                 </h3>
                 <p className="text-gray-500 dark:text-gray-400 mb-6">
-                  You don't have any upcoming trips. Create a new trip to add it to your calendar.
+                  {isOfflineMode
+                    ? 'Save trips for offline use to see them here'
+                    : 'You don\'t have any upcoming trips. Create a new trip to add it to your calendar.'}
                 </p>
-                <Button
-                  variant="primary"
-                  onClick={() => navigate('/trips/new')}
-                  icon={<PlusCircle className="h-5 w-5" />}
-                >
-                  Create Trip
-                </Button>
+                {!isOfflineMode && (
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate('/trips/new')}
+                    icon={<PlusCircle className="h-5 w-5" />}
+                  >
+                    {t('trips.createTrip')}
+                  </Button>
+                )}
               </div>
             )}
           </div>
