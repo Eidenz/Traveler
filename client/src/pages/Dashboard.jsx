@@ -19,8 +19,11 @@ dayjs.extend(relativeTime);
 const Dashboard = () => {
   const [trips, setTrips] = useState([]);
   const [upcomingTrip, setUpcomingTrip] = useState(null);
-  const [ongoingTrip, setOngoingTrip] = useState(null); // New state for ongoing trip
+  const [ongoingTrip, setOngoingTrip] = useState(null);
+  const [ongoingTripDetails, setOngoingTripDetails] = useState(null);
+  const [upcomingTripDetails, setUpcomingTripDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [detailsLoading, setDetailsLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -70,6 +73,35 @@ const Dashboard = () => {
     fetchTrips();
   }, [t]);
 
+  // Fetch trip details when ongoing or upcoming trips are set
+  useEffect(() => {
+    const fetchTripDetails = async () => {
+      if (!ongoingTrip && !upcomingTrip) return;
+      
+      setDetailsLoading(true);
+      
+      try {
+        // Fetch details for ongoing trip
+        if (ongoingTrip) {
+          const ongoingResponse = await tripAPI.getTripById(ongoingTrip.id);
+          setOngoingTripDetails(ongoingResponse.data);
+        }
+        
+        // Fetch details for upcoming trip
+        if (upcomingTrip) {
+          const upcomingResponse = await tripAPI.getTripById(upcomingTrip.id);
+          setUpcomingTripDetails(upcomingResponse.data);
+        }
+      } catch (error) {
+        console.error('Error fetching trip details:', error);
+      } finally {
+        setDetailsLoading(false);
+      }
+    };
+    
+    fetchTripDetails();
+  }, [ongoingTrip, upcomingTrip]);
+
   const getDateRangeString = (startDate, endDate) => {
     const start = dayjs(startDate);
     const end = dayjs(endDate);
@@ -77,7 +109,7 @@ const Dashboard = () => {
     return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
   };
 
-  // New function to render ongoing trip
+  // Function to render ongoing trip
   const renderOngoingTrip = () => {
     if (!ongoingTrip) {
       return null;
@@ -98,7 +130,7 @@ const Dashboard = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
             <div className="absolute bottom-0 left-0 p-6">
               <div className="inline-block px-3 py-1 rounded-full bg-green-500 text-white text-sm font-medium mb-2">
-                {t('trips.ongoing', 'Ongoing Trip')}
+                {t('dashboard.ongoing', 'Ongoing Trip')}
               </div>
               <h2 className="text-2xl font-bold text-white mb-1">{ongoingTrip.name}</h2>
               <div className="flex items-center text-white/80">
@@ -130,12 +162,24 @@ const Dashboard = () => {
             
             <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
               <Bed className="h-6 w-6 text-green-600 dark:text-green-400 mb-2" />
-              <div className="text-sm font-medium text-center">{t('lodging.title')}</div>
+              <div className="text-sm font-medium text-center">
+                {detailsLoading || !ongoingTripDetails ? (
+                  <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
+                ) : (
+                  `${ongoingTripDetails.lodging.length} ${t('lodging.title')}`
+                )}
+              </div>
             </div>
             
             <div className="flex flex-col items-center justify-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
               <Coffee className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2" />
-              <div className="text-sm font-medium text-center">{t('activities.title')}</div>
+              <div className="text-sm font-medium text-center">
+                {detailsLoading || !ongoingTripDetails ? (
+                  <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
+                ) : (
+                  `${ongoingTripDetails.activities.length} ${t('activities.title')}`
+                )}
+              </div>
             </div>
           </div>
           
@@ -211,12 +255,24 @@ const Dashboard = () => {
             
             <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
               <Bed className="h-6 w-6 text-green-600 dark:text-green-400 mb-2" />
-              <div className="text-sm font-medium text-center">{t('lodging.title')}</div>
+              <div className="text-sm font-medium text-center">
+                {detailsLoading || !upcomingTripDetails ? (
+                  <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
+                ) : (
+                  `${upcomingTripDetails.lodging.length} ${t('lodging.title')}`
+                )}
+              </div>
             </div>
             
             <div className="flex flex-col items-center justify-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
               <Coffee className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2" />
-              <div className="text-sm font-medium text-center">{t('activities.title')}</div>
+              <div className="text-sm font-medium text-center">
+                {detailsLoading || !upcomingTripDetails ? (
+                  <span className="inline-block h-4 w-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></span>
+                ) : (
+                  `${upcomingTripDetails.activities.length} ${t('activities.title')}`
+                )}
+              </div>
             </div>
           </div>
           
@@ -263,7 +319,7 @@ const Dashboard = () => {
           {/* Ongoing Trip Section - Only show if there's an ongoing trip */}
           {ongoingTrip && (
             <>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('trips.ongoing', 'Ongoing Trip')}</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('dashboard.ongoing', 'Ongoing Trip')}</h2>
               {loading ? (
                 <Card>
                   <CardContent className="py-12">
