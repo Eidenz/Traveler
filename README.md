@@ -2,6 +2,12 @@
 
 A full-featured travel planning application built with React, Node.js, and SQLite.
 
+![image](https://github.com/user-attachments/assets/66e2762b-0b4a-4479-8fef-f8fb81880b61)
+
+![image](https://github.com/user-attachments/assets/ba9da10d-6c1e-4bd8-bfec-c989f71fadb8)
+
+![image](https://github.com/user-attachments/assets/c5ff27e1-255d-428e-ac5c-46d81375decf)
+
 ## ⚠️ Disclaimer / AI-Generated Project Warning
 
 **This project was mostly coded using AI (Claude 3.7 Sonnet Thinking).**
