@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { useTranslation } from 'react-i18next';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -18,6 +19,7 @@ const Register = () => {
   
   const { register, isAuthenticated, loading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -47,23 +49,23 @@ const Register = () => {
     const newErrors = {};
     
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = t('auth.nameRequired');
     }
     
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('auth.emailRequired');
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = t('auth.invalidEmail');
     }
     
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('auth.passwordRequired');
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('auth.passwordLength');
     }
     
     if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('errors.passwordsMatch');
     }
     
     setErrors(newErrors);
@@ -78,7 +80,7 @@ const Register = () => {
         // Don't send confirmPassword to the API
         const { confirmPassword, ...registerData } = formData;
         await register(registerData);
-        toast.success('Account created successfully');
+        toast.success(t('auth.registerSuccess'));
         navigate('/dashboard');
       } catch (error) {
         // Error is handled by the auth store
@@ -90,61 +92,61 @@ const Register = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create an account</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('auth.register')}</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Join Traveler to start planning your trips
+            {t('auth.registerTagline')}
           </p>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <Input
-              label="Full name"
+              label={t('auth.fullName')}
               type="text"
               id="name"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Your full name"
+              placeholder={t('auth.fullNamePlaceholder')}
               error={errors.name}
               required
               icon={<User className="h-5 w-5 text-gray-400" />}
             />
             
             <Input
-              label="Email address"
+              label={t('auth.email')}
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Your email"
+              placeholder={t('sharing.emailPlaceholder')}
               error={errors.email}
               required
               icon={<Mail className="h-5 w-5 text-gray-400" />}
             />
             
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Create a password"
+              placeholder={t('auth.passwordPlaceholder')}
               error={errors.password}
               required
               icon={<Lock className="h-5 w-5 text-gray-400" />}
             />
             
             <Input
-              label="Confirm password"
+              label={t('auth.confirmPassword')}
               type="password"
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="Confirm your password"
+              placeholder={t('auth.confirmPasswordPlaceholder')}
               error={errors.confirmPassword}
               required
               icon={<Lock className="h-5 w-5 text-gray-400" />}
@@ -159,13 +161,13 @@ const Register = () => {
             loading={loading}
             icon={<UserPlus className="h-5 w-5" />}
           >
-            Create account
+            {t('auth.register')}
           </Button>
           
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            Already have an account?{' '}
+            {t('auth.hasAccount')}{' '}
             <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
-              Sign in
+            {t('auth.login')}
             </Link>
           </div>
         </form>

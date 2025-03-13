@@ -10,6 +10,7 @@ import Button from '../components/ui/Button';
 import { tripAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 
 const Calendar = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ const Calendar = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
+  const { t } = useTranslation();
   
   useEffect(() => {
     fetchTrips();
@@ -35,7 +37,7 @@ const Calendar = () => {
       setTrips(response.data.trips || []);
     } catch (error) {
       console.error('Error fetching trips:', error);
-      toast.error('Failed to load trips');
+      toast.error(t('errors.failedFetch'));
     } finally {
       setLoading(false);
     }
@@ -54,7 +56,7 @@ const Calendar = () => {
       generatedEvents.push({
         date: startDate.format('YYYY-MM-DD'),
         type: 'trip-start',
-        title: `Trip start: ${trip.name}`,
+        title: `${t('calendar.tripStart')}: ${trip.name}`,
         trip: trip
       });
       
@@ -62,7 +64,7 @@ const Calendar = () => {
       generatedEvents.push({
         date: endDate.format('YYYY-MM-DD'),
         type: 'trip-end',
-        title: `Trip end: ${trip.name}`,
+        title: `${t('calendar.tripEnd')}: ${trip.name}`,
         trip: trip
       });
       
@@ -229,9 +231,9 @@ const Calendar = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Calendar</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('calendar.title')}</h1>
           <p className="text-gray-500 dark:text-gray-400">
-            View all your trips in one place
+          {t('calendar.tagline')}
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
@@ -240,14 +242,14 @@ const Calendar = () => {
             onClick={handleTodayClick}
             icon={<CalendarIcon className="h-5 w-5" />}
           >
-            Today
+            {t('common.today')}
           </Button>
           <Button
             variant="primary"
             onClick={() => navigate('/trips/new')}
             icon={<PlusCircle className="h-5 w-5" />}
           >
-            New Trip
+            {t('trips.createTrip')}
           </Button>
         </div>
       </div>
@@ -275,15 +277,15 @@ const Calendar = () => {
           <div className="flex items-center">
             <div className="flex items-center mr-4">
               <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">Trip Start</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.tripStart')}</span>
             </div>
             <div className="flex items-center mr-4">
               <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">During Trip</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.duringTrip')}</span>
             </div>
             <div className="flex items-center">
               <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">Trip End</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.tripEnd')}</span>
             </div>
           </div>
         </CardHeader>
@@ -306,17 +308,17 @@ const Calendar = () => {
             <div className="h-96 flex flex-col items-center justify-center p-6">
               <CalendarIcon className="h-16 w-16 text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No trips planned
+               {t('calendar.noUpcomingTrips')}
               </h3>
               <p className="text-gray-500 dark:text-gray-400 text-center mb-6 max-w-md">
-                You don't have any trips planned yet. Create your first trip to see it on the calendar.
+                {t('calendar.noUpcomingMessage')}
               </p>
               <Button
                 variant="primary"
                 onClick={() => navigate('/trips/new')}
                 icon={<PlusCircle className="h-5 w-5" />}
               >
-                Create First Trip
+                {t('trips.createFirst')}
               </Button>
             </div>
           )}
@@ -324,7 +326,7 @@ const Calendar = () => {
       </Card>
       
       <div className="mt-6">
-        <h2 className="text-xl font-semibold mb-4">Upcoming Trips</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('trips.upcoming')}</h2>
         
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -370,7 +372,7 @@ const Calendar = () => {
                       </div>
                       
                       <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                        View Trip →
+                        {t('trips.viewDetails')} →
                       </div>
                     </div>
                   </CardContent>

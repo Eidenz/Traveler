@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 // Extend dayjs with relativeTime
 dayjs.extend(relativeTime);
@@ -21,6 +22,7 @@ const Dashboard = () => {
   const [upcomingTrip, setUpcomingTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -48,7 +50,7 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Error fetching trips:', error);
-        toast.error('Failed to load trips');
+        toast.error(t('errors.failedFetch'));
       } finally {
         setLoading(false);
       }
@@ -71,14 +73,14 @@ const Dashboard = () => {
           <CardContent className="py-12">
             <div className="text-center">
               <Compass className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No upcoming trips</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">Plan your next adventure now!</p>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('trips.noUpcomingTrips')}</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">{t('trips.tagline')}</p>
               <Button
                 variant="primary"
                 icon={<PlusCircle className="h-5 w-5" />}
                 onClick={() => navigate('/trips/new')}
               >
-                Create New Trip
+                {t('trips.createTrip')}
               </Button>
             </div>
           </CardContent>
@@ -112,21 +114,21 @@ const Dashboard = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
               <Map className="h-6 w-6 text-blue-600 dark:text-blue-400 mb-2" />
-              <div className="text-sm font-medium text-center">{upcomingTrip.location || 'No location'}</div>
+              <div className="text-sm font-medium text-center">{upcomingTrip.location || t('common.noLocation')}</div>
             </div>
             <div className="flex flex-col items-center justify-center p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg">
               <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2" />
               <div className="text-sm font-medium text-center">
-                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') === "0" ? dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') + " days left" : "TOMORROW!"}
+                {dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') === "0" ? dayjs(upcomingTrip.start_date).diff(dayjs(), 'day') + t('common.daysLeft') : t('common.tomorrow')}
               </div>
             </div>
             <div className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/30 rounded-lg">
               <Bed className="h-6 w-6 text-green-600 dark:text-green-400 mb-2" />
-              <div className="text-sm font-medium text-center">Lodging</div>
+              <div className="text-sm font-medium text-center">{t('lodging.title')}</div>
             </div>
             <div className="flex flex-col items-center justify-center p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg">
               <Coffee className="h-6 w-6 text-orange-600 dark:text-orange-400 mb-2" />
-              <div className="text-sm font-medium text-center">Activities</div>
+              <div className="text-sm font-medium text-center">{t('activities.title')}</div>
             </div>
           </div>
           
@@ -134,7 +136,7 @@ const Dashboard = () => {
             to={`/trips/${upcomingTrip.id}`}
             className="flex items-center justify-center w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
           >
-            View Trip Details
+            {t('trips.viewDetails')}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </CardContent>
@@ -146,8 +148,8 @@ const Dashboard = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400">Welcome back to your travel dashboard</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('dashboard.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('dashboard.tagline')}</p>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
           <Button
@@ -155,14 +157,14 @@ const Dashboard = () => {
             onClick={() => navigate('/calendar')}
             icon={<Calendar className="h-5 w-5" />}
           >
-            Calendar
+            {t('navigation.calendar')}
           </Button>
           <Button
             variant="primary"
             onClick={() => navigate('/trips/new')}
             icon={<PlusCircle className="h-5 w-5" />}
           >
-            New Trip
+            {t('trips.createTrip')}
           </Button>
         </div>
       </div>
@@ -170,7 +172,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Upcoming Trip Column */}
         <div className="md:col-span-2">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Upcoming Trip</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('trips.upcoming')}</h2>
           {loading ? (
             <Card>
               <CardContent className="py-12">
@@ -189,7 +191,7 @@ const Dashboard = () => {
         
         {/* Stats Column */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Travel Stats</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('dashboard.travelStats')}</h2>
           <div className="space-y-4">
             <Card>
               <CardContent className="p-4">
@@ -198,7 +200,7 @@ const Dashboard = () => {
                     <Compass className="h-6 w-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Trips</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.totalTrips')}</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {loading ? (
                         <div className="h-6 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -218,7 +220,7 @@ const Dashboard = () => {
                     <Calendar className="h-6 w-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Upcoming Trips</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.upcomingTrips')}</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {loading ? (
                         <div className="h-6 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -238,7 +240,7 @@ const Dashboard = () => {
                     <Package className="h-6 w-6" />
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Shared Trips</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{t('dashboard.sharedTrips')}</div>
                     <div className="text-lg font-semibold text-gray-900 dark:text-white">
                       {loading ? (
                         <div className="h-6 w-12 bg-gray-300 dark:bg-gray-700 rounded animate-pulse"></div>
@@ -256,7 +258,7 @@ const Dashboard = () => {
               to="/trips" 
               className="flex items-center justify-center w-full px-4 py-3 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-medium transition-colors border border-blue-200 dark:border-blue-800"
             >
-              View All Trips
+              {t('dashboard.viewAllTrips')}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>

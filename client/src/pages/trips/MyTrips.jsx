@@ -11,6 +11,7 @@ import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
+import { useTranslation } from 'react-i18next';
 
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
@@ -19,6 +20,7 @@ const MyTrips = () => {
   const [selectedTripId, setSelectedTripId] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { t } = useTranslation();
   
   const navigate = useNavigate();
 
@@ -33,7 +35,7 @@ const MyTrips = () => {
       setTrips(response.data.trips || []);
     } catch (error) {
       console.error('Error fetching trips:', error);
-      toast.error('Failed to load trips');
+      toast.error(t('errors.failedFetch'));
     } finally {
       setLoading(false);
     }
@@ -53,11 +55,11 @@ const MyTrips = () => {
       setIsDeleting(true);
       await tripAPI.deleteTrip(selectedTripId);
       setTrips(trips.filter(trip => trip.id !== selectedTripId));
-      toast.success('Trip deleted successfully');
+      toast.success(t('trips.deleteSuccess'));
       setIsDeleteModalOpen(false);
     } catch (error) {
       console.error('Error deleting trip:', error);
-      toast.error('Failed to delete trip');
+      toast.error(t('errors.deleteFailed'));
     } finally {
       setIsDeleting(false);
     }
@@ -77,12 +79,12 @@ const MyTrips = () => {
     
     if (now < start) {
       return {
-        label: 'Upcoming',
+        label: t('trips.upcoming'),
         className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
       };
     } else if (now > end) {
       return {
-        label: 'Past',
+        label: t('trips.past'),
         className: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
       };
     } else {
@@ -96,17 +98,17 @@ const MyTrips = () => {
   const getRoleLabel = (role) => {
     if (role === 'owner') {
       return {
-        label: 'Owner',
+        label: t('trips.owner'),
         className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
       };
     } else if (role === 'editor') {
       return {
-        label: 'Editor',
+        label: t('trips.editor'),
         className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
       };
     } else {
       return {
-        label: 'Viewer',
+        label: t('trips.viewer'),
         className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
       };
     }
@@ -121,8 +123,8 @@ const MyTrips = () => {
     <div className="max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Trips</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage and explore your travel plans</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('trips.title')}</h1>
+          <p className="text-gray-500 dark:text-gray-400">{t('trips.tagline2')}</p>
         </div>
         <Button
           variant="primary"
@@ -130,7 +132,7 @@ const MyTrips = () => {
           onClick={() => navigate('/trips/new')}
           icon={<PlusCircle className="h-5 w-5" />}
         >
-          New Trip
+          {t('trips.createTrip')}
         </Button>
       </div>
 
@@ -140,7 +142,7 @@ const MyTrips = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           <input
             type="text"
-            placeholder="Search trips by name or location..."
+            placeholder={t('trips.search')}
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -247,7 +249,7 @@ const MyTrips = () => {
                         </div>
                       </div>
                       <button className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                        View Trip →
+                      {t('trips.viewDetails')} →
                       </button>
                     </div>
                   </CardContent>
@@ -261,11 +263,11 @@ const MyTrips = () => {
           <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
             <Calendar className="h-8 w-8 text-gray-500 dark:text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No trips found</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">{t('trips.noTrips')}</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
             {searchTerm 
               ? `No trips matching "${searchTerm}". Try a different search term.` 
-              : "You haven't created any trips yet. Start planning your next adventure!"}
+              : t('trips.noTripsMessage')}
           </p>
           {!searchTerm && (
             <Button
@@ -273,7 +275,7 @@ const MyTrips = () => {
               onClick={() => navigate('/trips/new')}
               icon={<PlusCircle className="h-5 w-5" />}
             >
-              Create First Trip
+              {t('trips.createFirst')}
             </Button>
           )}
         </div>
@@ -288,7 +290,7 @@ const MyTrips = () => {
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Are you sure you want to delete this trip? This action cannot be undone.
+            {t('trips.deleteConfirm')}
           </p>
           <div className="flex justify-end space-x-3">
             <Button
@@ -296,7 +298,7 @@ const MyTrips = () => {
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={isDeleting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="danger"
@@ -304,7 +306,7 @@ const MyTrips = () => {
               loading={isDeleting}
               icon={<Trash2 className="h-5 w-5" />}
             >
-              Delete
+              {t('common.delete')}
             </Button>
           </div>
         </div>

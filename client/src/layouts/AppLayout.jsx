@@ -10,6 +10,8 @@ import useThemeStore from '../stores/themeStore';
 import toast from 'react-hot-toast';
 import { getImageUrl } from '../utils/imageUtils';
 import { tripAPI } from '../services/api';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 const AppLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -19,6 +21,7 @@ const AppLayout = () => {
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Fetch user trips for the sidebar
   useEffect(() => {
@@ -103,8 +106,8 @@ const AppLayout = () => {
         `}
       >
         <div className="flex items-center h-16 px-6 border-b border-gray-200 dark:border-gray-700">
-          <img className="mr-3" src="../../public/logo.svg" width={40} alt="logo"/>
-          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">Traveler</h1>
+          <img className="mr-3" src="/logo.svg" width={40} alt="logo"/>
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-blue-500">{t('app.name')}</h1>
           <button 
             className="lg:hidden p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
             onClick={() => setIsSidebarOpen(false)}
@@ -117,7 +120,7 @@ const AppLayout = () => {
           <nav className="space-y-6">
             <div>
               <p className="px-2 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Main
+              {t('navigation.main')}
               </p>
               <ul className="space-y-1">
                 <li>
@@ -132,7 +135,7 @@ const AppLayout = () => {
                     `}
                   >
                     <Home className="mr-3 h-5 w-5" />
-                    Dashboard
+                    {t('navigation.dashboard')}
                   </NavLink>
                 </li>
                 <li>
@@ -147,7 +150,7 @@ const AppLayout = () => {
                     `}
                   >
                     <Compass className="mr-3 h-5 w-5" />
-                    My Trips
+                    {t('navigation.myTrips')}
                   </NavLink>
                 </li>
                 <li>
@@ -162,7 +165,7 @@ const AppLayout = () => {
                     `}
                   >
                     <Calendar className="mr-3 h-5 w-5" />
-                    Calendar
+                    {t('navigation.calendar')}
                   </NavLink>
                 </li>
               </ul>
@@ -170,7 +173,7 @@ const AppLayout = () => {
 
             <div>
               <p className="px-2 mb-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Your Trips
+              {t('navigation.yourTrips')}
               </p>
               {loading ? (
                 <div className="animate-pulse space-y-2 px-2">
@@ -182,7 +185,7 @@ const AppLayout = () => {
                 <ul className="space-y-1">
                   {upcomingTrips.length > 0 && (
                     <>
-                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Upcoming</p>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">{t('trips.upcoming')}</p>
                       {upcomingTrips.slice(0, 3).map(trip => (
                         <li key={`upcoming-${trip.id}`}>
                           <Link 
@@ -199,7 +202,7 @@ const AppLayout = () => {
 
                   {sharedTrips.length > 0 && (
                     <>
-                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Shared with me</p>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">{t('trips.shared')}</p>
                       {sharedTrips.slice(0, 3).map(trip => (
                         <li key={`shared-${trip.id}`}>
                           <Link 
@@ -216,7 +219,7 @@ const AppLayout = () => {
 
                   {pastTrips.length > 0 && (
                     <>
-                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">Past</p>
+                      <p className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400 mt-2">{t('trips.past')}</p>
                       {pastTrips.slice(0, 3).map(trip => (
                         <li key={`past-${trip.id}`}>
                           <Link 
@@ -233,7 +236,7 @@ const AppLayout = () => {
                   
                   {trips.length === 0 && (
                     <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                      No trips yet
+                      {t('trips.noTrips')}
                     </li>
                   )}
                 </ul>
@@ -247,7 +250,7 @@ const AppLayout = () => {
               className="flex items-center justify-center w-full px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
             >
               <PlusCircle className="mr-2 h-5 w-5" />
-              New Trip
+              {t('navigation.createTrip')}
             </button>
           </div>
         </div>
@@ -271,12 +274,15 @@ const AppLayout = () => {
             </span>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder={t('common.search')}
               className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           <div className="flex items-center ml-auto space-x-4">
+            {/* Language switcher */}
+            <LanguageSwitcher />
+            
             {/* Theme toggle */}
             <button 
               onClick={toggleTheme}
@@ -322,14 +328,14 @@ const AppLayout = () => {
                     className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <User className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
-                    Profile
+                    {t('auth.profile')}
                   </a>
                   <a 
                     href="#" 
                     className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <Settings className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
-                    Settings
+                    {t('auth.settings')}
                   </a>
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
                   <button 
@@ -337,7 +343,7 @@ const AppLayout = () => {
                     className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <LogOut className="h-4 w-4 mr-3 text-red-500" />
-                    Sign out
+                    {t('auth.logout')}
                   </button>
                 </div>
               )}

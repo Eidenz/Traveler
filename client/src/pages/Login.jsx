@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
+import { useTranslation } from 'react-i18next';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ const Login = () => {
   
   const { login, isAuthenticated, loading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -45,13 +47,13 @@ const Login = () => {
     const newErrors = {};
     
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('auth.emailRequired');
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
+      newErrors.email = t('auth.invalidEmail');
     }
     
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('auth.passwordRequired');
     }
     
     setErrors(newErrors);
@@ -64,7 +66,7 @@ const Login = () => {
     if (validateForm()) {
       try {
         await login(formData);
-        toast.success('Logged in successfully');
+        toast.success(t('auth.loginSuccess'));
         navigate('/dashboard');
       } catch (error) {
         // Error is handled by the auth store
@@ -76,35 +78,35 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Welcome back</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('auth.welcomeBack')}</h1>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Sign in to your Traveler account
+          {t('auth.loginTagline')}
           </p>
         </div>
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <Input
-              label="Email address"
+              label={t('auth.email')}
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Your email"
+              placeholder={t('sharing.emailPlaceholder')}
               error={errors.email}
               required
               icon={<Mail className="h-5 w-5 text-gray-400" />}
             />
             
             <Input
-              label="Password"
+              label={t('auth.password')}
               type="password"
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Your password"
+              placeholder={t('auth.passwordPlaceholder')}
               error={errors.password}
               required
               icon={<Lock className="h-5 w-5 text-gray-400" />}
@@ -120,13 +122,13 @@ const Login = () => {
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
-                Remember me
+              {t('auth.rememberMe')}
               </label>
             </div>
             
             <div className="text-sm">
               <Link to="/forgot-password" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
-                Forgot your password?
+              {t('auth.forgotPassword')}
               </Link>
             </div>
           </div>
@@ -139,13 +141,13 @@ const Login = () => {
             loading={loading}
             icon={<LogIn className="h-5 w-5" />}
           >
-            Sign in
+            {t('auth.login')}
           </Button>
           
           <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-            Don't have an account?{' '}
+          {t('auth.noAccount')}{' '}
             <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
-              Sign up now
+            {t('auth.signUpNow')}
             </Link>
           </div>
         </form>
