@@ -261,14 +261,10 @@ const AppLayout = () => {
         {/* Header */}
         <header className="flex items-center h-16 px-6 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
           <button 
-            onClick={toggleTheme}
-            className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="p-1 mr-4 rounded-full lg:hidden hover:bg-gray-100 dark:hover:bg-gray-700"
+            onClick={() => setIsSidebarOpen(true)}
           >
-            {theme === 'dark' ? (
-              <Sun className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-            ) : (
-              <Moon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-            )}
+            <Menu className="h-6 w-6 text-gray-600 dark:text-gray-300" />
           </button>
 
           <div className="flex items-center ml-auto space-x-4">
