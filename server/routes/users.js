@@ -150,4 +150,121 @@ router.get('/search', (req, res) => {
   }
 });
 
+router.delete(
+  '/account',
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+      const { password } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ message: 'Password is required for account deletion' });
+      }
+      
+      // Get user
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Incorrect password' });
+      }
+      
+      // Start a transaction to delete all user data
+      db.prepare('BEGIN TRANSACTION').run();
+      
+      try {
+        // Get all trips where user is owner
+        const ownedTrips = db.prepare('SELECT id FROM trips WHERE owner_id = ?').all(userId);
+        
+        // For each owned trip
+        for (const trip of ownedTrips) {
+          // Get all documents related to this trip
+          const tripDocuments = db.prepare(`
+            SELECT d.file_path FROM documents d
+            WHERE (d.reference_type = 'trip' AND d.reference_id = ?) OR
+                  (d.reference_type = 'transportation' AND d.reference_id IN 
+                    (SELECT id FROM transportation WHERE trip_id = ?)) OR
+                  (d.reference_type = 'lodging' AND d.reference_id IN 
+                    (SELECT id FROM lodging WHERE trip_id = ?)) OR
+                  (d.reference_type = 'activity' AND d.reference_id IN 
+                    (SELECT id FROM activities WHERE trip_id = ?))
+          `).all(trip.id, trip.id, trip.id, trip.id);
+          
+          // Delete document files
+          for (const doc of tripDocuments) {
+            try {
+              const filePath = path.join(__dirname, '..', doc.file_path);
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+              }
+            } catch (err) {
+              console.error(`Error deleting file: ${doc.file_path}`, err);
+              // Continue deletion process
+            }
+          }
+        }
+        
+        // Delete all trip_members entries for this user (both owned and shared)
+        db.prepare('DELETE FROM trip_members WHERE user_id = ?').run(userId);
+        
+        // Delete owned trips (will cascade delete related entities)
+        db.prepare('DELETE FROM trips WHERE owner_id = ?').run(userId);
+        
+        // Delete all documents uploaded by this user that aren't deleted by cascade
+        const remainingDocs = db.prepare('SELECT file_path FROM documents WHERE uploaded_by = ?').all(userId);
+        
+        // Delete document files
+        for (const doc of remainingDocs) {
+          try {
+            const filePath = path.join(__dirname, '..', doc.file_path);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          } catch (err) {
+            console.error(`Error deleting file: ${doc.file_path}`, err);
+            // Continue deletion process
+          }
+        }
+        
+        // Delete documents in the database
+        db.prepare('DELETE FROM documents WHERE uploaded_by = ?').run(userId);
+        
+        // Delete profile image if it exists
+        if (user.profile_image) {
+          try {
+            const imagePath = path.join(__dirname, '..', user.profile_image);
+            if (fs.existsSync(imagePath)) {
+              fs.unlinkSync(imagePath);
+            }
+          } catch (err) {
+            console.error(`Error deleting profile image: ${user.profile_image}`, err);
+            // Continue deletion process
+          }
+        }
+        
+        // Finally delete the user
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+        
+        // Commit transaction
+        db.prepare('COMMIT').run();
+        
+        return res.status(200).json({ message: 'Account deleted successfully' });
+      } catch (error) {
+        // Rollback on error
+        db.prepare('ROLLBACK').run();
+        console.error('Transaction error during account deletion:', error);
+        return res.status(500).json({ message: 'Error during account deletion process' });
+      }
+    } catch (error) {
+      console.error('Account deletion error:', error);
+      return res.status(500).json({ message: 'Server error during account deletion' });
+    }
+  }
+);
+
 module.exports = router;

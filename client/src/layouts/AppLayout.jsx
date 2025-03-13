@@ -88,6 +88,10 @@ const AppLayout = () => {
     navigate('/login');
   };
 
+  const handleProfile = () => {
+    navigate('/profile');
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar Overlay */}
@@ -312,13 +316,13 @@ const AppLayout = () => {
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{user?.name}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
                   </div>
-                  <a 
-                    href="#" 
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  <button 
+                    onClick={handleProfile}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     <User className="h-4 w-4 mr-3 text-gray-500 dark:text-gray-400" />
                     {t('auth.profile')}
-                  </a>
+                  </button>
                   <a 
                     href="#" 
                     className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"

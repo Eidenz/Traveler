@@ -64,6 +64,9 @@ export const userAPI = {
   }),
   changePassword: (passwordData) => api.put('/users/password', passwordData),
   searchUsers: (query) => api.get(`/users/search?query=${query}`),
+  deleteAccount: (password) => api.delete('/users/account', { 
+    data: { password } 
+  }),
 };
 
 // Trip API
