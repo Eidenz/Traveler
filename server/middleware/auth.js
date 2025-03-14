@@ -44,7 +44,19 @@ const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
   return (req, res, next) => {
     try {
       // Look for tripId in URL params, query params, or request body
-      const tripId = req.params.tripId || req.query.tripId || (req.body && req.body.trip_id);
+      let tripId = req.params.tripId || req.query.tripId || (req.body && req.body.trip_id);
+      
+      // If we have a checklistId but no tripId, try to get the tripId from the checklist
+      if (!tripId && req.params.checklistId) {
+        const checklistId = req.params.checklistId;
+        const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(checklistId);
+        if (checklist) {
+          tripId = checklist.trip_id;
+          // Add it to the request body for later middleware
+          if (!req.body) req.body = {};
+          req.body.trip_id = tripId;
+        }
+      }
       
       if (!tripId) {
         return res.status(400).json({ message: 'Trip ID is required' });

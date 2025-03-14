@@ -13,6 +13,7 @@ import TransportModal from '../../components/trips/TransportModal';
 import LodgingModal from '../../components/trips/LodgingModal';
 import ActivityModal from '../../components/trips/ActivityModal';
 import PDFViewerModal from '../../components/trips/PDFViewerModal';
+import TripChecklist from '../../components/trips/TripChecklist';
 import { tripAPI, transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -753,6 +754,18 @@ const TripDetail = () => {
           >
             {t('activities.title')}
           </button>
+
+          {/* Add Checklist Tab button here */}
+          <button 
+            onClick={() => setActiveTab('checklist')}
+            className={`px-4 py-2 border-b-2 font-medium text-sm whitespace-nowrap ${
+              activeTab === 'checklist' 
+                ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500' 
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+            }`}
+          >
+            Checklists
+          </button>
           
           <button 
             onClick={() => setActiveTab('calendar')}
@@ -1420,6 +1433,20 @@ const TripDetail = () => {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Checklist Tab */}
+        {activeTab === 'checklist' && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Trip Checklists</h2>
+            </div>
+            
+            <TripChecklist 
+              tripId={tripId} 
+              canEdit={canEdit()}
+            />
           </div>
         )}
       </div>

@@ -129,6 +129,47 @@ function initializeDatabase() {
         )
       `);
 
+      // Create Checklists table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS checklists (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          created_by INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
+      // Create Checklist Items table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS checklist_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          checklist_id INTEGER NOT NULL,
+          description TEXT NOT NULL,
+          note TEXT,
+          status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'skipped')),
+          collective_status TEXT DEFAULT 'pending' CHECK(collective_status IN ('pending', 'partial', 'complete')),
+          updated_by INTEGER,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (checklist_id) REFERENCES checklists (id) ON DELETE CASCADE,
+          FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS checklist_item_user_status (
+          item_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('pending', 'checked', 'skipped')),
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (item_id, user_id),
+          FOREIGN KEY (item_id) REFERENCES checklist_items (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
       console.log('Database initialized successfully');
       resolve();
     } catch (error) {

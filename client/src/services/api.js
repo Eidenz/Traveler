@@ -153,4 +153,17 @@ export const documentAPI = {
   }),
 };
 
+// Checklist API
+export const checklistAPI = {
+  getTripChecklists: (tripId) => api.get(`/checklists/trip/${tripId}`),
+  getChecklist: (checklistId) => api.get(`/checklists/${checklistId}`),
+  createChecklist: (tripId, name) => api.post(`/checklists/trip/${tripId}`, { name }),
+  updateChecklist: (checklistId, name, tripId) => api.put(`/checklists/${checklistId}`, { name, tripId }),
+  deleteChecklist: (checklistId, tripId) => api.delete(`/checklists/${checklistId}`, tripId),
+  createChecklistItem: (checklistId, itemData, tripId) => api.post(`/checklists/${checklistId}/items`, { ...itemData, trip_id: tripId }),
+  updateChecklistItem: (itemId, itemData, tripId) => api.put(`/checklists/items/${itemId}`, { ...itemData, trip_id: tripId }),
+  updateUserItemStatus: (itemId, status, tripId) => api.patch(`/checklists/items/${itemId}/user-status`, { status, trip_id: tripId }),
+  deleteChecklistItem: (itemId, tripId) => api.delete(`/checklists/items/${itemId}`, tripId),
+};
+
 export default api;
