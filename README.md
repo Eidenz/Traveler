@@ -210,8 +210,6 @@ The application includes multilingual support:
 ## Future Enhancements
 
 - Travel budget tracking
-- Weather forecasts for destinations
-- Map integration
 
 ## License
 

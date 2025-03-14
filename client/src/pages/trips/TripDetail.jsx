@@ -793,17 +793,29 @@ const TripDetail = () => {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     {/* Quick Info Cards */}
-                    <div className="flex items-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/30">
+                    <div className="flex items-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/30 
+                                  transition-all duration-200 
+                                  hover:shadow-md 
+                                  hover:translate-y-[-2px]">
                       <Map className="text-blue-500 dark:text-blue-400 mr-4" size={24} />
-                      <div>
+                      <div 
+                        className={`${trip.location ? 'cursor-pointer' : ''}`}
+                        onClick={() => trip.location ? window.open(`https://www.google.com/maps/search/${trip.location}`) : null}
+                      >
                         <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.destination')}</div>
                         <div className="font-medium">{trip.location || t('common.noLocation')}</div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/30">
+                    <div className="flex items-center p-4 rounded-lg bg-purple-50 dark:bg-purple-900/30
+                                  transition-all duration-200 
+                                  hover:shadow-md 
+                                  hover:translate-y-[-2px]">
                       <Calendar className="text-purple-500 dark:text-purple-400 mr-4" size={24} />
-                      <div>
+                      <div
+                        className='cursor-pointer'
+                        onClick={() => setActiveTab('calendar')}
+                      >
                         <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.duration')}</div>
                         <div className="font-medium">
                           {dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day')} {t('trips.days')}
@@ -811,17 +823,29 @@ const TripDetail = () => {
                       </div>
                     </div>
                     
-                    <div className="flex items-center p-4 rounded-lg bg-green-50 dark:bg-green-900/30">
+                    <div className="flex items-center p-4 rounded-lg bg-green-50 dark:bg-green-900/30
+                                  transition-all duration-200 
+                                  hover:shadow-md 
+                                  hover:translate-y-[-2px]">
                       <Bed className="text-green-500 dark:text-green-400 mr-4" size={24} />
-                      <div>
+                      <div
+                        className='cursor-pointer'
+                        onClick={() => setActiveTab('lodging')}
+                      >
                         <div className="text-sm text-gray-500 dark:text-gray-400">{t('lodging.title')}</div>
                         <div className="font-medium">{lodging.length} {t('lodging.title').toLowerCase()}</div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/30">
+                    <div className="flex items-center p-4 rounded-lg bg-orange-50 dark:bg-orange-900/30
+                                  transition-all duration-200 
+                                  hover:shadow-md 
+                                  hover:translate-y-[-2px]">
                       <Coffee className="text-orange-500 dark:text-orange-400 mr-4" size={24} />
-                      <div>
+                      <div
+                        className='cursor-pointer'
+                        onClick={() => setActiveTab('activities')}
+                      >
                         <div className="text-sm text-gray-500 dark:text-gray-400">{t('activities.title')}</div>
                         <div className="font-medium">{activities.length} {t('activities.title').toLowerCase()}</div>
                       </div>
