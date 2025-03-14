@@ -31,15 +31,25 @@ For any issues or questions, consider consulting online resources, community for
 - **Document Storage**: Store tickets, reservations, and other important documents
 - **Trip Sharing**: Share trips with others and manage permissions
 - **Calendar View**: See all your travel plans in a calendar view
+- **Offline Support**: Access your trips and documents even when offline
+- **Multilingual Support**: Available in multiple languages (English, French)
+- **Dark Mode**: Full dark theme support for comfortable night-time usage
+- **Mobile Responsive**: Fully responsive design for all device sizes
+- **PDF Viewer**: Built-in viewer for PDF documents and tickets
+- **User Profiles**: Edit profile, update password, and manage account
+- **Real-time Permission Management**: Control sharing access levels (view/edit)
 
 ## Tech Stack
 
-- **Frontend**: React, Tailwind CSS, Zustand for state management
+- **Frontend**: React 19, Tailwind CSS, Zustand for state management
 - **Backend**: Node.js, Express
 - **Database**: SQLite (with better-sqlite3)
 - **Authentication**: JWT
 - **File Storage**: Local filesystem
 - **Containerization**: Docker
+- **Internationalization**: i18next for multilingual support
+- **Offline Storage**: IndexedDB for offline data persistence
+- **Documents**: PDF support with built-in viewer
 
 ## Getting Started
 
@@ -138,6 +148,12 @@ traveler/
 - `POST /api/auth/login` - Login a user
 - `GET /api/auth/me` - Get current user information
 
+### User Management
+- `GET /api/users/profile` - Get user profile
+- `PUT /api/users/profile` - Update user profile
+- `PUT /api/users/password` - Change user password
+- `DELETE /api/users/account` - Delete user account
+
 ### Trips
 - `GET /api/trips` - Get all user trips
 - `GET /api/trips/:tripId` - Get a single trip
@@ -145,6 +161,7 @@ traveler/
 - `PUT /api/trips/:tripId` - Update a trip
 - `DELETE /api/trips/:tripId` - Delete a trip
 - `POST /api/trips/:tripId/share` - Share a trip with another user
+- `DELETE /api/trips/:tripId/members/:userId` - Remove a user from a trip
 
 ### Transportation
 - `GET /api/transportation/trip/:tripId` - Get all transportation for a trip
@@ -168,7 +185,26 @@ traveler/
 - `POST /api/documents` - Upload a document
 - `GET /api/documents/:documentId` - Get document metadata
 - `GET /api/documents/:documentId/download` - Download a document
+- `GET /api/documents/:documentId/view` - View a document
 - `DELETE /api/documents/:documentId` - Delete a document
+- `GET /api/documents/reference/:reference_type/:reference_id` - Get documents for a reference
+
+## Offline Features
+
+The application supports full offline functionality:
+- Save trips for offline access
+- View all trip details including transportation, lodging, and activities
+- Access saved documents when offline
+- Automatic offline mode detection
+- Visual indicators for offline content
+
+## Multilingual Support
+
+The application includes multilingual support:
+- English (default)
+- French
+- Language switcher in the user interface
+- Automatic language detection based on browser settings
 
 ## Future Enhancements
 
