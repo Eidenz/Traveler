@@ -30,6 +30,7 @@ For any issues or questions, consider consulting online resources, community for
 - **Activity Planning**: Plan activities and excursions
 - **Document Storage**: Store tickets, reservations, and other important documents
 - **Trip Sharing**: Share trips with others and manage permissions
+- **Trip Checklists**: Create trip checklists to ensure everyone is ready for the journey
 - **Calendar View**: See all your travel plans in a calendar view
 - **Offline Support**: Access your trips and documents even when offline
 - **Multilingual Support**: Available in multiple languages (English, French)
