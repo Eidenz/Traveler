@@ -5,6 +5,7 @@
     },
     "common": {
       "loading": "Loading...",
+      "create": "Create",
       "cancel": "Cancel",
       "save": "Save",
       "delete": "Delete",
@@ -90,7 +91,8 @@
       "tripOverview": "Trip Overview",
       "destination": "Destination",
       "duration": "Duration",
-      "days": "days"
+      "days": "days",
+      "checklists": "Trip Checklists"
     },
     "transportation": {
       "title": "Transportation",
@@ -264,6 +266,8 @@
       "namePlaceholder": "e.g. Packing List",
       "noChecklists": "No checklists yet",
       "noChecklistsMessage": "Create a checklist to stay organized for your trip!",
+      "selectChecklist": "Select a checklist",
+      "selectChecklistMessage": "Choose a checklist from the left or create a new one to get started.",
       "itemsTitle": "Items",
       "addItem": "Add Item",
       "editItem": "Edit Item",
@@ -284,15 +288,20 @@
       "itemAdded": "Item added successfully",
       "itemUpdated": "Item updated successfully",
       "itemDeleted": "Item deleted successfully",
+      "whoChecked": "Who has checked this item:",
       "checklistCreated": "Checklist created successfully",
       "checklistUpdated": "Checklist updated successfully",
       "checklistDeleted": "Checklist deleted successfully",
+      "actioned": "YOU'VE ACTIONED",
       "todoItems": "TODO",
       "completedItems": "COMPLETED",
       "skippedItems": "SKIPPED",
       "of": "of",
+      "pending": "pending",
       "complete": "complete",
-      "progress": "Progress"
+      "progress": "Progress",
+      "skipped": "skipped",
+      "unskipped": "unskipped"
     },
     "errors": {
       "required": "{{field}} is required",

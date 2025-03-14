@@ -294,7 +294,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                 item.id === itemId ? {
                   ...response.data.item,
                   user_statuses: currentItem?.user_statuses || [],
-                  current_user_status: currentItem?.current_user_status || 'pending',
+                  current_user_status: currentItem?.current_user_status || t('checklists.pending'),
                   completion: currentItem?.completion || {
                     total_members: 0,
                     checked_count: 0,
@@ -314,7 +314,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
         note: ''
       });
       
-      toast.success('Item updated successfully');
+      toast.success(t('checklists.itemUpdated'));
     } catch (error) {
       console.error('Error updating checklist item:', error);
       toast.error(error.response?.data?.message || 'Failed to update item');
@@ -336,7 +336,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
           : checklist
       ));
       
-      toast.success('Item deleted successfully');
+      toast.success(t('checklists.itemDeleted'));
     } catch (error) {
       console.error('Error deleting checklist item:', error);
       toast.error(error.response?.data?.message || 'Failed to delete item');
@@ -388,7 +388,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
           : checklist
       ));
       
-      toast.success(`Item ${newStatus === 'skipped' ? 'skipped' : 'unskipped'}`);
+      toast.success(`Item ${newStatus === 'skipped' ? t('checklists.skipped') : t('checklists.unskipped')}`);
     } catch (error) {
       console.error('Error updating checklist item status:', error);
       toast.error(error.response?.data?.message || 'Failed to update item status');
@@ -464,7 +464,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
       {/* Checklists Column */}
       <div className="md:col-span-1">
         <div className="mb-4 flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Checklists</h2>
+          <h2 className="text-lg font-semibold">{t('checklists.title')}</h2>
           {canEdit && (
             <Button
               variant="primary"
@@ -472,7 +472,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
               icon={<PlusCircle className="h-4 w-4" />}
               onClick={() => setNewChecklistName('')}
             >
-              Add List
+              {t('checklists.add')}
             </Button>
           )}
         </div>
@@ -494,7 +494,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                   size="sm"
                   className="flex-1"
                 >
-                  Create
+                  {t('common.create')}
                 </Button>
                 <Button
                   type="button"
@@ -502,7 +502,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                   size="sm"
                   onClick={() => setNewChecklistName(null)}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </form>
@@ -539,7 +539,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                         className="flex-1"
                         onClick={() => handleUpdateChecklist(checklist.id)}
                       >
-                        Save
+                        {t('common.save')}
                       </Button>
                       <Button
                         type="button"
@@ -547,7 +547,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                         size="sm"
                         onClick={handleCancelEditChecklist}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                     </div>
                   </div>
@@ -583,7 +583,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                                   }}
                                 >
                                   <Edit className="h-4 w-4 inline mr-2" />
-                                  Edit
+                                  {t('common.edit')}
                                 </button>
                                 <button
                                   type="button"
@@ -594,7 +594,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                                   }}
                                 >
                                   <Trash2 className="h-4 w-4 inline mr-2" />
-                                  Delete
+                                  {t('common.delete')}
                                 </button>
                               </div>
                             </div>
@@ -607,7 +607,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
                     <div className="mt-2">
                       <div className="flex justify-between text-xs mb-1">
                         <span>
-                          {checklist.items?.filter(item => item.completion && item.completion.is_complete).length || 0} of {checklist.total_items || 0} complete
+                          {checklist.items?.filter(item => item.completion && item.completion.is_complete).length || 0} of {checklist.total_items || 0} {t('checklists.complete')}
                         </span>
                         <span>{getCompletionPercentage(checklist)}%</span>
                       </div>
@@ -626,7 +626,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
             <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <CheckSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-500 dark:text-gray-400">
-                No checklists yet. Create one to stay organized for your trip!
+                {t('checklists.noChecklists')} {t('checklists.noChecklistsMessage')}
               </p>
             </div>
           )}
@@ -659,10 +659,10 @@ const TripChecklist = ({ tripId, canEdit }) => {
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <CheckSquare className="h-12 w-12 text-gray-400 mb-4" />
             <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Select a checklist
+              {t('checklists.selectChecklist')}
             </h2>
             <p className="text-gray-500 dark:text-gray-400">
-              Choose a checklist from the left or create a new one to get started.
+              {t('checklists.selectChecklistMessage')}
             </p>
           </div>
         )}
@@ -692,6 +692,7 @@ const ChecklistDetail = ({
   toggleUserStatusList
 }) => {
   const [showNotes, setShowNotes] = useState({});
+  const { t } = useTranslation();
   
   if (!checklist) return null;
   
@@ -727,7 +728,7 @@ const ChecklistDetail = ({
             icon={<PlusCircle className="h-4 w-4" />}
             onClick={() => handleAddItem(checklist.id)}
           >
-            Add Item
+            {t('checklists.addItem')}
           </Button>
         )}
       </div>
@@ -757,14 +758,14 @@ const ChecklistDetail = ({
                   size="sm"
                   onClick={() => setNewItemForm({ checklistId: null, description: '', note: '' })}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   variant="primary"
                   size="sm"
                 >
-                  Add
+                  {t('checklists.addItem')}
                 </Button>
               </div>
             </form>
@@ -777,7 +778,7 @@ const ChecklistDetail = ({
         {/* Pending Items - Items that the current user hasn't checked or skipped */}
         {pendingItems.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">TODO</h3>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{t('checklists.todoItems')}</h3>
             <div className="space-y-2">
               {pendingItems.map(item => (
                 <ItemCard
@@ -806,7 +807,7 @@ const ChecklistDetail = ({
         {/* Items that the current user has actioned but aren't fully complete */}
         {userActionedItems.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">YOU'VE ACTIONED</h3>
+            <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">{t('checklists.actioned')}</h3>
             <div className="space-y-2">
               {userActionedItems.map(item => (
                 <ItemCard
@@ -835,7 +836,7 @@ const ChecklistDetail = ({
         {/* Completed Items - Items that everyone has actioned */}
         {completedItems.length > 0 && (
           <div>
-            <h3 className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">COMPLETED</h3>
+            <h3 className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">{t('checklists.completedItems')}</h3>
             <div className="space-y-2">
               {completedItems.map(item => (
                 <ItemCard
@@ -866,10 +867,10 @@ const ChecklistDetail = ({
           <div className="text-center py-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <CheckSquare className="h-10 w-10 text-gray-400 mx-auto mb-3" />
             <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
-              No items in this checklist yet
+              {t('checklists.noItems')}
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Start adding items to keep track of what you need for this trip.
+              {t('checklists.noItemsMessage')}
             </p>
             {canEdit && (
               <Button
@@ -878,7 +879,7 @@ const ChecklistDetail = ({
                 onClick={() => handleAddItem(checklist.id)}
                 icon={<PlusCircle className="h-4 w-4" />}
               >
-                Add First Item
+                {t('checklists.addItem')}
               </Button>
             )}
           </div>
@@ -907,6 +908,7 @@ const ItemCard = ({
   toggleUserStatusList
 }) => {
   const hasNote = item.note && item.note.trim().length > 0;
+  const { t } = useTranslation();
   
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
@@ -1024,7 +1026,7 @@ const ItemCard = ({
                 onClick={() => onEdit(null)}
                 icon={<X className="h-4 w-4" />}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
@@ -1032,7 +1034,7 @@ const ItemCard = ({
                 size="sm"
                 icon={<Save className="h-4 w-4" />}
               >
-                Save
+                {t('common.save')}
               </Button>
             </div>
           </form>
@@ -1079,7 +1081,7 @@ const ItemCard = ({
               <div className="mt-2">
                 <div className="flex justify-between text-xs mb-1">
                   <span>
-                    {Math.round(item.completion?.percentage || 0)}% complete
+                    {Math.round(item.completion?.percentage || 0)}% {t('checklists.complete')}
                   </span>
                   <button 
                     onClick={toggleUserStatusList}
@@ -1108,7 +1110,7 @@ const ItemCard = ({
               {/* User status list - who has checked/skipped the item */}
               {showUserStatuses && item.user_statuses && item.user_statuses.length > 0 && (
                 <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm">
-                  <div className="text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">Who has checked this item:</div>
+                  <div className="text-xs font-medium mb-1 text-gray-500 dark:text-gray-400">{t('checklists.whoChecked')}</div>
                   <div className="space-y-1">
                     {item.user_statuses.map(status => (
                       <div key={status.user_id} className="flex items-center justify-between">

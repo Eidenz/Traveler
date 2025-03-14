@@ -5,6 +5,7 @@
     },
     "common": {
       "loading": "Chargement...",
+      "create": "Créer",
       "cancel": "Annuler",
       "save": "Enregistrer",
       "delete": "Supprimer",
@@ -90,7 +91,8 @@
       "tripOverview": "Aperçu du voyage",
       "destination": "Destination",
       "duration": "Durée",
-      "days": "jours"
+      "days": "jours",
+      "checklists": "Checklists du voyage"
     },
     "transportation": {
       "title": "Transport",
@@ -255,15 +257,17 @@
       "account": "compte"
     },
     "checklists": {
-      "title": "Listes de contrôle",
+      "title": "Checklists",
       "add": "Ajouter une liste",
       "edit": "Modifier la liste",
       "delete": "Supprimer la liste",
       "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette liste de contrôle ? Cette action ne peut pas être annulée.",
       "name": "Nom de la liste",
       "namePlaceholder": "ex. Liste de bagages",
-      "noChecklists": "Pas encore de listes de contrôle",
+      "noChecklists": "Pas encore de checklists",
       "noChecklistsMessage": "Créez une liste de contrôle pour rester organisé pour votre voyage !",
+      "selectChecklist": "Sélectionnez une liste",
+      "selectChecklistMessage": "Sélectionnez une liste sur la gauche ou créez-en une nouvelle pour commencer.",
       "itemsTitle": "Éléments",
       "addItem": "Ajouter un élément",
       "editItem": "Modifier l'élément",
@@ -284,15 +288,20 @@
       "itemAdded": "Élément ajouté avec succès",
       "itemUpdated": "Élément mis à jour avec succès",
       "itemDeleted": "Élément supprimé avec succès",
+      "whoChecked": "Qui a coché cet élément :",
       "checklistCreated": "Liste de contrôle créée avec succès",
       "checklistUpdated": "Liste de contrôle mise à jour avec succès",
       "checklistDeleted": "Liste de contrôle supprimée avec succès",
+      "actioned": "VOUS AVEZ AGI",
       "todoItems": "À FAIRE",
       "completedItems": "TERMINÉ",
       "skippedItems": "IGNORÉ",
       "of": "sur",
+      "pending": "en attente",
       "complete": "terminé",
-      "progress": "Progression"
+      "progress": "Progression",
+      "skipped": "ignoré",
+      "unskipped": "non ignoré"
     },
     "errors": {
       "required": "{{field}} est requis",
