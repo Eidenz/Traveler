@@ -2,11 +2,11 @@
 
 A full-featured travel planning application built with React, Node.js, and SQLite.
 
-![image](https://github.com/user-attachments/assets/66e2762b-0b4a-4479-8fef-f8fb81880b61)
+![image](https://github.com/user-attachments/assets/7e8bd62c-914e-4f4d-bc5e-8d7c55a5b440)
 
-![image](https://github.com/user-attachments/assets/ba9da10d-6c1e-4bd8-bfec-c989f71fadb8)
+![image](https://github.com/user-attachments/assets/3687e797-69bf-45fc-a03b-561a3e775bfb)
 
-![image](https://github.com/user-attachments/assets/c5ff27e1-255d-428e-ac5c-46d81375decf)
+![image](https://github.com/user-attachments/assets/95e1ecd8-4dd4-478e-b87f-010387f195d9)
 
 ## ⚠️ Disclaimer / AI-Generated Project Warning
 
