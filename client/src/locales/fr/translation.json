@@ -193,13 +193,13 @@
       "close": "Fermer"
     },
     "offline": {
-      "saveOffline": "Sauvegarder hors ligne",
-      "removeOffline": "Supprimer sauvegarde hors ligne",
+      "saveOffline": "Enreg. hors ligne",
+      "removeOffline": "Suppr. hors ligne",
       "savedSuccessfully": "Voyage sauvegardé pour une utilisation hors ligne",
       "removedSuccessfully": "Trajet retiré du stockage hors ligne",
       "saveFailed": "Échec de l'enregistrement du voyage pour une utilisation hors ligne",
       "removeFailed": "Échec de la suppression de la sauvegarde hors ligne",
-      "availableOffline": "Disponible hors ligne",
+      "availableOffline": "Dispo. hors ligne",
       "documentsCount": "documents enregistrés pour une utilisation hors ligne",
       "usingOfflineData": "Utilisation des données hors ligne",
       "offline_mode_message": "Vous êtes actuellement en mode hors ligne. Seuls les voyages enregistrés pour une utilisation hors ligne sont affichés."
