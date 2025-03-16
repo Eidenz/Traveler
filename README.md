@@ -207,10 +207,6 @@ The application includes multilingual support:
 - Language switcher in the user interface
 - Automatic language detection based on browser settings
 
-## Future Enhancements
-
-- Travel budget tracking
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
