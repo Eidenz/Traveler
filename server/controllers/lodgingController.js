@@ -87,15 +87,22 @@ const createLodging = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
     
+    // Handle banner image if uploaded
+    let bannerImage = null;
+    if (req.file) {
+      bannerImage = `/uploads/lodging/${req.file.filename}`;
+    }
+    
     // Insert lodging
     const insert = db.prepare(`
       INSERT INTO lodging (
-        trip_id, name, address, check_in, check_out, confirmation_code, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        trip_id, name, address, check_in, check_out, 
+        confirmation_code, notes, banner_image
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = insert.run(
-      tripId, name, address, check_in, check_out, confirmation_code, notes
+      tripId, name, address, check_in, check_out, confirmation_code, notes, bannerImage
     );
     
     // Get the created lodging
@@ -138,16 +145,51 @@ const updateLodging = (req, res) => {
       return res.status(404).json({ message: 'Lodging not found' });
     }
     
+    // Handle banner image if uploaded
+    let bannerImage = lodging.banner_image;
+    
+    if (req.file) {
+      // Set the new banner image path
+      bannerImage = `/uploads/lodging/${req.file.filename}`;
+      
+      // Try to delete the old image file if it exists
+      if (lodging.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', lodging.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          // Log the error but continue with the update
+          console.error('Error deleting old banner image:', fileError);
+          // Don't return an error response - continue with the update
+        }
+      }
+    } else if (req.body.remove_banner === 'true') {
+      // Handle explicit request to remove the banner
+      if (lodging.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', lodging.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          console.error('Error deleting banner image:', fileError);
+        }
+      }
+      bannerImage = null;
+    }
+    
     // Update lodging
     const update = db.prepare(`
       UPDATE lodging
       SET name = ?, address = ?, check_in = ?, check_out = ?,
-          confirmation_code = ?, notes = ?
+          confirmation_code = ?, notes = ?, banner_image = ?
       WHERE id = ?
     `);
     
     update.run(
-      name, address, check_in, check_out, confirmation_code, notes, lodgingId
+      name, address, check_in, check_out, confirmation_code, notes, bannerImage, lodgingId
     );
     
     // Get updated lodging
@@ -186,6 +228,14 @@ const deleteLodging = (req, res) => {
     db.prepare('BEGIN TRANSACTION').run();
     
     try {
+      // Delete banner image if exists
+      if (lodging.banner_image) {
+        const imagePath = path.join(__dirname, '..', lodging.banner_image);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+      
       // Delete documents first (foreign key constraint)
       if (documents.length > 0) {
         db.prepare(`

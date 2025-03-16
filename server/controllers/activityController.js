@@ -87,15 +87,22 @@ const createActivity = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
     
+    // Handle banner image if uploaded
+    let bannerImage = null;
+    if (req.file) {
+      bannerImage = `/uploads/activities/${req.file.filename}`;
+    }
+    
     // Insert activity
     const insert = db.prepare(`
       INSERT INTO activities (
-        trip_id, name, date, time, location, confirmation_code, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        trip_id, name, date, time, location, 
+        confirmation_code, notes, banner_image
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = insert.run(
-      tripId, name, date, time, location, confirmation_code, notes
+      tripId, name, date, time, location, confirmation_code, notes, bannerImage
     );
     
     // Get the created activity
@@ -138,16 +145,51 @@ const updateActivity = (req, res) => {
       return res.status(404).json({ message: 'Activity not found' });
     }
     
+    // Handle banner image if uploaded
+    let bannerImage = activity.banner_image;
+    
+    if (req.file) {
+      // Set the new banner image path
+      bannerImage = `/uploads/activities/${req.file.filename}`;
+      
+      // Try to delete the old image file if it exists
+      if (activity.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', activity.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          // Log the error but continue with the update
+          console.error('Error deleting old banner image:', fileError);
+          // Don't return an error response - continue with the update
+        }
+      }
+    } else if (req.body.remove_banner === 'true') {
+      // Handle explicit request to remove the banner
+      if (activity.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', activity.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          console.error('Error deleting banner image:', fileError);
+        }
+      }
+      bannerImage = null;
+    }
+    
     // Update activity
     const update = db.prepare(`
       UPDATE activities
       SET name = ?, date = ?, time = ?, location = ?,
-          confirmation_code = ?, notes = ?
+          confirmation_code = ?, notes = ?, banner_image = ?
       WHERE id = ?
     `);
     
     update.run(
-      name, date, time, location, confirmation_code, notes, activityId
+      name, date, time, location, confirmation_code, notes, bannerImage, activityId
     );
     
     // Get updated activity
@@ -186,6 +228,14 @@ const deleteActivity = (req, res) => {
     db.prepare('BEGIN TRANSACTION').run();
     
     try {
+      // Delete banner image if exists
+      if (activity.banner_image) {
+        const imagePath = path.join(__dirname, '..', activity.banner_image);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+      
       // Delete documents first (foreign key constraint)
       if (documents.length > 0) {
         db.prepare(`

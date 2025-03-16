@@ -1108,7 +1108,9 @@ const TripDetail = () => {
                   <Card key={lodge.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="p-0 relative h-48">
                       <img 
-                        src="https://images.unsplash.com/photo-1566073771259-6a8506099945"
+                        src={lodge.banner_image 
+                          ? getImageUrl(lodge.banner_image)
+                          : getFallbackImageUrl('lodging')}
                         alt={lodge.name}
                         className="w-full h-full object-cover rounded-t-xl"
                       />
@@ -1221,7 +1223,9 @@ const TripDetail = () => {
                   <Card key={activity.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="p-0 relative h-40">
                       <img 
-                        src="https://images.unsplash.com/photo-1527786356703-4b100091cd2c"
+                        src={activity.banner_image 
+                          ? getImageUrl(activity.banner_image)
+                          : getFallbackImageUrl('activity')}
                         alt={activity.name}
                         className="w-full h-full object-cover rounded-t-xl"
                       />

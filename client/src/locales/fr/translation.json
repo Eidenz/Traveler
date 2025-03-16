@@ -17,7 +17,18 @@
       "tomorrow": "DEMAIN !",
       "daysLeft": " jours restants",
       "noLocation": "Pas de lieu",
-      "close": "fermer"
+      "close": "fermer",
+      "bannerImage": "Image de bannière",
+      "uploadImage": "Télécharger une photo",
+      "changeImage": "Changer l'image",
+      "removeImage": "Supprimer l'image",
+      "dragDrop": "ou glisser-déposer",
+      "imageTypes": "PNG, JPG, GIF jusqu'à 10MB",
+      "imageUpdated": "Image mise à jour avec succès",
+      "imageRemoved": "Image supprimée avec succès",
+      "imageRequired": "Veuillez télécharger une image",
+      "imageTooLarge": "L'image est trop grande (max 10MB)",
+      "imageError": "Erreur lors du téléchargement de l'image"
     },
     "navigation": {
       "main": "Principal",
@@ -126,7 +137,10 @@
       "other": "Autre",
       "noTransport": "Aucun transport ajouté",
       "noTransportMessage": "Ajoutez vos vols, trains ou autres détails de transport pour garder toutes vos informations de voyage au même endroit.",
-      "deleteSuccess": "Transport supprimé avec succès"
+      "deleteSuccess": "Transport supprimé avec succès",
+      "bannerImage": "Image de transport",
+      "bannerImageDescription": "Ajoutez une photo de votre transport",
+      "bannerImagePlaceholder": "Ajoutez une photo de votre vol, train, bus, etc."
     },
     "lodging": {
       "title": "Hébergements",
@@ -145,7 +159,10 @@
       "stay": "Séjour",
       "noLodging": "Aucun hébergement ajouté",
       "noLodgingMessage": "Ajoutez vos hôtels, locations ou autres informations d'hébergement pour suivre où vous séjournerez.",
-      "deleteSuccess": "Hébergement supprimé avec succès"
+      "deleteSuccess": "Hébergement supprimé avec succès",
+      "bannerImage": "Image d'hébergement",
+      "bannerImageDescription": "Ajoutez une photo de votre hébergement",
+      "bannerImagePlaceholder": "Ajoutez une photo de votre hôtel, Airbnb, etc."
     },
     "activities": {
       "title": "Activités",
@@ -163,7 +180,10 @@
       "viewTicket": "Voir le billet",
       "noActivities": "Aucune activité planifiée",
       "noActivitiesMessage": "Ajoutez des visites, excursions ou autres activités pour profiter au maximum de votre voyage.",
-      "deleteSuccess": "Activité supprimé avec succès"
+      "deleteSuccess": "Activité supprimé avec succès",
+      "bannerImage": "Image d'activité",
+      "bannerImageDescription": "Ajoutez une photo de votre activité",
+      "bannerImagePlaceholder": "Ajoutez une photo de votre tour, excursion, etc."
     },
     "calendar": {
       "title": "Calendrier",

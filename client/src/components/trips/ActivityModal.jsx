@@ -1,6 +1,7 @@
 // client/src/components/trips/ActivityModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Coffee, Tag, Upload, X, Ticket } from 'lucide-react';
+import { Calendar, Clock, MapPin, Coffee, Tag, Upload, X, Ticket, Image } from 'lucide-react';
+import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Modal from '../ui/Modal';
@@ -31,12 +32,17 @@ const ActivityModal = ({
     notes: ''
   });
 
+  const [bannerImage, setBannerImage] = useState(null);
+  const [bannerImagePreview, setBannerImagePreview] = useState(null);
+  const [existingBannerImage, setExistingBannerImage] = useState(null);
+
   const [documentFile, setDocumentFile] = useState(null);
   const [documentFileName, setDocumentFileName] = useState('');
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [removeBanner, setRemoveBanner] = useState(false);
 
   useEffect(() => {
     if (isOpen && isEditMode) {
@@ -47,6 +53,9 @@ const ActivityModal = ({
         ...formData,
         ...initialData
       });
+      setBannerImage(null);
+      setBannerImagePreview(null);
+      setExistingBannerImage(initialData.banner_image || null);
     } else if (isOpen) {
       // Reset form for new activity
       setFormData({
@@ -57,6 +66,9 @@ const ActivityModal = ({
         confirmation_code: '',
         notes: ''
       });
+      setBannerImage(null);
+      setBannerImagePreview(null);
+      setExistingBannerImage(null);
       setDocumentFile(null);
       setDocumentFileName('');
       setDocuments([]);
@@ -82,12 +94,25 @@ const ActivityModal = ({
         notes: activity.notes || ''
       });
 
+      // Set existing banner image if available
+      setExistingBannerImage(activity.banner_image || null);
+      setBannerImagePreview(null);
+      setBannerImage(null);
+
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching activity:', error);
       toast.error(t('errors.loadFailed', { item: t('activities.title').toLowerCase() }));
     } finally {
       setFetchLoading(false);
+    }
+  };
+
+  const handleBannerImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setBannerImage(file);
+      setBannerImagePreview(URL.createObjectURL(file));
     }
   };
 
@@ -135,11 +160,11 @@ const ActivityModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (validateForm()) {
       try {
         setLoading(true);
-
+  
         // Format dates for API
         const formattedData = {
           ...formData,
@@ -147,9 +172,19 @@ const ActivityModal = ({
             ? dayjs(formData.date).format('YYYY-MM-DD')
             : null
         };
-
+  
+        // Add banner image to form data if selected
+        if (bannerImage) {
+          formattedData.banner_image = bannerImage;
+        }
+        
+        // Add flag to remove banner if requested
+        if (removeBanner || (!bannerImage && !existingBannerImage)) {
+          formattedData.remove_banner = 'true';
+        }
+  
         let response;
-
+  
         if (isEditMode) {
           response = await activityAPI.updateActivity(activityId, formattedData, tripId);
           toast.success(t('activities.updateSuccess', 'Activity updated successfully'));
@@ -183,6 +218,14 @@ const ActivityModal = ({
       }
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (bannerImagePreview) {
+        URL.revokeObjectURL(bannerImagePreview);
+      }
+    };
+  }, [bannerImagePreview]);
 
   const handleDeleteDocument = async (documentId) => {
     try {
@@ -243,6 +286,78 @@ const ActivityModal = ({
     >
       <form onSubmit={handleSubmit}>
         <div className="p-6 space-y-4">
+          {/* Banner Image */}
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('activities.bannerImage')}
+            </label>
+            
+            {/* Current banner preview */}
+            {(bannerImagePreview || (existingBannerImage && !removeBanner)) ? (
+              <div className="relative w-full h-40 mb-4">
+                <img 
+                  src={bannerImagePreview || getImageUrl(existingBannerImage)}
+                  alt="Activity Banner"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBannerImage(null);
+                    setBannerImagePreview(null);
+                    if (isEditMode && existingBannerImage) {
+                      setRemoveBanner(true);
+                    }
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-red-100 hover:bg-red-200 rounded-full text-red-600"
+                  aria-label={t('common.removeImage')}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+                <div className="space-y-1 text-center">
+                  <Image className="mx-auto h-12 w-12 text-gray-400" />
+                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor="banner-image-upload"
+                      className="relative cursor-pointer rounded-md font-medium text-purple-600 dark:text-purple-400 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-purple-500"
+                    >
+                      <span>{t('common.uploadImage')}</span>
+                      <input
+                        id="banner-image-upload"
+                        name="banner_image"
+                        type="file"
+                        className="sr-only"
+                        accept="image/*"
+                        onChange={handleBannerImageChange}
+                      />
+                    </label>
+                    <p className="pl-1">{t('common.dragDrop')}</p>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t('common.imageTypes')}
+                  </p>
+                  
+                  {/* Show undo button if image was removed */}
+                  {isEditMode && existingBannerImage && removeBanner && (
+                    <button
+                      type="button"
+                      onClick={() => setRemoveBanner(false)}
+                      className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-300 dark:hover:bg-purple-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"/>
+                      </svg>
+                      {t('common.undoRemove', 'Undo remove')}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
           {/* Activity Name */}
           <Input
             label={t('activities.name')}

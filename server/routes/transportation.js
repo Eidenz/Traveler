@@ -9,6 +9,7 @@ const {
   deleteTransportation
 } = require('../controllers/transportationController');
 const { authenticate, checkTripAccess, requireEditAccess } = require('../middleware/auth');
+const upload = require('../utils/fileUpload');
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.get('/:transportId', getTransportation);
 router.post(
   '/trip/:tripId',
   checkTripAccess(['owner', 'editor']),
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('type').not().isEmpty().withMessage('Transportation type is required'),
     body('from_location').not().isEmpty().withMessage('From location is required'),
@@ -39,6 +41,7 @@ router.post(
 router.put(
   '/:transportId',
   requireEditAccess,
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('type').not().isEmpty().withMessage('Transportation type is required'),
     body('from_location').not().isEmpty().withMessage('From location is required'),

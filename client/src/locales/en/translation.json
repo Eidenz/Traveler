@@ -17,7 +17,18 @@
       "tomorrow": "TOMORROW!",
       "daysLeft": " days left",
       "noLocation": "No location",
-      "close": "close"
+      "close": "close",
+      "bannerImage": "Banner Image",
+      "uploadImage": "Upload a photo",
+      "changeImage": "Change image",
+      "removeImage": "Remove image",
+      "dragDrop": "or drag and drop",
+      "imageTypes": "PNG, JPG, GIF up to 10MB",
+      "imageUpdated": "Image updated successfully",
+      "imageRemoved": "Image removed successfully",
+      "imageRequired": "Please upload an image",
+      "imageTooLarge": "Image is too large (max 10MB)",
+      "imageError": "Error uploading image"
     },
     "navigation": {
       "main": "Main",
@@ -126,7 +137,10 @@
       "other": "Other",
       "noTransport": "No transportation added",
       "noTransportMessage": "Add your flights, trains, or other transportation details to keep all your travel information in one place.",
-      "deleteSuccess": "Transportation deleted successfully"
+      "deleteSuccess": "Transportation deleted successfully",
+      "bannerImage": "Transportation Image",
+      "bannerImageDescription": "Add a photo of your transportation",
+      "bannerImagePlaceholder": "Add a photo of your flight, train, bus, etc."
     },
     "lodging": {
       "title": "Accommodations",
@@ -145,7 +159,10 @@
       "stay": "Stay",
       "noLodging": "No accommodations added",
       "noLodgingMessage": "Add your hotels, rentals, or other lodging information to keep track of where you'll be staying.",
-      "deleteSuccess": "Accommodation deleted successfully"
+      "deleteSuccess": "Accommodation deleted successfully",
+      "bannerImage": "Accommodation Image",
+      "bannerImageDescription": "Add a photo of your accommodation",
+      "bannerImagePlaceholder": "Add a photo of your hotel, Airbnb, etc."
     },
     "activities": {
       "title": "Activities",
@@ -163,7 +180,10 @@
       "viewTicket": "View Ticket",
       "noActivities": "No activities planned",
       "noActivitiesMessage": "Add tours, excursions, or other activities to make the most of your trip.",
-      "deleteSuccess": "Activity deleted successfully"
+      "deleteSuccess": "Activity deleted successfully",
+      "bannerImage": "Activity Image",
+      "bannerImageDescription": "Add a photo of your activity",
+      "bannerImagePlaceholder": "Add a photo of your tour, excursion, etc."
     },
     "calendar": {
       "title": "Calendar",

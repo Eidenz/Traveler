@@ -16,7 +16,7 @@ const db = sqlite3(dbPath);
  * Initialize database with all required tables
  */
 function initializeDatabase() {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       // Enable foreign keys
       db.pragma('foreign_keys = ON');
@@ -62,7 +62,7 @@ function initializeDatabase() {
         )
       `);
 
-      // Create Transportation table
+      // Create Transportation table with banner_image field
       db.exec(`
         CREATE TABLE IF NOT EXISTS transportation (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,12 +77,13 @@ function initializeDatabase() {
           arrival_time TEXT,
           confirmation_code TEXT,
           notes TEXT,
+          banner_image TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE
         )
       `);
 
-      // Create Lodging table
+      // Create Lodging table with banner_image field
       db.exec(`
         CREATE TABLE IF NOT EXISTS lodging (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -93,12 +94,13 @@ function initializeDatabase() {
           check_out TEXT NOT NULL,
           confirmation_code TEXT,
           notes TEXT,
+          banner_image TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE
         )
       `);
 
-      // Create Activities table
+      // Create Activities table with banner_image field
       db.exec(`
         CREATE TABLE IF NOT EXISTS activities (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +111,7 @@ function initializeDatabase() {
           location TEXT,
           confirmation_code TEXT,
           notes TEXT,
+          banner_image TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE
         )
@@ -170,6 +173,9 @@ function initializeDatabase() {
         )
       `);
 
+      // Run migrations for existing databases
+      await runFieldMigrations();
+
       console.log('Database initialized successfully');
       resolve();
     } catch (error) {
@@ -177,6 +183,49 @@ function initializeDatabase() {
       reject(error);
     }
   });
+}
+
+/**
+ * Run migrations that add fields to existing tables if they don't exist
+ */
+async function runFieldMigrations() {
+  try {
+    // Check and add banner_image field to transportation table if it doesn't exist
+    migrateField('transportation', 'banner_image');
+    
+    // Check and add banner_image field to lodging table if it doesn't exist
+    migrateField('lodging', 'banner_image');
+    
+    // Check and add banner_image field to activities table if it doesn't exist
+    migrateField('activities', 'banner_image');
+    
+    console.log('Field migrations completed');
+  } catch (error) {
+    console.error('Error running field migrations:', error);
+  }
+}
+
+/**
+ * Helper function to migrate a field to a table if it doesn't exist
+ * @param {string} tableName - Name of the table
+ * @param {string} fieldName - Name of the field to add
+ */
+function migrateField(tableName, fieldName) {
+  try {
+    // First check if the field already exists in the table
+    const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    const fieldExists = tableInfo.some(column => column.name === fieldName);
+    
+    if (!fieldExists) {
+      console.log(`Adding ${fieldName} field to ${tableName} table`);
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${fieldName} TEXT;`);
+    } else {
+      console.log(`Field ${fieldName} already exists in ${tableName} table`);
+    }
+  } catch (error) {
+    console.error(`Error migrating field ${fieldName} to ${tableName}:`, error);
+    throw error;
+  }
 }
 
 module.exports = {

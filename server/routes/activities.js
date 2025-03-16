@@ -9,6 +9,7 @@ const {
   deleteActivity
 } = require('../controllers/activityController');
 const { authenticate, checkTripAccess, requireEditAccess } = require('../middleware/auth');
+const upload = require('../utils/fileUpload');
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.get('/:activityId', getActivity);
 router.post(
   '/trip/:tripId',
   requireEditAccess,
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('name').not().isEmpty().withMessage('Activity name is required'),
     body('date').not().isEmpty().withMessage('Activity date is required')
@@ -36,6 +38,7 @@ router.post(
 router.put(
   '/:activityId',
   requireEditAccess,
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('name').not().isEmpty().withMessage('Activity name is required'),
     body('date').not().isEmpty().withMessage('Activity date is required')

@@ -91,20 +91,26 @@ const createTransportation = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
     
-    // Insert transportation - Ensure we're using the tripId from the URL parameters
+    // Handle banner image if uploaded
+    let bannerImage = null;
+    if (req.file) {
+      bannerImage = `/uploads/transportation/${req.file.filename}`;
+    }
+    
+    // Insert transportation
     const insert = db.prepare(`
       INSERT INTO transportation (
         trip_id, type, company, from_location, to_location, 
         departure_date, departure_time, arrival_date, arrival_time, 
-        confirmation_code, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        confirmation_code, notes, banner_image
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     const result = insert.run(
-      tripId, // Use tripId from params, not from body
+      tripId,
       type, company, from_location, to_location,
       departure_date, departure_time, arrival_date, arrival_time,
-      confirmation_code, notes
+      confirmation_code, notes, bannerImage
     );
     
     // Get the created transportation
@@ -151,19 +157,54 @@ const updateTransportation = (req, res) => {
       return res.status(404).json({ message: 'Transportation not found' });
     }
     
+    // Handle banner image if uploaded
+    let bannerImage = transportation.banner_image;
+    
+    if (req.file) {
+      // Set the new banner image path
+      bannerImage = `/uploads/transportation/${req.file.filename}`;
+      
+      // Try to delete the old image file if it exists
+      if (transportation.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', transportation.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          // Log the error but continue with the update
+          console.error('Error deleting old banner image:', fileError);
+          // Don't return an error response - continue with the update
+        }
+      }
+    } else if (req.body.remove_banner === 'true') {
+      // Handle explicit request to remove the banner
+      if (transportation.banner_image) {
+        try {
+          const oldImagePath = path.join(__dirname, '..', transportation.banner_image);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        } catch (fileError) {
+          console.error('Error deleting banner image:', fileError);
+        }
+      }
+      bannerImage = null;
+    }
+    
     // Update transportation
     const update = db.prepare(`
       UPDATE transportation
       SET type = ?, company = ?, from_location = ?, to_location = ?,
           departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
-          confirmation_code = ?, notes = ?
+          confirmation_code = ?, notes = ?, banner_image = ?
       WHERE id = ?
     `);
     
     update.run(
       type, company, from_location, to_location,
       departure_date, departure_time, arrival_date, arrival_time,
-      confirmation_code, notes, transportId
+      confirmation_code, notes, bannerImage, transportId
     );
     
     // Get updated transportation
@@ -202,6 +243,14 @@ const deleteTransportation = (req, res) => {
     db.prepare('BEGIN TRANSACTION').run();
     
     try {
+      // Delete banner image if exists
+      if (transportation.banner_image) {
+        const imagePath = path.join(__dirname, '..', transportation.banner_image);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+      
       // Delete documents first (foreign key constraint)
       if (documents.length > 0) {
         db.prepare(`

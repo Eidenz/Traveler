@@ -626,7 +626,10 @@ const TripChecklist = ({ tripId, canEdit }) => {
             <div className="text-center p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
               <CheckSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-500 dark:text-gray-400">
-                {t('checklists.noChecklists')} {t('checklists.noChecklistsMessage')}
+                {t('checklists.noChecklists')}
+              </p>
+              <p className="text-gray-500 dark:text-gray-400">
+                {t('checklists.noChecklistsMessage')}
               </p>
             </div>
           )}

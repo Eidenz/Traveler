@@ -1,6 +1,7 @@
 // client/src/components/trips/TransportModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Plane, Train, Bus, Car, Ship, Upload, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, Plane, Train, Bus, Car, Ship, Upload, X, Image } from 'lucide-react';
+import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Modal from '../ui/Modal';
@@ -35,6 +36,10 @@ const TransportModal = ({
     notes: ''
   });
   
+  const [bannerImage, setBannerImage] = useState(null);
+  const [bannerImagePreview, setBannerImagePreview] = useState(null);
+  const [existingBannerImage, setExistingBannerImage] = useState(null);
+  
   const [documentFile, setDocumentFile] = useState(null);
   const [documentFileName, setDocumentFileName] = useState('');
   const [documents, setDocuments] = useState([]);
@@ -51,6 +56,9 @@ const TransportModal = ({
         ...formData,
         ...initialData
       });
+      setBannerImage(null);
+      setBannerImagePreview(null);
+      setExistingBannerImage(initialData.banner_image || null);
     } else if (isOpen) {
       // Reset form for new transport
       setFormData({
@@ -65,6 +73,9 @@ const TransportModal = ({
         confirmation_code: '',
         notes: ''
       });
+      setBannerImage(null);
+      setBannerImagePreview(null);
+      setExistingBannerImage(null);
       setDocumentFile(null);
       setDocumentFileName('');
       setDocuments([]);
@@ -94,12 +105,25 @@ const TransportModal = ({
         notes: transport.notes || ''
       });
       
+      // Set existing banner image if available
+      setExistingBannerImage(transport.banner_image || null);
+      setBannerImagePreview(null);
+      setBannerImage(null);
+      
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching transportation:', error);
       toast.error(t('errors.loadFailed', { item: t('transportation.title').toLowerCase() }));
     } finally {
       setFetchLoading(false);
+    }
+  };
+
+  const handleBannerImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setBannerImage(file);
+      setBannerImagePreview(URL.createObjectURL(file));
     }
   };
   
@@ -173,6 +197,11 @@ const TransportModal = ({
               : null
         };
         
+        // Add banner image to form data if selected
+        if (bannerImage) {
+          formattedData.banner_image = bannerImage;
+        }
+        
         let response;
         
         if (isEditMode) {
@@ -208,6 +237,14 @@ const TransportModal = ({
       }
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (bannerImagePreview) {
+        URL.revokeObjectURL(bannerImagePreview);
+      }
+    };
+  }, [bannerImagePreview]);
   
   const handleDeleteDocument = async (documentId) => {
     try {

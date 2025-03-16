@@ -9,6 +9,7 @@ const {
   deleteLodging
 } = require('../controllers/lodgingController');
 const { authenticate, checkTripAccess, requireEditAccess } = require('../middleware/auth');
+const upload = require('../utils/fileUpload');
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.get('/:lodgingId', getLodging);
 router.post(
   '/trip/:tripId',
   requireEditAccess,
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('name').not().isEmpty().withMessage('Lodging name is required'),
     body('check_in').not().isEmpty().withMessage('Check-in date is required'),
@@ -37,6 +39,7 @@ router.post(
 router.put(
   '/:lodgingId',
   requireEditAccess,
+  upload.single('banner_image'),  // Add file upload middleware
   [
     body('name').not().isEmpty().withMessage('Lodging name is required'),
     body('check_in').not().isEmpty().withMessage('Check-in date is required'),

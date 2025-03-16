@@ -93,13 +93,55 @@ export const transportAPI = {
   getTripTransportation: (tripId) => api.get(`/transportation/trip/${tripId}`),
   getTransportation: (transportId) => api.get(`/transportation/${transportId}`),
   createTransportation: (tripId, transportData) => {
-    // Ensure trip_id is included in the data for middleware
-    const data = { ...transportData, trip_id: tripId };
-    return api.post(`/transportation/trip/${tripId}`, data);
+    // Check if data contains banner_image, if so use FormData
+    if (transportData.banner_image instanceof File) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in transportData) {
+        if (key === 'banner_image') {
+          formData.append('banner_image', transportData.banner_image);
+        } else {
+          formData.append(key, transportData[key]);
+        }
+      }
+      // Ensure trip_id is included in the data for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.post(`/transportation/trip/${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Regular JSON request if no file
+      const data = { ...transportData, trip_id: tripId };
+      return api.post(`/transportation/trip/${tripId}`, data);
+    }
   },
   updateTransportation: (transportId, transportData, tripId) => {
-    // Include tripId in the query parameters
-    return api.put(`/transportation/${transportId}?tripId=${tripId}`, transportData);
+    // Check if data contains banner_image or remove_banner flag
+    if (transportData.banner_image instanceof File || transportData.remove_banner) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in transportData) {
+        if (key === 'banner_image' && transportData[key] instanceof File) {
+          formData.append('banner_image', transportData[key]);
+        } else if (key !== 'banner_image' || typeof transportData[key] === 'string') {
+          formData.append(key, transportData[key]);
+        }
+      }
+      // Include tripId for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.put(`/transportation/${transportId}?tripId=${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Include tripId in the query parameters
+      return api.put(`/transportation/${transportId}?tripId=${tripId}`, transportData);
+    }
   },
   deleteTransportation: (transportId, tripId) => api.delete(`/transportation/${transportId}?tripId=${tripId}`),
 };
@@ -109,13 +151,55 @@ export const lodgingAPI = {
   getTripLodging: (tripId) => api.get(`/lodging/trip/${tripId}`),
   getLodging: (lodgingId) => api.get(`/lodging/${lodgingId}`),
   createLodging: (tripId, lodgingData) => {
-    // Ensure trip_id is included in the data for middleware
-    const data = { ...lodgingData, trip_id: tripId };
-    return api.post(`/lodging/trip/${tripId}`, data);
+    // Check if data contains banner_image, if so use FormData
+    if (lodgingData.banner_image instanceof File) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in lodgingData) {
+        if (key === 'banner_image') {
+          formData.append('banner_image', lodgingData.banner_image);
+        } else {
+          formData.append(key, lodgingData[key]);
+        }
+      }
+      // Ensure trip_id is included in the data for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.post(`/lodging/trip/${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Regular JSON request if no file
+      const data = { ...lodgingData, trip_id: tripId };
+      return api.post(`/lodging/trip/${tripId}`, data);
+    }
   },
   updateLodging: (lodgingId, lodgingData, tripId) => {
-    // Include tripId in the query parameters
-    return api.put(`/lodging/${lodgingId}?tripId=${tripId}`, lodgingData);
+    // Check if data contains banner_image or remove_banner flag
+    if (lodgingData.banner_image instanceof File || lodgingData.remove_banner) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in lodgingData) {
+        if (key === 'banner_image' && lodgingData[key] instanceof File) {
+          formData.append('banner_image', lodgingData[key]);
+        } else if (key !== 'banner_image' || typeof lodgingData[key] === 'string') {
+          formData.append(key, lodgingData[key]);
+        }
+      }
+      // Include tripId for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.put(`/lodging/${lodgingId}?tripId=${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Include tripId in the query parameters
+      return api.put(`/lodging/${lodgingId}?tripId=${tripId}`, lodgingData);
+    }
   },
   deleteLodging: (lodgingId, tripId) => api.delete(`/lodging/${lodgingId}?tripId=${tripId}`),
 };
@@ -125,13 +209,55 @@ export const activityAPI = {
   getTripActivities: (tripId) => api.get(`/activities/trip/${tripId}`),
   getActivity: (activityId) => api.get(`/activities/${activityId}`),
   createActivity: (tripId, activityData) => {
-    // Ensure trip_id is included in the data for middleware
-    const data = { ...activityData, trip_id: tripId };
-    return api.post(`/activities/trip/${tripId}`, data);
+    // Check if data contains banner_image, if so use FormData
+    if (activityData.banner_image instanceof File) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in activityData) {
+        if (key === 'banner_image') {
+          formData.append('banner_image', activityData.banner_image);
+        } else {
+          formData.append(key, activityData[key]);
+        }
+      }
+      // Ensure trip_id is included in the data for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.post(`/activities/trip/${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Regular JSON request if no file
+      const data = { ...activityData, trip_id: tripId };
+      return api.post(`/activities/trip/${tripId}`, data);
+    }
   },
   updateActivity: (activityId, activityData, tripId) => {
-    // Include tripId in the query parameters
-    return api.put(`/activities/${activityId}?tripId=${tripId}`, activityData);
+    // Check if data contains banner_image or remove_banner flag
+    if (activityData.banner_image instanceof File || activityData.remove_banner) {
+      const formData = new FormData();
+      // Add all other fields to the form data
+      for (const key in activityData) {
+        if (key === 'banner_image' && activityData[key] instanceof File) {
+          formData.append('banner_image', activityData[key]);
+        } else if (key !== 'banner_image' || typeof activityData[key] === 'string') {
+          formData.append(key, activityData[key]);
+        }
+      }
+      // Include tripId for middleware
+      formData.append('trip_id', tripId);
+      
+      return api.put(`/activities/${activityId}?tripId=${tripId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Include tripId in the query parameters
+      return api.put(`/activities/${activityId}?tripId=${tripId}`, activityData);
+    }
   },
   deleteActivity: (activityId, tripId) => api.delete(`/activities/${activityId}?tripId=${tripId}`),
 };

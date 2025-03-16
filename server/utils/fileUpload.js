@@ -9,6 +9,15 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// Create directories for specific entity types
+const dirTypes = ['profiles', 'trips', 'documents', 'transportation', 'lodging', 'activities'];
+dirTypes.forEach(dirType => {
+  const dir = path.join(uploadsDir, dirType);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
 // Configure storage for different file types
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -25,6 +34,18 @@ const storage = multer.diskStorage({
     else if (file.fieldname === 'cover_image') {
       typeDir = path.join(uploadsDir, 'trips');
     }
+    // Check if this is a transportation banner image upload
+    else if (file.fieldname === 'banner_image' && req.originalUrl.includes('/transportation')) {
+      typeDir = path.join(uploadsDir, 'transportation');
+    }
+    // Check if this is a lodging banner image upload
+    else if (file.fieldname === 'banner_image' && req.originalUrl.includes('/lodging')) {
+      typeDir = path.join(uploadsDir, 'lodging');
+    }
+    // Check if this is an activity banner image upload
+    else if (file.fieldname === 'banner_image' && req.originalUrl.includes('/activities')) {
+      typeDir = path.join(uploadsDir, 'activities');
+    }
     // Document uploads
     else if (file.fieldname === 'document' || 
              ['.pdf','.doc','.docx','.txt'].includes(path.extname(file.originalname))) {
@@ -37,6 +58,12 @@ const storage = multer.diskStorage({
         typeDir = path.join(uploadsDir, 'profiles');
       } else if (req.originalUrl.includes('/trips')) {
         typeDir = path.join(uploadsDir, 'trips');
+      } else if (req.originalUrl.includes('/transportation')) {
+        typeDir = path.join(uploadsDir, 'transportation');
+      } else if (req.originalUrl.includes('/lodging')) {
+        typeDir = path.join(uploadsDir, 'lodging');
+      } else if (req.originalUrl.includes('/activities')) {
+        typeDir = path.join(uploadsDir, 'activities');
       } else {
         typeDir = uploadsDir;
       }
@@ -79,6 +106,12 @@ const fileFilter = (req, file, cb) => {
   }
   // Check field name for trip cover images
   else if (file.fieldname === 'cover_image') {
+    if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
+      return cb(null, true);
+    }
+  }
+  // Check field name for banner images
+  else if (file.fieldname === 'banner_image') {
     if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
       return cb(null, true);
     }
