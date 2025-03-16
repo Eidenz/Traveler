@@ -12,7 +12,7 @@ import Modal from '../../components/ui/Modal';
 import TransportModal from '../../components/trips/TransportModal';
 import LodgingModal from '../../components/trips/LodgingModal';
 import ActivityModal from '../../components/trips/ActivityModal';
-import PDFViewerModal from '../../components/trips/PDFViewerModal';
+import DocumentsModal from '../../components/trips/DocumentsModal';
 import TripChecklist from '../../components/trips/TripChecklist';
 import { tripAPI, transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
@@ -46,10 +46,6 @@ const TripDetail = () => {
   const [isTransportModalOpen, setIsTransportModalOpen] = useState(false);
   const [isLodgingModalOpen, setIsLodgingModalOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  const [currentPdfBlob, setCurrentPdfBlob] = useState(null);
-  const [currentPdfName, setCurrentPdfName] = useState('');
-  const [currentDocumentId, setCurrentDocumentId] = useState(null);
-  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
   const [selectedTransportId, setSelectedTransportId] = useState(null);
   const [selectedLodgingId, setSelectedLodgingId] = useState(null);
   const [selectedActivityId, setSelectedActivityId] = useState(null);
@@ -61,6 +57,9 @@ const TripDetail = () => {
   const [isAvailableOffline, setIsAvailableOffline] = useState(false);
   const [isSavingOffline, setIsSavingOffline] = useState(false);
   const [offlineSaveSuccess, setOfflineSaveSuccess] = useState(false);
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [currentDocuments, setCurrentDocuments] = useState([]);
+  const [currentReferenceType, setCurrentReferenceType] = useState('');
 
   useEffect(() => {
     fetchTripData();
@@ -342,18 +341,10 @@ const TripDetail = () => {
             return;
           }
           
-          // Use the first document
-          const doc = offlineDocs[0];
-          
-          if (doc.blob) {
-            // Set the blob for the PDF viewer
-            setCurrentPdfBlob(doc.blob);
-            setCurrentPdfName(doc.file_name);
-            setCurrentDocumentId(doc.id);
-            setIsPdfViewerOpen(true);
-          } else {
-            toast.error('Document blob not available offline');
-          }
+          // Set the documents for the modal
+          setCurrentDocuments(offlineDocs);
+          setCurrentReferenceType(referenceType);
+          setIsDocumentsModalOpen(true);
           return;
         } catch (offlineError) {
           console.error('Error retrieving offline document:', offlineError);
@@ -383,41 +374,10 @@ const TripDetail = () => {
         return;
       }
       
-      // Get the first document
-      const doc = documents[0];
-      
-      // Check if it's a PDF
-      if (doc.file_type.includes('pdf')) {
-        try {
-          // Try to get from offline storage first if available offline
-          let blob = null;
-          
-          if (isAvailableOffline) {
-            const offlineDoc = await getDocumentOffline(doc.id);
-            if (offlineDoc && offlineDoc.blob) {
-              blob = offlineDoc.blob;
-            }
-          }
-          
-          // If not in offline storage, fetch from server
-          if (!blob) {
-            const response = await documentAPI.viewDocumentAsBlob(doc.id);
-            blob = response.data;
-          }
-          
-          // Set the blob for the PDF viewer
-          setCurrentPdfBlob(blob);
-          setCurrentPdfName(doc.file_name);
-          setCurrentDocumentId(doc.id);
-          setIsPdfViewerOpen(true);
-        } catch (error) {
-          console.error('Error fetching PDF:', error);
-          toast.error(t('documents.viewFailed'));
-        }
-      } else {
-        // For other types, just download
-        handleDownloadDocument(doc.id, doc.file_name);
-      }
+      // Set the documents for the modal
+      setCurrentDocuments(documents);
+      setCurrentReferenceType(referenceType);
+      setIsDocumentsModalOpen(true);
     } catch (error) {
       console.error('Error viewing document:', error);
       toast.error(t('documents.viewFailed'));
@@ -1657,17 +1617,19 @@ const TripDetail = () => {
         </div>
       </Modal>
       
-      {/* PDF Viewer Modal */}
-      <PDFViewerModal
-        isOpen={isPdfViewerOpen}
-        onClose={() => setIsPdfViewerOpen(false)}
-        documentBlob={currentPdfBlob}
-        documentName={currentPdfName}
-        onDownload={() => {
-          if (currentDocumentId) {
-            handleDownloadDocument(currentDocumentId, currentPdfName);
-          }
-        }}
+      {/* Documents Modal */}
+      <DocumentsModal
+        isOpen={isDocumentsModalOpen}
+        onClose={() => setIsDocumentsModalOpen(false)}
+        documents={currentDocuments}
+        referenceType={currentReferenceType}
+        referenceId={currentReferenceType === 'transport' 
+          ? selectedTransportId 
+          : currentReferenceType === 'lodging' 
+            ? selectedLodgingId 
+            : selectedActivityId}
+        tripId={tripId}
+        isOfflineMode={!navigator.onLine && isAvailableOffline}
       />
       
       {/* Transport Modal */}

@@ -16,7 +16,8 @@
       "confirmDelete": "Êtes-vous sûr de vouloir supprimer ceci ? Cette action ne peut pas être annulée.",
       "tomorrow": "DEMAIN !",
       "daysLeft": " jours restants",
-      "noLocation": "Pas de lieu"
+      "noLocation": "Pas de lieu",
+      "close": "fermer"
     },
     "navigation": {
       "main": "Principal",
@@ -177,16 +178,19 @@
     },
     "documents": {
       "title": "Documents",
-      "upload": "Télécharger un fichier",
+      "attachedDocuments": "Documents Joints",
+      "upload": "Téléverser un Document",
+      "uploadNew": "Téléverser un Nouveau Document",
       "dragDrop": "ou glisser-déposer",
-      "fileTypes": "PDF, DOC, DOCX, TXT jusqu'à 10 Mo",
-      "attachedDocuments": "Documents joints",
-      "uploadDocument": "Télécharger un document",
-      "uploadSuccess": "Document téléchargé avec succès",
-      "deleteSuccess": "Document supprimé avec succès",
+      "fileTypes": "Fichiers PDF, DOC, DOCX, TXT",
+      "view": "Voir",
+      "download": "Télécharger",
       "downloadFailed": "Échec du téléchargement du document",
-      "viewFailed": "Impossible d'afficher le document",
-      "downloadInstead": "Le document n'a pas pu être affiché dans le navigateur. Vous pouvez le télécharger à la place."
+      "uploadSuccess": "Document téléversé avec succès",
+      "deleteSuccess": "Document supprimé avec succès",
+      "viewFailed": "Échec de l'affichage du document",
+      "noDocuments": "Aucun document joint",
+      "close": "Fermer"
     },
     "offline": {
       "saveOffline": "Sauvegarder hors ligne",
