@@ -9,7 +9,7 @@
       "install-all": "npm install && cd server && npm install && cd ../client && npm install"
     },
     "keywords": [],
-    "author": "",
+    "author": "Eidenz",
     "license": "MIT",
     "devDependencies": {
       "concurrently": "^8.2.0"

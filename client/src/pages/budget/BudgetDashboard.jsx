@@ -297,7 +297,7 @@ const BudgetDashboard = () => {
           <p className="text-gray-500 dark:text-gray-400">{t('budget.selectTripDescription')}</p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {trips.map(trip => (
             <div 
               key={trip.id}
@@ -361,57 +361,57 @@ const BudgetDashboard = () => {
   // Main budget content (once a trip is selected)
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center">
-          <button 
-            onClick={() => setHasExplicitlySelected(false)}
-            className="mr-4 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex items-center"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            {t('budget.backToSelection')}
-          </button>
-        </div>
-        
-        <div className="flex items-center">
-          {budget && (
-            <>
-              <Button
-                variant="outline"
-                className="mr-2"
-                onClick={() => setShowCreateBudgetForm(true)}
-              >
-                {t('budget.update')}
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="mr-2"
-                onClick={() => setShowDeleteModal(true)}
-                icon={<Trash2 className="h-4 w-4" />}
-              >
-                {t('budget.delete')}
-              </Button>
-              
-              <Button
-                variant="primary"
-                icon={<Plus className="h-5 w-5" />}
-                onClick={() => {
-                  setSelectedExpense(null);
-                  setShowExpenseForm(true);
-                }}
-              >
-                {t('budget.addExpense')}
-              </Button>
-            </>
-          )}
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="mb-4 sm:mb-0">
+            <button 
+              onClick={() => setHasExplicitlySelected(false)}
+              className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex items-center"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              {t('budget.backToSelection')}
+            </button>
+          </div>
           
-          {/* Add a trip link button when in budget view */}
-          <Link 
-            to={`/trips/${selectedTrip.id}`}
-            className="ml-4 flex items-center px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-          >
-            <span>{t('trips.viewDetails')}</span>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            {budget && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateBudgetForm(true)}
+                >
+                  {t('budget.update')}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteModal(true)}
+                  icon={<Trash2 className="h-4 w-4" />}
+                >
+                  {t('budget.delete')}
+                </Button>
+                
+                <Button
+                  variant="primary"
+                  icon={<Plus className="h-5 w-5" />}
+                  onClick={() => {
+                    setSelectedExpense(null);
+                    setShowExpenseForm(true);
+                  }}
+                >
+                  {t('budget.addExpense')}
+                </Button>
+              </>
+            )}
+            
+            {/* Add a trip link button when in budget view */}
+            <Link 
+              to={`/trips/${selectedTrip.id}`}
+              className="flex items-center px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            >
+              <span>{t('trips.viewDetails')}</span>
+            </Link>
+          </div>
         </div>
       </div>
       
@@ -447,7 +447,7 @@ const BudgetDashboard = () => {
                   
                   <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('budget.title')}</h2>
                   <div className="flex items-baseline">
-                    <span className="text-4xl font-bold">
+                    <span className="text-3xl sm:text-4xl font-bold">
                       {budget.currency}{(budget.total_amount - totalSpent).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
@@ -475,7 +475,7 @@ const BudgetDashboard = () => {
                     </div>
                   </div>
                   
-                  <div className="mt-4 flex justify-between text-sm">
+                  <div className="mt-4 flex flex-col sm:flex-row sm:justify-between space-y-2 sm:space-y-0 text-sm">
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">{t('budget.total')}: </span>
                       <span className="font-semibold">{budget.currency}{budget.total_amount.toLocaleString(undefined, {
@@ -494,57 +494,57 @@ const BudgetDashboard = () => {
                 </div>
                 
                 {/* Category Breakdown */}
-                <div className="grid grid-cols-5 gap-4 mt-6 border-t pt-6">
-                  <div className="p-4 text-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mt-6 border-t pt-6">
+                  <div className="p-3 md:p-4 text-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
                     <div className="text-blue-500 dark:text-blue-400 mb-1">
                       <Plane size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.transport')}</div>
-                    <div className="font-semibold">{budget.currency}{(categoryTotals.transport || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.transport || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
                   </div>
                   
-                  <div className="p-4 text-center rounded-lg bg-green-50 dark:bg-green-900/20">
+                  <div className="p-3 md:p-4 text-center rounded-lg bg-green-50 dark:bg-green-900/20">
                     <div className="text-green-500 dark:text-green-400 mb-1">
                       <Home size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.lodging')}</div>
-                    <div className="font-semibold">{budget.currency}{(categoryTotals.lodging || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.lodging || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
                   </div>
                   
-                  <div className="p-4 text-center rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                  <div className="p-3 md:p-4 text-center rounded-lg bg-purple-50 dark:bg-purple-900/20">
                     <div className="text-purple-500 dark:text-purple-400 mb-1">
                       <Compass size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.activities')}</div>
-                    <div className="font-semibold">{budget.currency}{(categoryTotals.activities || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.activities || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
                   </div>
                   
-                  <div className="p-4 text-center rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                  <div className="p-3 md:p-4 text-center rounded-lg bg-orange-50 dark:bg-orange-900/20">
                     <div className="text-orange-500 dark:text-orange-400 mb-1">
                       <Coffee size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.food')}</div>
-                    <div className="font-semibold">{budget.currency}{(categoryTotals.food || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.food || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
                   </div>
                   
-                  <div className="p-4 text-center rounded-lg bg-pink-50 dark:bg-pink-900/20">
+                  <div className="p-3 md:p-4 text-center rounded-lg bg-pink-50 dark:bg-pink-900/20">
                     <div className="text-pink-500 dark:text-pink-400 mb-1">
                       <Gift size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.other')}</div>
-                    <div className="font-semibold">{budget.currency}{(categoryTotals.other || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.other || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -636,33 +636,38 @@ const BudgetDashboard = () => {
                     filteredExpenses.map(expense => (
                       <div 
                         key={expense.id} 
-                        className="flex items-center p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                        className="flex flex-col sm:flex-row sm:items-center p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
                       >
-                        <div className={`p-3 mr-4 rounded-full ${getCategoryColor(expense.category)}`}>
-                          {getCategoryIcon(expense.category)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="font-medium">{expense.name}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {dayjs(expense.date).format('MMM D, YYYY')}
+                        <div className="flex items-center mb-3 sm:mb-0">
+                          <div className={`p-3 mr-4 rounded-full ${getCategoryColor(expense.category)}`}>
+                            {getCategoryIcon(expense.category)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium">{expense.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {dayjs(expense.date).format('MMM D, YYYY')}
+                            </div>
                           </div>
                         </div>
-                        <div className="font-bold text-lg mr-4">
-                          {budget.currency}{parseFloat(expense.amount).toFixed(2)}
-                        </div>
-                        <div className="flex">
-                          <button 
-                            onClick={() => editExpense(expense)} 
-                            className="p-2 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-1"
-                          >
-                            <Edit size={18} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteExpense(expense.id)} 
-                            className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            <X size={18} />
-                          </button>
+                        
+                        <div className="flex items-center justify-between sm:justify-end sm:flex-1">
+                          <div className="font-bold text-lg sm:mr-4 sm:ml-4">
+                            {budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                          </div>
+                          <div className="flex">
+                            <button 
+                              onClick={() => editExpense(expense)} 
+                              className="p-2 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-1"
+                            >
+                              <Compass size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteExpense(expense.id)} 
+                              className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
