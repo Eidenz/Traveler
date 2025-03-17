@@ -17,6 +17,7 @@ import CreateTrip from './pages/trips/CreateTrip';
 import EditTrip from './pages/trips/EditTrip';
 import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
+import BudgetDashboard from './pages/budget/BudgetDashboard';
 
 // Not Found Page
 import NotFound from './pages/NotFound';
@@ -53,6 +54,7 @@ function App() {
           <Route path="trips/:tripId" element={<TripDetail />} />
           <Route path="trips/:tripId/edit" element={<EditTrip />} />
           <Route path="calendar" element={<Calendar />} />
+          <Route path="budgets" element={<BudgetDashboard />} />
           <Route path="profile" element={<Profile />} />
         </Route>
         

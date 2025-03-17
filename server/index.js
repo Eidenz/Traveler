@@ -17,6 +17,7 @@ const lodgingRoutes = require('./routes/lodging');
 const activityRoutes = require('./routes/activities');
 const documentRoutes = require('./routes/documents');
 const checklistRoutes = require('./routes/checklists');
+const budgetRoutes = require('./routes/budgets');
 
 // Database initialization
 const { initializeDatabase } = require('./db/database');
@@ -67,6 +68,7 @@ app.use('/api/lodging', lodgingRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/checklists', checklistRoutes);
+app.use('/api/budgets', budgetRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {

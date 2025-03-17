@@ -173,6 +173,34 @@ function initializeDatabase() {
         )
       `);
 
+      // Create Budgets table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS budgets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          total_amount REAL NOT NULL,
+          currency TEXT DEFAULT '$',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE
+        )
+      `);
+      
+      // Create Expenses table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS expenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          budget_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          category TEXT NOT NULL,
+          date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (budget_id) REFERENCES budgets (id) ON DELETE CASCADE
+        )
+      `);
+      
+
       // Run migrations for existing databases
       await runFieldMigrations();
 

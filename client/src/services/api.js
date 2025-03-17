@@ -292,4 +292,15 @@ export const checklistAPI = {
   deleteChecklistItem: (itemId, tripId) => api.delete(`/checklists/items/${itemId}?tripId=${tripId}`),
 };
 
+// Budget API
+export const budgetAPI = {
+  getTripBudget: (tripId) => api.get(`/budgets/trip/${tripId}`),
+  createBudget: (tripId, budgetData) => api.post(`/budgets/trip/${tripId}`, budgetData),
+  updateBudget: (budgetId, budgetData) => api.put(`/budgets/${budgetId}`, budgetData),
+  addExpense: (budgetId, expenseData) => api.post(`/budgets/${budgetId}/expenses`, expenseData),
+  updateExpense: (expenseId, expenseData) => api.put(`/budgets/expenses/${expenseId}`, expenseData),
+  deleteExpense: (expenseId) => api.delete(`/budgets/expenses/${expenseId}`),
+  deleteBudget: (budgetId, tripId) => api.delete(`/budgets/${budgetId}?tripId=${tripId}`),
+};
+
 export default api;

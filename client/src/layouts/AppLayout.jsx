@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { 
   Menu, X, Search, User, LogOut, Settings, Sun, Moon, PlusCircle,
-  Compass, Calendar, Home
+  Compass, Calendar, Home, DollarSign
 } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import useThemeStore from '../stores/themeStore';
@@ -156,6 +156,21 @@ const AppLayout = () => {
                   >
                     <Compass className="mr-3 h-5 w-5" />
                     {t('navigation.myTrips')}
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink 
+                    to="/budgets" 
+                    className={({ isActive }) => `
+                      flex items-center px-3 py-2 rounded-lg text-sm font-medium
+                      ${isActive 
+                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }
+                    `}
+                  >
+                    <DollarSign className="mr-3 h-5 w-5" />
+                    {t('budget.title')}
                   </NavLink>
                 </li>
                 <li>
