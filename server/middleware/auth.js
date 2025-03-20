@@ -17,7 +17,7 @@ const authenticate = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     // Verify token
-    const { userId } = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const { userId } = jwt.verify(token, process.env.JWT_SECRET);
     
     // Check if user exists
     const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId);

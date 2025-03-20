@@ -39,17 +39,7 @@ if (!fs.existsSync(dbDir)) {
 }
 
 // Middleware
-if (process.env.NODE_ENV === 'production') {
-  // Use a more relaxed helmet configuration in production
-  app.use(
-    helmet({
-      contentSecurityPolicy: false, // Disable CSP for simplicity
-      strictTransportSecurity: false, // Disable HSTS to prevent forcing HTTPS
-    })
-  );
-} else {
-  app.use(helmet()); // Standard helmet in development
-}
+app.use(helmet()); // Security headers
 
 app.use(morgan('dev')); // Logging
 app.use(cors()); // CORS handling
