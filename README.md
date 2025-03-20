@@ -108,6 +108,8 @@ This application can run in both development and production modes with data pers
    The application will be available at:
    - http://localhost:5000 (Server handles both frontend and API)
 
+#### Please note that production mode requires HTTPS.
+
 ### Running without Docker
 
 1. Install dependencies:
