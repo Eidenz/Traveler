@@ -1,6 +1,6 @@
 // client/public/serviceWorker.js
 
-const CACHE_NAME = 'traveler-v1';
+const CACHE_NAME = 'traveler-v2';
 const urlsToCache = [
   '/',
   '/index.html',

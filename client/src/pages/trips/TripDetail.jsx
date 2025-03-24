@@ -26,6 +26,84 @@ import {
   getTripOffline 
 } from '../../utils/offlineStorage';
 
+// New component to add at the top of the file, after the existing imports
+const UpcomingAlert = ({ item, type, handleViewDocument }) => {
+  const { t } = useTranslation();
+
+  const getTransportIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'flight':
+        return <Plane className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'train':
+        return <Train className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'bus':
+        return <Bus className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'car':
+        return <Car className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      case 'ship':
+      case 'ferry':
+        return <Ship className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+      default:
+        return <Package className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+    }
+  };
+  
+  // Get the appropriate icon based on item type
+  const getItemIcon = () => {
+    switch (type) {
+      case 'transport':
+        return getTransportIcon(item.type);
+      case 'lodging':
+        return <Bed className="h-6 w-6 text-green-500 dark:text-green-400" />;
+      case 'activity':
+        return <Coffee className="h-6 w-6 text-purple-500 dark:text-purple-400" />;
+      default:
+        return <Bell className="h-6 w-6 text-blue-500 dark:text-blue-400" />;
+    }
+  };
+
+  // Get the time string based on item type
+  const getTimeString = () => {
+    if (type === 'transport') {
+      return item.departure_time || t('transportation.departureTime');
+    } else if (type === 'lodging') {
+      return t('lodging.checkIn');
+    } else if (type === 'activity') {
+      return item.time || t('activities.time');
+    }
+    return '';
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 border-l-4 border-yellow-500 rounded-lg shadow-md p-4 mb-4 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="p-2 rounded-full bg-yellow-100 dark:bg-yellow-900/30 mr-3">
+            {getItemIcon()}
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-white">{item.name || item.company || item.from_location}</h3>
+            <div className="text-sm text-gray-600 dark:text-gray-300 flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              {getTimeString()}
+            </div>
+          </div>
+        </div>
+        {item.has_documents > 0 && (
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => handleViewDocument(type, item.id)}
+            icon={<FileText className="h-4 w-4" />}
+          >
+            {t('common.view')}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const TripDetail = () => {
   const { tripId } = useParams();
   const { user } = useAuthStore();
@@ -143,6 +221,119 @@ const TripDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Add this function inside the TripDetail component, before the return statement
+  const getUpcomingItems = () => {
+    if (!trip || !transportation || !lodging || !activities) return [];
+    
+    const now = dayjs();
+    const today = now.startOf('day');
+    const upcomingItems = [];
+    
+    // Check for transportation departing today within 2 hours
+    transportation.forEach(transport => {
+      const departureDate = dayjs(transport.departure_date);
+      
+      // If departure is today
+      if (departureDate.isSame(today, 'day')) {
+        // If departure time is provided, check if it's within 2 hours
+        if (transport.departure_time) {
+          // Parse departure time (assuming format like "14:30" or "2:30 PM")
+          const timeParts = transport.departure_time.replace(' PM', '').replace(' AM', '').split(':');
+          let departureHour = parseInt(timeParts[0], 10);
+          const departureMinute = parseInt(timeParts[1], 10) || 0;
+          
+          // Adjust for PM if needed
+          if (transport.departure_time.includes('PM') && departureHour < 12) {
+            departureHour += 12;
+          }
+          
+          const departureDateTime = dayjs()
+            .hour(departureHour)
+            .minute(departureMinute)
+            .second(0);
+          
+          // Check if departure is within 2 hours (before or after current time)
+          const diffHours = Math.abs(departureDateTime.diff(now, 'hour', true));
+          if (diffHours <= 2) {
+            upcomingItems.push({
+              item: transport,
+              type: 'transport',
+              time: departureDateTime.toDate()
+            });
+          }
+        } else {
+          // If no specific time, include all of today's transportation
+          upcomingItems.push({
+            item: transport,
+            type: 'transport',
+            time: departureDate.toDate()
+          });
+        }
+      }
+    });
+    
+    // Check for lodging check-ins today
+    lodging.forEach(lodge => {
+      const checkInDate = dayjs(lodge.check_in);
+      
+      // If check-in is today
+      if (checkInDate.isSame(today, 'day')) {
+        upcomingItems.push({
+          item: lodge,
+          type: 'lodging',
+          time: checkInDate.toDate()
+        });
+      }
+    });
+    
+    // Check for activities happening today within 2 hours
+    activities.forEach(activity => {
+      const activityDate = dayjs(activity.date);
+      
+      // If activity is today
+      if (activityDate.isSame(today, 'day')) {
+        // If activity time is provided, check if it's within 2 hours
+        if (activity.time) {
+          // Parse activity time (assuming format like "14:30" or "2:30 PM")
+          const timeStr = activity.time.split(' - ')[0]; // If there's a range, take the start time
+          const timeParts = timeStr.replace(' PM', '').replace(' AM', '').split(':');
+          let activityHour = parseInt(timeParts[0], 10);
+          const activityMinute = parseInt(timeParts[1], 10) || 0;
+          
+          // Adjust for PM if needed
+          if (timeStr.includes('PM') && activityHour < 12) {
+            activityHour += 12;
+          }
+          
+          const activityDateTime = dayjs()
+            .hour(activityHour)
+            .minute(activityMinute)
+            .second(0);
+          
+          // Check if activity is within 2 hours (before or after current time)
+          const diffHours = Math.abs(activityDateTime.diff(now, 'hour', true));
+          if (diffHours <= 2) {
+            upcomingItems.push({
+              item: activity,
+              type: 'activity',
+              time: activityDateTime.toDate()
+            });
+          }
+        } else {
+          // If no specific time, include all of today's activities
+          upcomingItems.push({
+            item: activity,
+            type: 'activity',
+            time: activityDate.toDate()
+          });
+        }
+      }
+    });
+    
+    // Sort items by time
+    return upcomingItems.sort((a, b) => a.time - b.time);
   };
 
   const handleDeleteTrip = async () => {
@@ -667,6 +858,26 @@ const TripDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Upcoming Alerts Section */}
+      {activeTab === 'overview' && getUpcomingItems().length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-3 flex items-center">
+            <Bell className="mr-2 h-5 w-5 text-yellow-500" />
+            {t('common.happeningNow', 'Happening today')}
+          </h2>
+          <div className="space-y-3">
+            {getUpcomingItems().map((item, index) => (
+              <UpcomingAlert 
+                key={`alert-${item.type}-${item.item.id}-${index}`}
+                item={item.item}
+                type={item.type}
+                handleViewDocument={handleViewDocument}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">

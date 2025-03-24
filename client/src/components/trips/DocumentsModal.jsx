@@ -141,13 +141,7 @@ const DocumentsModal = ({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={
-          referenceType === 'transport' 
-            ? t('transportation.attachedDocuments') 
-            : referenceType === 'lodging' 
-              ? t('lodging.attachedDocuments') 
-              : t('activities.attachedDocuments')
-        }
+        title={t('documents.attachedDocuments') }
         size="md"
       >
         <div className="p-6">

@@ -29,7 +29,9 @@
       "imageRemoved": "Image removed successfully",
       "imageRequired": "Please upload an image",
       "imageTooLarge": "Image is too large (max 10MB)",
-      "imageError": "Error uploading image"
+      "imageError": "Error uploading image",
+      "view": "View ticket",
+      "happeningNow": "Happening today"
     },
     "navigation": {
       "main": "Main",

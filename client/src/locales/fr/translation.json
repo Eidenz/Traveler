@@ -29,7 +29,9 @@
       "imageRemoved": "Image supprimée avec succès",
       "imageRequired": "Veuillez télécharger une image",
       "imageTooLarge": "L'image est trop grande (max 10MB)",
-      "imageError": "Erreur lors du téléchargement de l'image"
+      "imageError": "Erreur lors du téléchargement de l'image",
+      "view": "Voir le billet",
+      "happeningNow": "Prochainement"
     },
     "navigation": {
       "main": "Principal",
