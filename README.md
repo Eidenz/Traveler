@@ -76,7 +76,7 @@ This application can run in both development and production modes with data pers
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/travel-companion.git
+   git clone https://github.com/Eidenz/travel-companion.git
    cd travel-companion
    ```
 
