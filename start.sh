@@ -2,7 +2,7 @@
 
 # Quick start script for Travel Companion app
 
-# Default to development mode
+# Default to production mode
 MODE="prod"
 
 # Parse command line arguments
