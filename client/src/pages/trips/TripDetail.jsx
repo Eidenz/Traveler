@@ -989,7 +989,7 @@ const TripDetail = () => {
                       >
                         <div className="text-sm text-gray-500 dark:text-gray-400">{t('trips.duration')}</div>
                         <div className="font-medium">
-                          {dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day')} {t('trips.days')}
+                          {dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day') + 1} {t('trips.days')}
                         </div>
                       </div>
                     </div>
