@@ -608,6 +608,7 @@ const TransportModal = ({
                         name="document"
                         type="file"
                         className="sr-only"
+                        accept=".pdf,.doc,.docx,.txt"
                         onChange={handleDocumentChange}
                       />
                     </label>

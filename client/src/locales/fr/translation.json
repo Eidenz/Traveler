@@ -70,6 +70,22 @@
       "nameRequired": "Le nom est obligatoire",
       "fullNamePlaceholder": "Votre nom complet"
     },
+    "forgotPassword": {
+        "title": "Mot de Passe Oublié",
+        "description": "Entrez votre adresse e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+        "sendLink": "Envoyer le Lien de Réinitialisation",
+        "requestSuccess": "Si un compte existe pour cet e-mail, un lien de réinitialisation de mot de passe a été envoyé."
+    },
+    "resetPassword": {
+        "title": "Réinitialiser Votre Mot de Passe",
+        "description": "Entrez votre nouveau mot de passe ci-dessous. Assurez-vous qu'il soit sécurisé !",
+        "buttonText": "Réinitialiser le Mot de Passe",
+        "successTitle": "Mot de Passe Réinitialisé !",
+        "successMessage": "Votre mot de passe a été mis à jour avec succès.",
+        "successInfo": "Vous pouvez maintenant vous connecter avec votre nouveau mot de passe. Redirection en cours...",
+        "goToDashboard": "Aller au Tableau de Bord",
+        "invalidToken": "Le lien de réinitialisation du mot de passe est invalide ou a expiré. Veuillez en demander un nouveau."
+    },
     "trips": {
       "title": "Mes Voyages",
       "tagline": "Plannifiez votre prochaine adenture maintenant!",
@@ -186,7 +202,8 @@
       "deleteSuccess": "Activité supprimé avec succès",
       "bannerImage": "Image d'activité",
       "bannerImageDescription": "Ajoutez une photo de votre activité",
-      "bannerImagePlaceholder": "Ajoutez une photo de votre tour, excursion, etc."
+      "bannerImagePlaceholder": "Ajoutez une photo de votre tour, excursion, etc.",
+      "upcomingActivities": "Activités à venir"
     },
     "calendar": {
       "title": "Calendrier",
@@ -281,7 +298,9 @@
       "logout": "Se Déconnecter",
       "logoutDescription": "Vous serez redirigé vers la page de connexion.",
       "password": "mot de passe",
-      "account": "compte"
+      "account": "compte",
+      "emailsOn": "Recevoir des mises à jour et des rappels concernant le voyage", 
+      "emailsOff": "Notifications par e-mail désactivées"
     },
     "checklists": {
       "title": "Checklists",

@@ -29,6 +29,9 @@ function initializeDatabase() {
           email TEXT UNIQUE NOT NULL,
           password TEXT NOT NULL,
           profile_image TEXT,
+          resetPasswordToken TEXT,
+          resetPasswordExpires INTEGER,
+          receiveEmails INTEGER DEFAULT 1, -- Added for email preferences (1 = true, 0 = false)
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
@@ -52,7 +55,7 @@ function initializeDatabase() {
       // Create Trip Members table (for shared trips)
       db.exec(`
         CREATE TABLE IF NOT EXISTS trip_members (
-          trip_id INTEGER NOT NULL,
+          trip_id TEXT NOT NULL,
           user_id INTEGER NOT NULL,
           role TEXT NOT NULL CHECK(role IN ('owner', 'editor', 'viewer')),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +69,7 @@ function initializeDatabase() {
       db.exec(`
         CREATE TABLE IF NOT EXISTS transportation (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          trip_id INTEGER NOT NULL,
+          trip_id TEXT NOT NULL,
           type TEXT NOT NULL,
           company TEXT,
           from_location TEXT NOT NULL,
@@ -87,7 +90,7 @@ function initializeDatabase() {
       db.exec(`
         CREATE TABLE IF NOT EXISTS lodging (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          trip_id INTEGER NOT NULL,
+          trip_id TEXT NOT NULL,
           name TEXT NOT NULL,
           address TEXT,
           check_in TEXT NOT NULL,
@@ -104,7 +107,7 @@ function initializeDatabase() {
       db.exec(`
         CREATE TABLE IF NOT EXISTS activities (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          trip_id INTEGER NOT NULL,
+          trip_id TEXT NOT NULL,
           name TEXT NOT NULL,
           date TEXT NOT NULL,
           time TEXT,
@@ -122,15 +125,17 @@ function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS documents (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           reference_type TEXT NOT NULL CHECK(reference_type IN ('trip', 'transportation', 'lodging', 'activity')),
-          reference_id INTEGER NOT NULL,
+          reference_id TEXT NOT NULL,
           file_path TEXT NOT NULL,
           file_name TEXT NOT NULL,
           file_type TEXT NOT NULL,
           uploaded_by INTEGER NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (uploaded_by) REFERENCES users (id) ON DELETE CASCADE
+          -- Note: Cannot directly reference trip/transportation/etc. due to mixed types
         )
       `);
+
 
       // Create Checklists table
       db.exec(`
@@ -184,7 +189,7 @@ function initializeDatabase() {
           FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE
         )
       `);
-      
+
       // Create Expenses table
       db.exec(`
         CREATE TABLE IF NOT EXISTS expenses (
@@ -199,10 +204,12 @@ function initializeDatabase() {
           FOREIGN KEY (budget_id) REFERENCES budgets (id) ON DELETE CASCADE
         )
       `);
-      
+
 
       // Run migrations for existing databases
       await runFieldMigrations();
+      await runPasswordResetMigration();
+      await runEmailPreferenceMigration(); // Add email preference migration
 
       console.log('Database initialized successfully');
       resolve();
@@ -219,14 +226,9 @@ function initializeDatabase() {
 async function runFieldMigrations() {
   try {
     // Check and add banner_image field to transportation table if it doesn't exist
-    migrateField('transportation', 'banner_image');
-    
-    // Check and add banner_image field to lodging table if it doesn't exist
-    migrateField('lodging', 'banner_image');
-    
-    // Check and add banner_image field to activities table if it doesn't exist
-    migrateField('activities', 'banner_image');
-    
+    migrateField('transportation', 'banner_image', 'TEXT');
+    migrateField('lodging', 'banner_image', 'TEXT');
+    migrateField('activities', 'banner_image', 'TEXT');
     console.log('Field migrations completed');
   } catch (error) {
     console.error('Error running field migrations:', error);
@@ -234,26 +236,68 @@ async function runFieldMigrations() {
 }
 
 /**
+ * Migration for password reset fields
+ */
+async function runPasswordResetMigration() {
+  try {
+    migrateField('users', 'resetPasswordToken', 'TEXT');
+    migrateField('users', 'resetPasswordExpires', 'INTEGER');
+    console.log('Password reset field migration completed');
+  } catch (error) {
+    console.error('Error running password reset migration:', error);
+  }
+}
+
+/**
+ * Migration for email preference field
+ */
+async function runEmailPreferenceMigration() {
+  try {
+    migrateField('users', 'receiveEmails', 'INTEGER DEFAULT 1');
+    console.log('Email preference field migration completed');
+  } catch (error) {
+    console.error('Error running email preference migration:', error);
+  }
+}
+
+/**
  * Helper function to migrate a field to a table if it doesn't exist
  * @param {string} tableName - Name of the table
  * @param {string} fieldName - Name of the field to add
+ * @param {string} fieldDefinition - Data type and constraints (e.g., TEXT, INTEGER DEFAULT 1)
  */
-function migrateField(tableName, fieldName) {
+function migrateField(tableName, fieldName, fieldDefinition) {
   try {
-    // First check if the field already exists in the table
     const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
     const fieldExists = tableInfo.some(column => column.name === fieldName);
-    
+
     if (!fieldExists) {
       console.log(`Adding ${fieldName} field to ${tableName} table`);
-      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${fieldName} TEXT;`);
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${fieldName} ${fieldDefinition};`);
     } else {
-      console.log(`Field ${fieldName} already exists in ${tableName} table`);
+       // console.log(`Field ${fieldName} already exists in ${tableName} table`);
     }
   } catch (error) {
     console.error(`Error migrating field ${fieldName} to ${tableName}:`, error);
     throw error;
   }
+}
+
+// --- Ensure trip_id columns are TEXT if they weren't before ---
+function ensureTripIdIsText(tableName) {
+    try {
+        const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
+        const tripIdColumn = tableInfo.find(column => column.name === 'trip_id');
+
+        if (tripIdColumn && tripIdColumn.type !== 'TEXT') {
+            console.warn(`Attempting to migrate ${tableName}.trip_id to TEXT. This might require manual data migration if there are foreign key constraints or existing data issues.`);
+            console.warn(`Manual migration might be needed for ${tableName}.trip_id column type.`);
+        } else if (!tripIdColumn) {
+            console.warn(`Column trip_id not found in ${tableName}. Ensure schema is correct.`);
+        }
+    } catch (error) {
+        console.error(`Error checking/migrating trip_id column type for ${tableName}:`, error);
+    }
 }
 
 module.exports = {

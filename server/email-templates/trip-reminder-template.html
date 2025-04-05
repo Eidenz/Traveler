@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Trip to {{tripDestination}} Starts Tomorrow!</title>
+    <style type="text/css">
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f9fafb;
+            color: #374151;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .email-header {
+            background-color: #3b82f6;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .email-header img {
+            width: 120px;
+            height: auto;
+        }
+        
+        .trip-banner {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        
+        .email-body {
+            padding: 40px 30px;
+            line-height: 1.6;
+        }
+        
+        .email-footer {
+            background-color: #f3f4f6;
+            padding: 20px 30px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #1e40af;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 24px;
+        }
+        
+        h2 {
+            color: #1e40af;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 20px;
+        }
+        
+        p {
+            margin: 0 0 20px;
+            font-size: 16px;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+        
+        .button:hover {
+            background-color: #2563eb;
+        }
+        
+        .button-secondary {
+            display: inline-block;
+            background-color: #ffffff;
+            color: #3b82f6;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            padding: 11px 29px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            border: 1px solid #3b82f6;
+            transition: background-color 0.2s;
+        }
+        
+        .button-secondary:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .trip-summary {
+            background-color: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .trip-info-item {
+            display: flex;
+            margin-bottom: 12px;
+        }
+        
+        .trip-info-icon {
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        .checklist-section {
+            margin: 30px 0;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        
+        .checklist-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+            background-color: #e5e7eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4b5563;
+            flex-shrink: 0;
+        }
+        
+        .checklist-text {
+            flex: 1;
+        }
+        
+        .schedule-item {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        .schedule-time {
+            width: 100px;
+            flex-shrink: 0;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        
+        .schedule-content {
+            flex: 1;
+            padding-left: 15px;
+            border-left: 2px solid #e5e7eb;
+        }
+        
+        .schedule-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .weather-forecast {
+            display: flex;
+            background-color: #f0f7ff;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 25px 0;
+            align-items: center;
+        }
+        
+        .weather-icon {
+            width: 60px;
+            height: 60px;
+            margin-right: 20px;
+        }
+        
+        .weather-details {
+            flex: 1;
+        }
+        
+        .weather-temp {
+            font-size: 22px;
+            font-weight: 600;
+            color: #1e40af;
+        }
+        
+        .tips-container {
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+        
+        .tip-item {
+            margin-bottom: 15px;
+        }
+        
+        .tip-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 5px;
+        }
+        
+        .social-icons {
+            margin-top: 20px;
+        }
+        
+        .social-icons a {
+            display: inline-block;
+            margin: 0 5px;
+        }
+        
+        .social-icons img {
+            width: 24px;
+            height: 24px;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                width: 100%;
+                border-radius: 0;
+            }
+            
+            .email-header, .email-body, .email-footer {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 22px;
+            }
+            
+            p {
+                font-size: 15px;
+            }
+            
+            .button, .button-secondary {
+                display: block;
+                font-size: 15px;
+            }
+            
+            .trip-banner {
+                height: 150px;
+            }
+            
+            .schedule-item {
+                flex-direction: column;
+            }
+            
+            .schedule-time {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            
+            .schedule-content {
+                padding-left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px;">
+        <table class="email-container" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            <!-- Header -->
+            <tr>
+                <td class="email-header" style="background-color: #3b82f6; padding: 30px; text-align: center;">
+                    <img src="/logo.png" alt="Traveler Logo" width="120" style="width: 120px; height: auto;">
+                </td>
+            </tr>
+            
+            <!-- Body -->
+            <tr>
+                <td class="email-body" style="padding: 40px 30px; line-height: 1.6;">
+                    <h1 style="color: #1e40af; margin-top: 0; margin-bottom: 20px; font-weight: 600; font-size: 24px;">Your Trip to {{tripDestination}} Starts Tomorrow!</h1>
+                    
+                    <p style="margin: 0 0 20px; font-size: 16px;">Hello {{userName}},</p>
+                    
+                    <p style="margin: 0 0 20px; font-size: 16px;">Get ready! Your trip to <strong>{{tripDestination}}</strong> begins tomorrow. Here's a quick overview of your travel plan and some tips to make your journey smooth and enjoyable.</p>
+                    
+                    <!-- Trip Summary -->
+                    <div class="trip-summary" style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <div class="trip-info-item" style="display: flex; margin-bottom: 12px;">
+                            <span style="width: 20px; margin-right: 10px;">📍</span>
+                            <div>
+                                <strong>Destination:</strong> {{tripDestination}}
+                            </div>
+                        </div>
+                        <div class="trip-info-item" style="display: flex; margin-bottom: 12px;">
+                            <span style="width: 20px; margin-right: 10px;">📅</span>
+                            <div>
+                                <strong>Dates:</strong> {{tripStartDate}} - {{tripEndDate}}
+                            </div>
+                        </div>
+                        <div class="trip-info-item" style="display: flex; margin-bottom: 12px;">
+                            <span style="width: 20px; margin-right: 10px;">🏨</span>
+                            <div>
+                                <strong>First Night:</strong> {{firstLodgingName}} - {{firstLodgingAddress}}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- First Day Schedule -->
+                    <h2 style="color: #1e40af; margin-top: 30px; margin-bottom: 15px; font-weight: 600; font-size: 20px;">Your Day 1 Schedule</h2>
+                    
+                    <div>
+                        {{#if hasFirstDayTransport}}
+                        <div class="schedule-item" style="display: flex; margin-bottom: 20px;">
+                            <div class="schedule-time" style="width: 100px; flex-shrink: 0; font-weight: 600; color: #1e40af;">
+                                {{firstTransportTime}}
+                            </div>
+                            <div class="schedule-content" style="flex: 1; padding-left: 15px; border-left: 2px solid #e5e7eb;">
+                                <div class="schedule-title" style="font-weight: 600; margin-bottom: 5px;">{{firstTransportType}} to {{tripDestination}}</div>
+                                <div>{{firstTransportFrom}} → {{firstTransportTo}}</div>
+                                {{#if firstTransportCode}}
+                                <div style="margin-top: 5px; font-family: monospace; color: #4b5563;">Confirmation: {{firstTransportCode}}</div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}
+                        
+                        {{#if hasCheckIn}}
+                        <div class="schedule-item" style="display: flex; margin-bottom: 20px;">
+                            <div class="schedule-time" style="width: 100px; flex-shrink: 0; font-weight: 600; color: #1e40af;">
+                                {{checkInTime}}
+                            </div>
+                            <div class="schedule-content" style="flex: 1; padding-left: 15px; border-left: 2px solid #e5e7eb;">
+                                <div class="schedule-title" style="font-weight: 600; margin-bottom: 5px;">Check-in: {{firstLodgingName}}</div>
+                                <div>{{firstLodgingAddress}}</div>
+                                {{#if firstLodgingCode}}
+                                <div style="margin-top: 5px; font-family: monospace; color: #4b5563;">Confirmation: {{firstLodgingCode}}</div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}
+                        
+                        {{#if hasFirstDayActivity}}
+                        <div class="schedule-item" style="display: flex; margin-bottom: 20px;">
+                            <div class="schedule-time" style="width: 100px; flex-shrink: 0; font-weight: 600; color: #1e40af;">
+                                {{firstActivityTime}}
+                            </div>
+                            <div class="schedule-content" style="flex: 1; padding-left: 15px; border-left: 2px solid #e5e7eb;">
+                                <div class="schedule-title" style="font-weight: 600; margin-bottom: 5px;">{{firstActivityName}}</div>
+                                <div>{{firstActivityLocation}}</div>
+                                {{#if firstActivityCode}}
+                                <div style="margin-top: 5px; font-family: monospace; color: #4b5563;">Confirmation: {{firstActivityCode}}</div>
+                                {{/if}}
+                            </div>
+                        </div>
+                        {{/if}}
+                    </div>
+                    
+                    <!-- Weather Forecast -->
+                    <div class="weather-forecast" style="display: flex; background-color: #f0f7ff; border-radius: 8px; padding: 15px; margin: 25px 0; align-items: center;">
+                        <img src="{{weatherIcon}}" alt="Weather" class="weather-icon" style="width: 60px; height: 60px; margin-right: 20px;">
+                        <div class="weather-details" style="flex: 1;">
+                            <div class="weather-temp" style="font-size: 22px; font-weight: 600; color: #1e40af;">{{weatherTemp}}°C</div>
+                            <div>{{weatherCondition}} in {{tripDestination}} tomorrow</div>
+                            <div style="font-size: 14px; color: #4b5563; margin-top: 5px;">Pack appropriate clothing for this weather</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Last-Minute Preparation Tips -->
+                    <h2 style="color: #1e40af; margin-top: 30px; margin-bottom: 15px; font-weight: 600; font-size: 20px;">Last-Minute Preparation Tips</h2>
+                    
+                    <div class="tips-container" style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                        <div class="tip-item" style="margin-bottom: 15px;">
+                            <div class="tip-title" style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">Download your boarding passes</div>
+                            <div>Most airlines allow online check-in 24 hours before departure. Download your boarding passes to avoid queues at the airport.</div>
+                        </div>
+                        
+                        <div class="tip-item" style="margin-bottom: 15px;">
+                            <div class="tip-title" style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">Charge your devices</div>
+                            <div>Make sure your phone, tablet, camera, and other devices are fully charged before departure.</div>
+                        </div>
+                        
+                        <div class="tip-item" style="margin-bottom: 15px;">
+                            <div class="tip-title" style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">Check your documents</div>
+                            <div>Ensure your passport, ID, travel insurance, and other important documents are packed and easily accessible.</div>
+                        </div>
+                        
+                        <div class="tip-item" style="margin-bottom: 15px;">
+                            <div class="tip-title" style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">Download offline maps</div>
+                            <div>Save your destination map for offline use in case you don't have internet access upon arrival.</div>
+                        </div>
+                        
+                        <div class="tip-item" style="margin-bottom: 0;">
+                            <div class="tip-title" style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">Save your trip for offline access</div>
+                            <div>Use the Traveler app's offline mode to access all your trip details without an internet connection.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Essential Checklist -->
+                    <h2 style="color: #1e40af; margin-top: 30px; margin-bottom: 15px; font-weight: 600; font-size: 20px;">Last-Minute Checklist</h2>
+                    
+                    <div class="checklist-section" style="margin: 30px 0;">
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Passport and IDs</strong> - Make sure they're valid and packed securely
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Travel insurance details</strong> - Print or save digital copies
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Local currency</strong> - Have some cash in local currency for immediate needs
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Phone charger and adapter</strong> - Check if you need a travel adapter for your destination
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 12px;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Essential medications</strong> - Pack in your carry-on bag, not checked luggage
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item" style="display: flex; align-items: flex-start; margin-bottom: 0;">
+                            <div class="checklist-icon" style="width: 24px; height: 24px; margin-right: 10px; background-color: #e5e7eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4b5563; flex-shrink: 0;">
+                                ✓
+                            </div>
+                            <div class="checklist-text" style="flex: 1;">
+                                <strong>Notify your bank</strong> - Inform your bank about your travel dates to avoid card blocks
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {{#if hasChecklists}}
+                    <p style="margin: 0 0 20px; font-size: 16px;">View your complete trip checklists in the app to make sure you haven't forgotten anything important!</p>
+                    {{/if}}
+                    
+                    <!-- Buttons -->
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{{tripLink}}" class="button" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-weight: 600; font-size: 16px; text-decoration: none; padding: 12px 30px; border-radius: 6px; margin: 0 10px 10px 0; text-align: center;">View Trip Details</a>
+                        <a href="{{offlineLink}}" class="button-secondary" style="display: inline-block; background-color: #ffffff; color: #3b82f6; font-weight: 600; font-size: 16px; text-decoration: none; padding: 11px 29px; border-radius: 6px; margin: 0 0 10px 10px; text-align: center; border: 1px solid #3b82f6;">Save for Offline Use</a>
+                    </div>
+                    
+                    <p style="margin: 30px 0 0; font-size: 16px;">Have a wonderful trip!<br>The Traveler Team</p>
+                </td>
+            </tr>
+            
+            <!-- Footer -->
+            <tr>
+                <td class="email-footer" style="background-color: #f3f4f6; padding: 20px 30px; font-size: 12px; color: #6b7280; text-align: center;">
+                    <p style="margin: 0 0 10px; font-size: 12px;">© 2025 Traveler. All rights reserved.</p>
+                    <p style="margin: 0 0 10px; font-size: 12px;">This email was sent to {{userEmail}}</p>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

@@ -1,6 +1,11 @@
 // server/controllers/activityController.js
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
+const { sendEmail } = require('../utils/emailService');
+const { getUserById } = require('./tripController'); // Import helper
+const { getTripMembersForNotification } = require('./transportationController'); // Import helper
+const path = require('path'); // Import path
+const fs = require('fs'); // Import fs
 
 /**
  * Get all activities for a trip
@@ -8,16 +13,16 @@ const { validationResult } = require('express-validator');
 const getTripActivities = (req, res) => {
   try {
     const { tripId } = req.params;
-    
+
     // Get activities
     const activities = db.prepare(`
-      SELECT a.*, 
+      SELECT a.*,
         (SELECT COUNT(*) FROM documents WHERE reference_type = 'activity' AND reference_id = a.id) as has_documents
       FROM activities a
       WHERE a.trip_id = ?
       ORDER BY a.date, a.time
     `).all(tripId);
-    
+
     return res.status(200).json({ activities });
   } catch (error) {
     console.error('Get activities error:', error);
@@ -31,25 +36,25 @@ const getTripActivities = (req, res) => {
 const getActivity = (req, res) => {
   try {
     const { activityId } = req.params;
-    
+
     // Get activity
     const activity = db.prepare(`
       SELECT a.*
       FROM activities a
       WHERE a.id = ?
     `).get(activityId);
-    
+
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
-    
+
     // Get documents
     const documents = db.prepare(`
       SELECT d.id, d.file_name, d.file_type, d.file_path, d.created_at
       FROM documents d
       WHERE d.reference_type = 'activity' AND d.reference_id = ?
     `).all(activityId);
-    
+
     return res.status(200).json({
       activity,
       documents
@@ -72,6 +77,7 @@ const createActivity = (req, res) => {
     }
 
     const { tripId } = req.params;
+    const updaterUserId = req.user.id;
     const {
       name,
       date,
@@ -80,34 +86,73 @@ const createActivity = (req, res) => {
       confirmation_code,
       notes
     } = req.body;
-    
+
     // Check if trip exists
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
-    
+
     // Handle banner image if uploaded
     let bannerImage = null;
     if (req.file) {
       bannerImage = `/uploads/activities/${req.file.filename}`;
     }
-    
+
     // Insert activity
     const insert = db.prepare(`
       INSERT INTO activities (
-        trip_id, name, date, time, location, 
+        trip_id, name, date, time, location,
         confirmation_code, notes, banner_image
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     const result = insert.run(
       tripId, name, date, time, location, confirmation_code, notes, bannerImage
     );
-    
+
     // Get the created activity
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(result.lastInsertRowid);
-    
+
+    // Send notification emails to other trip members
+    const membersToNotify = getTripMembersForNotification(tripId, updaterUserId);
+    const updater = getUserById(updaterUserId);
+
+    membersToNotify.forEach(member => {
+        const emailData = {
+            isActivity: true, // Flag for template
+            userName: member.name,
+            userEmail: member.email,
+            updaterName: updater.name,
+            updaterAvatar: updater.profile_image ? `${process.env.FRONTEND_URL}${updater.profile_image}` : 'https://example.com/default-avatar.png',
+            tripName: trip.name,
+            tripDestination: trip.location || 'Unknown Destination',
+            updateType: 'Activity',
+            activityName: name,
+            activityDate: new Date(date).toLocaleDateString(),
+            activityTime: time || '',
+            activityLocation: location || 'N/A',
+            activityCode: confirmation_code || '',
+            activityImage: bannerImage ? `${process.env.FRONTEND_URL}${bannerImage}` : null,
+            tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
+            appLink: `${process.env.FRONTEND_URL}/dashboard`,
+            // Add common links
+            privacyLink: `${process.env.FRONTEND_URL}/privacy`,
+            termsLink: `${process.env.FRONTEND_URL}/terms`,
+            unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
+            facebookLink: 'https://facebook.com',
+            twitterLink: 'https://twitter.com',
+            instagramLink: 'https://instagram.com'
+        };
+        sendEmail(
+            member.email,
+            `Update on trip "${trip.name}": New Activity Added`,
+            'trip-update-template',
+            emailData
+        );
+    });
+
+
     return res.status(201).json({
       message: 'Activity added successfully',
       activity
@@ -138,20 +183,20 @@ const updateActivity = (req, res) => {
       confirmation_code,
       notes
     } = req.body;
-    
+
     // Check if activity exists
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
-    
+
     // Handle banner image if uploaded
     let bannerImage = activity.banner_image;
-    
+
     if (req.file) {
       // Set the new banner image path
       bannerImage = `/uploads/activities/${req.file.filename}`;
-      
+
       // Try to delete the old image file if it exists
       if (activity.banner_image) {
         try {
@@ -160,9 +205,7 @@ const updateActivity = (req, res) => {
             fs.unlinkSync(oldImagePath);
           }
         } catch (fileError) {
-          // Log the error but continue with the update
           console.error('Error deleting old banner image:', fileError);
-          // Don't return an error response - continue with the update
         }
       }
     } else if (req.body.remove_banner === 'true') {
@@ -179,7 +222,7 @@ const updateActivity = (req, res) => {
       }
       bannerImage = null;
     }
-    
+
     // Update activity
     const update = db.prepare(`
       UPDATE activities
@@ -187,14 +230,14 @@ const updateActivity = (req, res) => {
           confirmation_code = ?, notes = ?, banner_image = ?
       WHERE id = ?
     `);
-    
+
     update.run(
       name, date, time, location, confirmation_code, notes, bannerImage, activityId
     );
-    
+
     // Get updated activity
     const updatedActivity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
-    
+
     return res.status(200).json({
       message: 'Activity updated successfully',
       activity: updatedActivity
@@ -211,45 +254,60 @@ const updateActivity = (req, res) => {
 const deleteActivity = (req, res) => {
   try {
     const { activityId } = req.params;
-    
+
     // Check if activity exists
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
-    
+
     // Get associated documents
     const documents = db.prepare(`
       SELECT * FROM documents
       WHERE reference_type = 'activity' AND reference_id = ?
     `).all(activityId);
-    
+
     // Start transaction
     db.prepare('BEGIN TRANSACTION').run();
-    
+
     try {
       // Delete banner image if exists
       if (activity.banner_image) {
-        const imagePath = path.join(__dirname, '..', activity.banner_image);
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-        }
+         try { // Add try-catch for file deletion
+            const imagePath = path.join(__dirname, '..', activity.banner_image);
+            if (fs.existsSync(imagePath)) {
+              fs.unlinkSync(imagePath);
+            }
+         } catch(err) {
+            console.error("Error deleting activity banner:", err);
+         }
       }
-      
-      // Delete documents first (foreign key constraint)
+
+      // Delete documents first
       if (documents.length > 0) {
+          // Also delete document files
+        documents.forEach(doc => {
+            try {
+                const filePath = path.join(__dirname, '..', doc.file_path);
+                if(fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            } catch(err) {
+                 console.error("Error deleting document file:", err);
+            }
+        });
         db.prepare(`
           DELETE FROM documents
           WHERE reference_type = 'activity' AND reference_id = ?
         `).run(activityId);
       }
-      
+
       // Delete activity
       db.prepare('DELETE FROM activities WHERE id = ?').run(activityId);
-      
+
       // Commit transaction
       db.prepare('COMMIT').run();
-      
+
       return res.status(200).json({
         message: 'Activity deleted successfully'
       });

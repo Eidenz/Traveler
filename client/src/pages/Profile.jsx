@@ -5,25 +5,27 @@ import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/Card'
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import ToggleSwitch from '../components/ui/ToggleSwitch'; // Import ToggleSwitch
 import { userAPI } from '../services/api';
 import useAuthStore from '../stores/authStore';
 import toast from 'react-hot-toast';
-import { getImageUrl } from '../utils/imageUtils';
+import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils'; // Import fallback
 import { useTranslation } from 'react-i18next';
-import { 
-  User, Mail, Lock, Upload, X, Camera, Save, 
-  Trash2, LogOut, AlertTriangle, ShieldAlert 
+import {
+  User, Mail, Lock, Camera, Save,
+  Trash2, LogOut, AlertTriangle, ShieldAlert, Bell, BellOff
 } from 'lucide-react';
 
 const Profile = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user, logout, updateUser } = useAuthStore();
-  
+
   // Profile form state
   const [profileForm, setProfileForm] = useState({
     name: '',
-    email: ''
+    email: '',
+    receiveEmails: true, // Added state for email preference
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
@@ -31,6 +33,7 @@ const Profile = () => {
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileErrors, setProfileErrors] = useState({});
   const [deletePassword, setDeletePassword] = useState('');
+  const [removeProfileImageFlag, setRemoveProfileImageFlag] = useState(false); // Flag to track removal
 
   // Password form state
   const [passwordForm, setPasswordForm] = useState({
@@ -51,7 +54,7 @@ const Profile = () => {
     if (user) {
       fetchUserProfile();
     }
-  }, [user]);
+  }, [user]); // Re-fetch if user object changes
 
   // Reset password and confirmation when modal closes
   useEffect(() => {
@@ -61,52 +64,72 @@ const Profile = () => {
     }
   }, [isDeleteModalOpen]);
 
-  // Fetch additional user data if needed
+  // Fetch user profile data
   const fetchUserProfile = async () => {
     try {
       const response = await userAPI.getProfile();
       const userData = response.data.user;
-      
+
       setProfileForm({
         name: userData.name || '',
-        email: userData.email || ''
+        email: userData.email || '',
+        receiveEmails: userData.receiveEmails !== undefined ? userData.receiveEmails : true, // Set email pref
       });
-      
+
       if (userData.profile_image) {
         setExistingProfileImage(getImageUrl(userData.profile_image));
+        setProfileImagePreview(getImageUrl(userData.profile_image)); // Also set preview initially
+      } else {
+        setExistingProfileImage(null);
+        setProfileImagePreview(null);
       }
+      setRemoveProfileImageFlag(false); // Reset remove flag on fetch
     } catch (error) {
       console.error('Error fetching user profile:', error);
       toast.error(t('errors.loadFailed', { item: t('auth.profile').toLowerCase() }));
     }
   };
 
-  // Handle profile form change
+  // Handle profile form change (name)
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileForm(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error for this field when user types
+
     if (profileErrors[name]) {
       setProfileErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
+   // Handle email preference toggle
+  const handleEmailPreferenceChange = (checked) => {
+    setProfileForm(prev => ({ ...prev, receiveEmails: checked }));
+  };
+
   // Handle profile image change
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    
+
     if (file) {
-      setProfileImage(file);
-      
+      // Basic validation (can be extended)
+       if (file.size > 10 * 1024 * 1024) { // 10MB limit
+          toast.error(t('common.imageTooLarge'));
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          toast.error(t('common.imageError'));
+          return;
+        }
+
+      setProfileImage(file); // Set the file object for upload
+      setRemoveProfileImageFlag(false); // Unset remove flag if new image is selected
+
       // Create a preview URL
       const reader = new FileReader();
       reader.onload = () => {
         setProfileImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
-      
-      // Clear error for profile image
+
       if (profileErrors.profile_image) {
         setProfileErrors(prev => ({ ...prev, profile_image: '' }));
       }
@@ -115,19 +138,18 @@ const Profile = () => {
 
   // Handle remove image
   const handleRemoveImage = () => {
-    setProfileImage(null);
-    setProfileImagePreview(null);
-    setExistingProfileImage(null);
+    setProfileImage(null); // Clear the selected file
+    setProfileImagePreview(null); // Clear the preview
+    setExistingProfileImage(null); // Clear existing image URL
+    setRemoveProfileImageFlag(true); // Set flag to indicate removal
   };
 
   // Validate profile form
   const validateProfileForm = () => {
     const errors = {};
-    
     if (!profileForm.name.trim()) {
       errors.name = t('errors.required', { field: t('auth.fullName') });
     }
-    
     setProfileErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -135,30 +157,45 @@ const Profile = () => {
   // Handle profile form submission
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (validateProfileForm()) {
       try {
         setIsUpdatingProfile(true);
-        
-        // Create FormData object for multipart request
+
         const formData = new FormData();
         formData.append('name', profileForm.name);
-        
-        // Add profile image if exists
-        if (profileImage) {
+        formData.append('receiveEmails', profileForm.receiveEmails); // Send email preference
+
+        if (profileImage) { // If a new image was selected
           formData.append('profile_image', profileImage);
-        } else if (existingProfileImage === null) {
-          // If image was removed, send an empty string to remove it
-          formData.append('profile_image', '');
+        } else if (removeProfileImageFlag) { // If remove button was clicked
+          formData.append('remove_profile_image', 'true'); // Send flag to backend
         }
-        
+        // If neither, the backend will keep the existing image
+
         const response = await userAPI.updateProfile(formData);
-        
+        const updatedUserData = response.data.user;
+
         // Update user in auth store
-        if (response.data.user) {
-          updateUser(response.data.user);
+        updateUser(updatedUserData);
+
+        // Update local state after successful update
+        setProfileForm(prev => ({
+            ...prev,
+            name: updatedUserData.name,
+            receiveEmails: updatedUserData.receiveEmails
+        }));
+        if (updatedUserData.profile_image) {
+            const newImageUrl = getImageUrl(updatedUserData.profile_image);
+            setExistingProfileImage(newImageUrl);
+            setProfileImagePreview(newImageUrl); // Update preview
+        } else {
+            setExistingProfileImage(null);
+            setProfileImagePreview(null);
         }
-        
+        setProfileImage(null); // Clear staged image file
+        setRemoveProfileImageFlag(false); // Reset remove flag
+
         toast.success(t('profile.updateSuccess'));
       } catch (error) {
         console.error('Error updating profile:', error);
@@ -173,8 +210,7 @@ const Profile = () => {
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordForm(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error for this field when user types
+
     if (passwordErrors[name]) {
       setPasswordErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -183,21 +219,17 @@ const Profile = () => {
   // Validate password form
   const validatePasswordForm = () => {
     const errors = {};
-    
     if (!passwordForm.current_password) {
       errors.current_password = t('errors.required', { field: t('profile.currentPassword') });
     }
-    
     if (!passwordForm.new_password) {
       errors.new_password = t('errors.required', { field: t('profile.newPassword') });
     } else if (passwordForm.new_password.length < 6) {
       errors.new_password = t('errors.minLength', { field: t('profile.newPassword'), length: 6 });
     }
-    
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       errors.confirm_password = t('errors.passwordsMatch');
     }
-    
     setPasswordErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -205,28 +237,16 @@ const Profile = () => {
   // Handle password form submission
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (validatePasswordForm()) {
       try {
         setIsChangingPassword(true);
-        
-        // Only send current and new password to API
         const { confirm_password, ...passwordData } = passwordForm;
-        
         await userAPI.changePassword(passwordData);
-        
-        // Reset form
-        setPasswordForm({
-          current_password: '',
-          new_password: '',
-          confirm_password: ''
-        });
-        
+        setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
         toast.success(t('profile.passwordChangeSuccess'));
       } catch (error) {
         console.error('Error changing password:', error);
-        
-        // Handle specific errors
         if (error.response?.data?.message === 'Current password is incorrect') {
           setPasswordErrors({ current_password: t('profile.incorrectPassword') });
         } else {
@@ -240,30 +260,23 @@ const Profile = () => {
 
   // Handle account deletion
   const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== user.email) {
+    if (deleteConfirmation !== user?.email) {
       toast.error(t('profile.confirmEmailToDelete'));
       return;
     }
-    
     if (!deletePassword) {
       toast.error(t('errors.required', { field: t('auth.password') }));
       return;
     }
-    
+
     try {
       setIsDeleting(true);
-      
-      // Call the API to delete the account
       await userAPI.deleteAccount(deletePassword);
-      
-      // Log out the user after deletion
-      logout();
+      logout(); // Clear local state/storage
       toast.success(t('profile.accountDeletedSuccess'));
-      navigate('/login');
+      navigate('/login'); // Redirect after successful deletion
     } catch (error) {
       console.error('Error deleting account:', error);
-      
-      // Handle specific error for wrong password
       if (error.response?.status === 400 && error.response?.data?.message === 'Incorrect password') {
         toast.error(t('profile.incorrectPassword'));
       } else {
@@ -271,9 +284,10 @@ const Profile = () => {
       }
     } finally {
       setIsDeleting(false);
-      setIsDeleteModalOpen(false);
+      setIsDeleteModalOpen(false); // Close modal regardless of outcome
     }
   };
+
 
   if (!user) {
     return (
@@ -289,7 +303,7 @@ const Profile = () => {
   return (
     <div className="max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">{t('profile.title')}</h1>
-      
+
       {/* Profile Information Section */}
       <Card className="mb-8">
         <CardHeader>
@@ -300,20 +314,17 @@ const Profile = () => {
             {/* Profile Image */}
             <div className="mb-6 flex flex-col items-center">
               <div className="relative mb-4">
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">
-                  {profileImagePreview || existingProfileImage ? (
-                    <img 
-                      src={profileImagePreview || existingProfileImage} 
-                      alt={profileForm.name} 
+                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                   <img
+                      src={profileImagePreview || getFallbackImageUrl('profile')} // Use preview or fallback
+                      alt={profileForm.name || 'Profile'}
                       className="h-full w-full object-cover"
+                      onError={(e) => { e.target.src = getFallbackImageUrl('profile'); }} // Handle image load error
                     />
-                  ) : (
-                    <User className="h-full w-full p-6 text-gray-500 dark:text-gray-400" />
-                  )}
                 </div>
                 <div className="absolute bottom-0 right-0">
-                  <label 
-                    htmlFor="profile_image" 
+                  <label
+                    htmlFor="profile_image"
                     className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white flex items-center justify-center cursor-pointer shadow-md"
                   >
                     <Camera className="h-5 w-5" />
@@ -328,9 +339,9 @@ const Profile = () => {
                   </label>
                 </div>
               </div>
-              
+
               {/* Remove image button if there's an image */}
-              {(profileImagePreview || existingProfileImage) && (
+              {(profileImagePreview) && (
                 <button
                   type="button"
                   onClick={handleRemoveImage}
@@ -340,7 +351,7 @@ const Profile = () => {
                 </button>
               )}
             </div>
-            
+
             {/* Name Field */}
             <div className="mb-4">
               <Input
@@ -355,7 +366,7 @@ const Profile = () => {
                 icon={<User className="h-5 w-5 text-gray-400" />}
               />
             </div>
-            
+
             {/* Email Field - Display only */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -367,7 +378,7 @@ const Profile = () => {
                 </div>
                 <input
                   type="email"
-                  value={user.email}
+                  value={profileForm.email}
                   className="block w-full pl-10 py-2 pr-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md opacity-75 cursor-not-allowed"
                   disabled
                 />
@@ -376,7 +387,30 @@ const Profile = () => {
                 {t('profile.emailChangeNotAllowed')}
               </p>
             </div>
-            
+
+             {/* Email Preference Toggle */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Email Notifications
+              </label>
+              <div className="flex items-center space-x-3">
+                <ToggleSwitch
+                  id="receiveEmails"
+                  checked={profileForm.receiveEmails}
+                  onChange={handleEmailPreferenceChange}
+                />
+                 {profileForm.receiveEmails ? (
+                    <Bell className="h-5 w-5 text-green-500" />
+                ) : (
+                    <BellOff className="h-5 w-5 text-gray-400" />
+                )}
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {profileForm.receiveEmails ? t('profile.emailsOn') : t('profile.emailsOff')}
+                </span>
+              </div>
+            </div>
+
+
             <div className="flex justify-end">
               <Button
                 type="submit"
@@ -390,7 +424,7 @@ const Profile = () => {
           </form>
         </CardContent>
       </Card>
-      
+
       {/* Password Section */}
       <Card className="mb-8">
         <CardHeader>
@@ -411,7 +445,7 @@ const Profile = () => {
                 required
                 icon={<Lock className="h-5 w-5 text-gray-400" />}
               />
-              
+
               <Input
                 label={t('profile.newPassword')}
                 type="password"
@@ -424,7 +458,7 @@ const Profile = () => {
                 required
                 icon={<Lock className="h-5 w-5 text-gray-400" />}
               />
-              
+
               <Input
                 label={t('profile.confirmNewPassword')}
                 type="password"
@@ -438,7 +472,7 @@ const Profile = () => {
                 icon={<Lock className="h-5 w-5 text-gray-400" />}
               />
             </div>
-            
+
             <div className="flex justify-end mt-6">
               <Button
                 type="submit"
@@ -452,7 +486,7 @@ const Profile = () => {
           </form>
         </CardContent>
       </Card>
-      
+
       {/* Danger Zone Section */}
       <Card className="border-red-300 dark:border-red-700">
         <CardHeader className="bg-red-50 dark:bg-red-900/20 border-b border-red-300 dark:border-red-700">
@@ -475,7 +509,7 @@ const Profile = () => {
               {t('profile.deleteMyAccount')}
             </Button>
           </div>
-          
+
           <div>
             <h3 className="text-lg font-medium mb-2">{t('profile.logout')}</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -495,7 +529,7 @@ const Profile = () => {
           </div>
         </CardContent>
       </Card>
-      
+
       {/* Delete Account Confirmation Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
@@ -517,11 +551,11 @@ const Profile = () => {
               </div>
             </div>
           </div>
-          
+
           <p className="text-gray-600 dark:text-gray-300 mb-4">
             {t('profile.enterEmailToDelete')}
           </p>
-          
+
           <Input
             label={t('auth.email')}
             type="email"
@@ -529,11 +563,11 @@ const Profile = () => {
             name="delete_confirmation"
             value={deleteConfirmation}
             onChange={(e) => setDeleteConfirmation(e.target.value)}
-            placeholder={user.email}
+            placeholder={profileForm.email}
             required
             icon={<Mail className="h-5 w-5 text-gray-400" />}
           />
-          
+
           <div className="mt-4">
             <Input
               label={t('auth.password')}
@@ -547,7 +581,7 @@ const Profile = () => {
               icon={<Lock className="h-5 w-5 text-gray-400" />}
             />
           </div>
-          
+
           <div className="mt-6 flex justify-end space-x-3">
             <Button
               variant="secondary"
@@ -561,7 +595,7 @@ const Profile = () => {
               onClick={handleDeleteAccount}
               loading={isDeleting}
               icon={<Trash2 className="h-5 w-5" />}
-              disabled={deleteConfirmation !== user.email || !deletePassword}
+              disabled={deleteConfirmation !== profileForm.email || !deletePassword || isDeleting}
             >
               {t('profile.permanentlyDeleteAccount')}
             </Button>

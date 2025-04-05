@@ -70,6 +70,22 @@
       "nameRequired": "Name is required",
       "fullNamePlaceholder": "Your full name"
     },
+    "forgotPassword": {
+        "title": "Forgot Password",
+        "description": "Enter your email address and we'll send you a link to reset your password.",
+        "sendLink": "Send Reset Link",
+        "requestSuccess": "If an account exists for that email, a password reset link has been sent."
+    },
+    "resetPassword": {
+        "title": "Reset Your Password",
+        "description": "Enter your new password below. Make sure it's strong!",
+        "buttonText": "Reset Password",
+        "successTitle": "Password Reset Successful!",
+        "successMessage": "Your password has been successfully updated.",
+        "successInfo": "You can now log in with your new password. Redirecting you shortly...",
+        "goToDashboard": "Go to Dashboard Now",
+        "invalidToken": "The password reset link is invalid or has expired. Please request a new one."
+    },
     "trips": {
       "title": "My Trips",
       "tagline": "Plan your next adventure now!",
@@ -186,7 +202,8 @@
       "deleteSuccess": "Activity deleted successfully",
       "bannerImage": "Activity Image",
       "bannerImageDescription": "Add a photo of your activity",
-      "bannerImagePlaceholder": "Add a photo of your tour, excursion, etc."
+      "bannerImagePlaceholder": "Add a photo of your tour, excursion, etc.",
+      "upcomingActivities": "Upcoming Activities"
     },
     "calendar": {
       "title": "Calendar",
@@ -281,7 +298,9 @@
       "logout": "Log Out",
       "logoutDescription": "You will be redirected to the login page.",
       "password": "password",
-      "account": "account"
+      "account": "account",
+      "emailsOn": "Receive trip updates and reminders",
+      "emailsOff": "Email notifications disabled"
     },
     "checklists": {
       "title": "Checklists",

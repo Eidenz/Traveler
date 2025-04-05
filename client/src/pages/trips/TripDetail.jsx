@@ -1033,7 +1033,7 @@ const TripDetail = () => {
                   
                   {/* Upcoming Events */}
                   <div>
-                    <h3 className="font-medium mb-3">{t('calendar.upcomingTrips')}</h3>
+                    <h3 className="font-medium mb-3">{t('activities.upcomingActivities')}</h3>
                     <div className="space-y-3">
                       {activities.length > 0 ? (
                         activities.slice(0, 3).map(activity => (

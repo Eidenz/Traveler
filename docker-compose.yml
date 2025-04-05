@@ -14,6 +14,12 @@ services:
       - NODE_ENV=production
       - JWT_SECRET=your-session-secret
       - PORT=5000
+      - EMAIL_HOST=your_smtp_host
+      - EMAIL_PORT=465
+      - EMAIL_USER=your_smtp_username
+      - EMAIL_PASS=your_smtp_password_or_api_key
+      - EMAIL_FROM="Traveler <no-reply@yourdomain.com>"
+      - FRONTEND_URL=http://traveler.myapp.com
     restart: unless-stopped
     # Override the default command to build client and start server in production mode
     command: >

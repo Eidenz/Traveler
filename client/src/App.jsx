@@ -8,6 +8,8 @@ import AppLayout from './layouts/AppLayout';
 // Auth Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Dashboard Pages
 import Dashboard from './pages/Dashboard';
@@ -25,7 +27,7 @@ import NotFound from './pages/NotFound';
 function App() {
   return (
     <Router>
-      <Toaster 
+      <Toaster
         position="top-right"
         toastOptions={{
           style: {
@@ -40,7 +42,9 @@ function App() {
         {/* Auth Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+
         {/* App Routes */}
         <Route path="/" element={
           <ProtectedRoute>
@@ -57,7 +61,7 @@ function App() {
           <Route path="budgets" element={<BudgetDashboard />} />
           <Route path="profile" element={<Profile />} />
         </Route>
-        
+
         {/* Not Found */}
         <Route path="*" element={<NotFound />} />
       </Routes>
