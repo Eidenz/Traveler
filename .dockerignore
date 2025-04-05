@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+server/node_modules
+npm-debug.log*
+**/npm-debug.log*
+.git
+.gitignore
+.env* # Exclude all .env files
+db/data # Exclude the live DB directory (managed by volume)
+client/dist # Exclude build output if copied before build step
+*.dockerignore
+Dockerfile*
+docker-compose*
+README.md
