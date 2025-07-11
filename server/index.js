@@ -27,6 +27,7 @@ const { initializeDatabase, db } = require('./db/database'); // Added db export
 // Email Service
 const { sendEmail } = require('./utils/emailService'); // Added
 const { getUserById } = require('./controllers/tripController'); // Added
+const { getFallbackImageUrl } = require('./utils/ssrUtils');
 
 // Initialize express app
 const app = express();
