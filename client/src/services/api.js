@@ -263,4 +263,15 @@ export const budgetAPI = {
   deleteBudget: (budgetId, tripId) => api.delete(`/budgets/${budgetId}?tripId=${tripId}`),
 };
 
+// Personal Budget API
+export const personalBudgetAPI = {
+  getTripBudget: (tripId) => api.get(`/personal-budgets/trip/${tripId}`),
+  createBudget: (tripId, budgetData) => api.post(`/personal-budgets/trip/${tripId}`, budgetData),
+  updateBudget: (budgetId, budgetData) => api.put(`/personal-budgets/${budgetId}`, budgetData),
+  addExpense: (budgetId, expenseData) => api.post(`/personal-budgets/${budgetId}/expenses`, expenseData),
+  updateExpense: (expenseId, expenseData) => api.put(`/personal-budgets/expenses/${expenseId}`, expenseData),
+  deleteExpense: (expenseId) => api.delete(`/personal-budgets/expenses/${expenseId}`),
+  deleteBudget: (budgetId) => api.delete(`/personal-budgets/${budgetId}`),
+};
+
 export default api;

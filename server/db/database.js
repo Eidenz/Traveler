@@ -205,6 +205,36 @@ function initializeDatabase() {
         )
       `);
 
+      // Create Personal Budgets table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS personal_budgets (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          user_id INTEGER NOT NULL,
+          total_amount REAL NOT NULL,
+          currency TEXT DEFAULT '$',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+          UNIQUE (trip_id, user_id)
+        )
+      `);
+
+      // Create Personal Expenses table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS personal_expenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          personal_budget_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          amount REAL NOT NULL,
+          category TEXT NOT NULL,
+          date TEXT NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (personal_budget_id) REFERENCES personal_budgets (id) ON DELETE CASCADE
+        )
+      `);
+
 
       // Run migrations for existing databases
       await runFieldMigrations();

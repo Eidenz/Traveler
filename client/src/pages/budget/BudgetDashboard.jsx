@@ -16,12 +16,14 @@ import {
   CreditCard,
   Trash2,
   ArrowRight,
-  Map
+  Map,
+  Users,
+  User
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { budgetAPI, tripAPI } from '../../services/api';
+import { budgetAPI, personalBudgetAPI, tripAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
@@ -35,16 +37,26 @@ const BudgetDashboard = () => {
   const [trips, setTrips] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [hasExplicitlySelected, setHasExplicitlySelected] = useState(false);
-  const [budget, setBudget] = useState(null);
-  const [expenses, setExpenses] = useState([]);
-  const [categoryTotals, setCategoryTotals] = useState({});
-  const [totalSpent, setTotalSpent] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showCreateBudgetForm, setShowCreateBudgetForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeExpenseTab, setActiveExpenseTab] = useState('all');
+  const [activeBudgetTab, setActiveBudgetTab] = useState('shared');
+
+  // State for shared budget
+  const [sharedBudget, setSharedBudget] = useState(null);
+  const [sharedExpenses, setSharedExpenses] = useState([]);
+  const [sharedCategoryTotals, setSharedCategoryTotals] = useState({});
+  const [sharedTotalSpent, setSharedTotalSpent] = useState(0);
+
+  // State for personal budget
+  const [personalBudget, setPersonalBudget] = useState(null);
+  const [personalExpenses, setPersonalExpenses] = useState([]);
+  const [personalCategoryTotals, setPersonalCategoryTotals] = useState({});
+  const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
+
 
   useEffect(() => {
     // Fetch user's trips
@@ -73,20 +85,38 @@ const BudgetDashboard = () => {
 
   // Fetch budget when selected trip changes
   useEffect(() => {
-    if (selectedTrip && hasExplicitlySelected) {
-      fetchBudget(selectedTrip.id);
+    if (selectedTrip?.id && hasExplicitlySelected) {
+      fetchSharedBudget(selectedTrip.id);
+      fetchPersonalBudget(selectedTrip.id);
     }
-  }, [selectedTrip, hasExplicitlySelected]);
+  }, [selectedTrip?.id, hasExplicitlySelected]);
 
-  const fetchBudget = async (tripId) => {
+  const fetchSharedBudget = async (tripId) => {
     try {
       setLoading(true);
       const response = await budgetAPI.getTripBudget(tripId);
       
-      setBudget(response.data.budget);
-      setExpenses(response.data.expenses || []);
-      setCategoryTotals(response.data.categoryTotals || {});
-      setTotalSpent(response.data.totalSpent || 0);
+      setSharedBudget(response.data.budget);
+      setSharedExpenses(response.data.expenses || []);
+      setSharedCategoryTotals(response.data.categoryTotals || {});
+      setSharedTotalSpent(response.data.totalSpent || 0);
+    } catch (error) {
+      console.error('Error fetching shared budget:', error);
+      toast.error(t('errors.failedFetch'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPersonalBudget = async (tripId) => {
+    try {
+      setLoading(true);
+      const response = await personalBudgetAPI.getTripBudget(tripId);
+      
+      setPersonalBudget(response.data.budget);
+      setPersonalExpenses(response.data.expenses || []);
+      setPersonalCategoryTotals(response.data.categoryTotals || {});
+      setPersonalTotalSpent(response.data.totalSpent || 0);
     } catch (error) {
       console.error('Error fetching budget:', error);
       toast.error(t('errors.failedFetch'));
@@ -95,21 +125,28 @@ const BudgetDashboard = () => {
     }
   };
 
+
   const selectTrip = (trip) => {
     setSelectedTrip(trip);
     setHasExplicitlySelected(true);
-    setShowTripSelector(false);
   };
 
   const handleCreateBudget = async (budgetData) => {
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.createBudget(selectedTrip.id, budgetData)
+      : personalBudgetAPI.createBudget(selectedTrip.id, budgetData);
+
     try {
-      const response = await budgetAPI.createBudget(selectedTrip.id, budgetData);
-      setBudget(response.data.budget);
+      const response = await apiCall;
+
+      if (activeBudgetTab === 'shared') {
+        setSharedBudget(response.data.budget);
+      } else {
+        setPersonalBudget(response.data.budget);
+      }
+      
       setShowCreateBudgetForm(false);
       toast.success(t('budget.budgetCreated'));
-      
-      // Refresh budget data
-      await fetchBudget(selectedTrip.id);
     } catch (error) {
       console.error('Error creating budget:', error);
       if (error.response?.data?.message === 'Budget already exists for this trip') {
@@ -121,14 +158,22 @@ const BudgetDashboard = () => {
   };
 
   const handleUpdateBudget = async (budgetData) => {
+    const budgetToUpdate = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budgetToUpdate) return;
+
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.updateBudget(budgetToUpdate.id, budgetData, selectedTrip.id)
+      : personalBudgetAPI.updateBudget(budgetToUpdate.id, budgetData);
+
     try {
-      const response = await budgetAPI.updateBudget(budget.id, budgetData);
-      setBudget(response.data.budget);
+      const response = await apiCall;
+      if (activeBudgetTab === 'shared') {
+        setSharedBudget(response.data.budget);
+      } else {
+        setPersonalBudget(response.data.budget);
+      }
       setShowCreateBudgetForm(false);
       toast.success(t('budget.budgetUpdated'));
-      
-      // Refresh budget data
-      await fetchBudget(selectedTrip.id);
     } catch (error) {
       console.error('Error updating budget:', error);
       toast.error(t('errors.saveFailed', { item: t('budget.title').toLowerCase() }));
@@ -136,72 +181,68 @@ const BudgetDashboard = () => {
   };
 
   const handleDeleteBudget = async () => {
+    const budgetToDelete = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budgetToDelete) return;
+
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.deleteBudget(budgetToDelete.id, selectedTrip.id)
+      : personalBudgetAPI.deleteBudget(budgetToDelete.id);
+
     try {
-      await budgetAPI.deleteBudget(budget.id, selectedTrip.id);
+      await apiCall;
       toast.success(t('budget.budgetDeleted'));
-      setBudget(null);
-      setExpenses([]);
-      setCategoryTotals({});
-      setTotalSpent(0);
+      if (activeBudgetTab === 'shared') {
+        setSharedBudget(null);
+        setSharedExpenses([]);
+        setSharedCategoryTotals({});
+        setSharedTotalSpent(0);
+      } else {
+        setPersonalBudget(null);
+        setPersonalExpenses([]);
+        setPersonalCategoryTotals({});
+        setPersonalTotalSpent(0);
+      }
       setShowDeleteModal(false);
     } catch (error) {
       console.error('Error deleting budget:', error);
       toast.error(t('errors.deleteFailed', { item: t('budget.title').toLowerCase() }));
     }
   };
-
+  
   const handleAddExpense = async (expenseData) => {
+    const budget = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budget) return;
+
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.addExpense(budget.id, expenseData, selectedTrip.id)
+      : personalBudgetAPI.addExpense(budget.id, expenseData);
+
     try {
-      const response = await budgetAPI.addExpense(budget.id, {
-        ...expenseData,
-        trip_id: selectedTrip.id // Include tripId for authorization middleware
-      });
-      
-      // Add the new expense to the list
-      setExpenses([response.data.expense, ...expenses]);
-      
-      // Update total spent
-      setTotalSpent(response.data.totalSpent);
-      
-      // Update category totals
-      const category = expenseData.category;
-      setCategoryTotals({
-        ...categoryTotals,
-        [category]: (categoryTotals[category] || 0) + expenseData.amount
-      });
-      
+      await apiCall;
       setShowExpenseForm(false);
       toast.success(t('budget.expenseAdded'));
-      
-      // Refresh budget data for accurate calculations
-      await fetchBudget(selectedTrip.id);
+      // Refresh data
+      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
+      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
       console.error('Error adding expense:', error);
       toast.error(t('errors.saveFailed', { item: t('budget.addExpense').toLowerCase() }));
     }
   };
-
+  
   const handleUpdateExpense = async (expenseData) => {
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.updateExpense(selectedExpense.id, expenseData, selectedTrip.id)
+      : personalBudgetAPI.updateExpense(selectedExpense.id, expenseData);
+
     try {
-      const response = await budgetAPI.updateExpense(selectedExpense.id, {
-        ...expenseData,
-        trip_id: selectedTrip.id // Include tripId for authorization middleware
-      });
-      
-      // Update the expense in the list
-      setExpenses(expenses.map(expense => 
-        expense.id === selectedExpense.id ? response.data.expense : expense
-      ));
-      
-      // Update total spent
-      setTotalSpent(response.data.totalSpent);
-      
+      await apiCall;
       setShowExpenseForm(false);
       setSelectedExpense(null);
       toast.success(t('budget.expenseUpdated'));
-      
-      // Refresh budget data for accurate calculations
-      await fetchBudget(selectedTrip.id);
+      // Refresh data
+      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
+      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
       console.error('Error updating expense:', error);
       toast.error(t('errors.saveFailed', { item: t('budget.editExpense').toLowerCase() }));
@@ -209,29 +250,50 @@ const BudgetDashboard = () => {
   };
 
   const handleDeleteExpense = async (expenseId) => {
+    const apiCall = activeBudgetTab === 'shared'
+      ? budgetAPI.deleteExpense(expenseId, selectedTrip.id)
+      : personalBudgetAPI.deleteExpense(expenseId);
+
     try {
-      const response = await budgetAPI.deleteExpense(expenseId, selectedTrip.id);
-      
-      // Remove the expense from the list
-      setExpenses(expenses.filter(expense => expense.id !== expenseId));
-      
-      // Update total spent
-      setTotalSpent(response.data.totalSpent);
-      
+      await apiCall;
       toast.success(t('budget.expenseDeleted'));
-      
-      // Refresh budget data for accurate calculations
-      await fetchBudget(selectedTrip.id);
+      // Refresh data
+      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
+      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
       console.error('Error deleting expense:', error);
       toast.error(t('errors.deleteFailed', { item: t('budget.deleteExpense').toLowerCase() }));
     }
   };
 
+  const canEditShared = selectedTrip && (selectedTrip.role === 'owner' || selectedTrip.role === 'editor');
+
+  const currentData = {
+    budget: activeBudgetTab === 'shared' ? sharedBudget : personalBudget,
+    expenses: activeBudgetTab === 'shared' ? sharedExpenses : personalExpenses,
+    categoryTotals: activeBudgetTab === 'shared' ? sharedCategoryTotals : personalCategoryTotals,
+    totalSpent: activeBudgetTab === 'shared' ? sharedTotalSpent : personalTotalSpent,
+    canEdit: activeBudgetTab === 'shared' ? canEditShared : true,
+  };
+
   const editExpense = (expense) => {
     setSelectedExpense(expense);
     setShowExpenseForm(true);
   };
+
+  const TabButton = ({ tabName, label, icon }) => (
+    <button
+      onClick={() => setActiveBudgetTab(tabName)}
+      className={`flex items-center px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+        activeBudgetTab === tabName
+          ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
+      }`}
+    >
+      {icon}
+      <span className="ml-2">{label}</span>
+    </button>
+  );
 
   // Get category icon
   const getCategoryIcon = (category) => {
@@ -258,9 +320,9 @@ const BudgetDashboard = () => {
   };
 
   // Filter expenses based on active tab
-  const filteredExpenses = activeTab === 'all' 
-    ? expenses 
-    : expenses.filter(expense => expense.category === activeTab);
+  const filteredExpenses = activeExpenseTab === 'all' 
+    ? currentData.expenses 
+    : currentData.expenses.filter(expense => expense.category === activeExpenseTab);
 
   if (loading && !trips.length) {
     return (
@@ -374,7 +436,7 @@ const BudgetDashboard = () => {
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {budget && (
+            {currentData.budget && currentData.canEdit && (
               <>
                 <Button
                   variant="outline"
@@ -404,7 +466,7 @@ const BudgetDashboard = () => {
               </>
             )}
             
-            {/* Add a trip link button when in budget view */}
+            
             <Link 
               to={`/trips/${selectedTrip.id}`}
               className="flex items-center px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -414,19 +476,28 @@ const BudgetDashboard = () => {
           </div>
         </div>
       </div>
+
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+        <div className="flex space-x-4">
+          <TabButton tabName="shared" label="Shared Budget" icon={<Users size={16} />} />
+          <TabButton tabName="personal" label="Personal Budget" icon={<User size={16} />} />
+        </div>
+      </div>
       
       {/* Budget Content */}
       <div>
-        {!budget ? (
+        {loading && !currentData.budget ? ( <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto my-12"></div>) :
+        !currentData.budget ? (
           <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-md">
             <DollarSign className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{t('budget.setupBudget')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-              {t('budget.setupBudgetMessage')}
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">{activeBudgetTab === 'shared' && !canEditShared ? "Only trip editors can create a shared budget." :
+              t('budget.setupBudgetMessage')}
             </p>
             <Button
               variant="primary"
               onClick={() => setShowCreateBudgetForm(true)}
+              disabled={activeBudgetTab === 'shared' && !canEditShared}
             >
               {t('budget.createBudgetButton')}
             </Button>
@@ -447,8 +518,8 @@ const BudgetDashboard = () => {
                   
                   <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('budget.title')}</h2>
                   <div className="flex items-baseline">
-                    <span className="text-3xl sm:text-4xl font-bold">
-                      {budget.currency}{(budget.total_amount - totalSpent).toLocaleString(undefined, {
+                    <span className="text-3xl sm:text-4xl font-bold">{currentData.budget.currency}
+                      {(currentData.budget.total_amount - currentData.totalSpent).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}
@@ -461,12 +532,11 @@ const BudgetDashboard = () => {
                     <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                       {/* This is the remaining budget bar (decreases as you spend) */}
                       <div 
-                        className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${
-                          totalSpent > budget.total_amount * 0.9 // Change color when almost depleted
+                        className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${ 
+                          currentData.totalSpent > currentData.budget.total_amount * 0.9 // Change color when almost depleted
                             ? 'bg-red-500 dark:bg-red-600' 
                             : 'bg-blue-500 dark:bg-blue-600'
-                        }`}
-                        style={{ width: `${Math.max(100 - (totalSpent / budget.total_amount) * 100, 0)}%` }}
+                        }`} style={{ width: `${Math.max(100 - (currentData.totalSpent / currentData.budget.total_amount) * 100, 0)}%` }}
                       ></div>
                     </div>
                     <div className="flex justify-between text-xs mt-1 text-gray-500 dark:text-gray-400">
@@ -477,15 +547,14 @@ const BudgetDashboard = () => {
                   
                   <div className="mt-4 flex flex-col sm:flex-row sm:justify-between space-y-2 sm:space-y-0 text-sm">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">{t('budget.total')}: </span>
-                      <span className="font-semibold">{budget.currency}{budget.total_amount.toLocaleString(undefined, {
+                      <span className="text-gray-500 dark:text-gray-400">{t('budget.total')}: </span> <span className="font-semibold">{currentData.budget.currency}
+                        {currentData.budget.total_amount.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}</span>
                     </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">{t('budget.spent')}: </span>
-                      <span className="font-semibold">{budget.currency}{totalSpent.toLocaleString(undefined, {
+                    <div> <span className="text-gray-500 dark:text-gray-400">{t('budget.spent')}: </span>
+                      <span className="font-semibold">{currentData.budget.currency}{currentData.totalSpent.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                       })}</span>
@@ -500,7 +569,7 @@ const BudgetDashboard = () => {
                       <Plane size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.transport')}</div>
-                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.transport || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.transport || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -511,7 +580,7 @@ const BudgetDashboard = () => {
                       <Home size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.lodging')}</div>
-                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.lodging || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.lodging || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -522,7 +591,7 @@ const BudgetDashboard = () => {
                       <Compass size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.activities')}</div>
-                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.activities || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.activities || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -533,7 +602,7 @@ const BudgetDashboard = () => {
                       <Coffee size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.food')}</div>
-                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.food || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.food || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -544,7 +613,7 @@ const BudgetDashboard = () => {
                       <Gift size={20} className="inline-block" />
                     </div>
                     <div className="font-medium text-xs">{t('budget.other')}</div>
-                    <div className="font-semibold text-sm md:text-base">{budget.currency}{(categoryTotals.other || 0).toLocaleString(undefined, {
+                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.other || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}</div>
@@ -563,66 +632,66 @@ const BudgetDashboard = () => {
                 <div className="flex mb-6 overflow-x-auto pb-2">
                   <button 
                     className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'all' 
+                      activeExpenseTab === 'all' 
                         ? 'bg-gray-800 dark:bg-gray-700 text-white' 
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
-                    onClick={() => setActiveTab('all')}
+                    onClick={() => setActiveExpenseTab('all')}
                   >
                     {t('budget.allExpenses')}
                   </button>
                   
                   <button 
                     className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'transport' 
+                      activeExpenseTab === 'transport' 
                         ? 'bg-blue-500 text-white' 
                         : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
                     }`}
-                    onClick={() => setActiveTab('transport')}
+                    onClick={() => setActiveExpenseTab('transport')}
                   >
                     {t('budget.transport')}
                   </button>
                   
                   <button 
                     className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'lodging' 
+                      activeExpenseTab === 'lodging' 
                         ? 'bg-green-500 text-white' 
                         : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30'
                     }`}
-                    onClick={() => setActiveTab('lodging')}
+                    onClick={() => setActiveExpenseTab('lodging')}
                   >
                     {t('budget.lodging')}
                   </button>
                   
                   <button 
                     className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'activities' 
+                      activeExpenseTab === 'activities' 
                         ? 'bg-purple-500 text-white' 
                         : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30'
                     }`}
-                    onClick={() => setActiveTab('activities')}
+                    onClick={() => setActiveExpenseTab('activities')}
                   >
                     {t('budget.activities')}
                   </button>
                   
                   <button 
                     className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'food' 
+                      activeExpenseTab === 'food' 
                         ? 'bg-orange-500 text-white' 
                         : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30'
                     }`}
-                    onClick={() => setActiveTab('food')}
+                    onClick={() => setActiveExpenseTab('food')}
                   >
                     {t('budget.food')}
                   </button>
                   
                   <button 
                     className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeTab === 'other' 
+                      activeExpenseTab === 'other' 
                         ? 'bg-pink-500 text-white' 
                         : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/30'
                     }`}
-                    onClick={() => setActiveTab('other')}
+                    onClick={() => setActiveExpenseTab('other')}
                   >
                     {t('budget.other')}
                   </button>
@@ -652,7 +721,7 @@ const BudgetDashboard = () => {
                         
                         <div className="flex items-center justify-between sm:justify-end sm:flex-1">
                           <div className="font-bold text-lg sm:mr-4 sm:ml-4">
-                            {budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                            {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
                           </div>
                           <div className="flex">
                             <button 
@@ -688,15 +757,15 @@ const BudgetDashboard = () => {
         }}
         onSubmit={selectedExpense ? handleUpdateExpense : handleAddExpense}
         expense={selectedExpense}
-        currency={budget?.currency || '$'}
+        currency={currentData.budget?.currency || '$'}
       />
       
       {/* Create Budget Modal */}
       <CreateBudgetForm
         isOpen={showCreateBudgetForm}
         onClose={() => setShowCreateBudgetForm(false)}
-        onSubmit={budget ? handleUpdateBudget : handleCreateBudget}
-        budget={budget}
+        onSubmit={currentData.budget ? handleUpdateBudget : handleCreateBudget}
+        budget={currentData.budget}
       />
       
       {/* Delete Budget Confirmation Modal */}
