@@ -34,6 +34,7 @@ export const getImageUrl = (imagePath) => {
       trip: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1',
       activity: 'https://images.unsplash.com/photo-1527786356703-4b100091cd2c',
       lodging: 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
+      transportation: 'https://images.unsplash.com/photo-1570125909232-eb263c186f2e',
       profile: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167',
     };
     

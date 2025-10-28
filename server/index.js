@@ -19,6 +19,7 @@ const activityRoutes = require('./routes/activities');
 const documentRoutes = require('./routes/documents');
 const checklistRoutes = require('./routes/checklists');
 const budgetRoutes = require('./routes/budgets');
+const personalBudgetRoutes = require('./routes/personalBudgets');
 
 // Database initialization
 const { initializeDatabase, db } = require('./db/database'); // Added db export
@@ -26,6 +27,7 @@ const { initializeDatabase, db } = require('./db/database'); // Added db export
 // Email Service
 const { sendEmail } = require('./utils/emailService'); // Added
 const { getUserById } = require('./controllers/tripController'); // Added
+const { getFallbackImageUrl } = require('./utils/ssrUtils');
 
 // Initialize express app
 const app = express();
@@ -79,10 +81,65 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/budgets', budgetRoutes);
+app.use('/api/personal-budgets', personalBudgetRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
   // Serve the static files from the React app
+  const frontendBuildPath = path.join(__dirname, '../client/dist');
+
+  // --- SSR for Social Media Meta Tags ---
+  // This handler intercepts requests for specific trip pages to inject meta tags
+  // for social media sharing cards (e.g., on Facebook, Twitter).
+  app.get('/trips/:tripId', async (req, res, next) => {
+    try {
+      const { tripId } = req.params;
+
+      // Fetch basic trip details. No authentication needed as this is for public crawlers.
+      const trip = db.prepare('SELECT name, description, location, start_date, end_date, cover_image FROM trips WHERE id = ?').get(tripId);
+
+      // If trip doesn't exist, pass to the next handler (the SPA) to show a 404 page.
+      if (!trip) {
+        return next();
+      }
+
+      const indexPath = path.join(frontendBuildPath, 'index.html');
+      let htmlData = fs.readFileSync(indexPath, 'utf8');
+
+      // Prepare data for meta tags
+      const pageTitle = trip.name;
+      const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
+      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
+      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+      let fullImageUrl = getFallbackImageUrl('trip'); // Use a default fallback
+      if (trip.cover_image) {
+          // Handle both external URLs and local paths
+          fullImageUrl = trip.cover_image.startsWith('http') 
+            ? trip.cover_image 
+            : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
+      }
+
+      // Construct meta tags
+      const metaTags = `
+        <title>${pageTitle}</title>
+        <meta name="description" content="${pageDescription}">
+        <meta property="og:title" content="${pageTitle}">
+        <meta property="og:description" content="${pageDescription}">
+        <meta property="og:image" content="${fullImageUrl}">
+        <meta property="og:url" content="${fullUrl}">
+        <meta property="og:type" content="website">
+        <meta name="twitter:card" content="summary_large_image">
+      `;
+
+      htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
+      res.header('Content-Type', 'text/html').send(htmlData);
+    } catch (err) {
+      console.error('SSR Meta Tag Error (Trip):', err);
+      next(); // Fallback to SPA on error
+    }
+  });
+
   app.use(express.static(path.join(__dirname, '../client/dist')));
 
   // For any request that doesn't match the above routes, send the React app
