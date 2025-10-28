@@ -53,6 +53,8 @@ app.use(helmet({
         "img-src": ["'self'", "data:", "https://images.unsplash.com", process.env.FRONTEND_URL],
       },
     },
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Changed from default "same-origin"
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Less restrictive
   }));
 app.use(morgan('dev'));
 
