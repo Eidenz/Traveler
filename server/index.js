@@ -48,14 +48,23 @@ app.use(helmet({
     contentSecurityPolicy: {
       directives: {
         ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": ["'self'", "data:", "https://images.unsplash.com", process.env.FRONTEND_URL], // Allow images from self, data URLs, Unsplash, and frontend URL
+        "img-src": ["'self'", "data:", "https://images.unsplash.com", process.env.FRONTEND_URL],
       },
     },
-  })); // Security headers
-app.use(morgan('dev')); // Logging
-app.use(cors()); // CORS handling
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+  }));
+app.use(morgan('dev'));
+
+// Updated CORS configuration
+app.use(cors({
+  origin: ['https://eidenz.moe', 'http://localhost:3000', 'https://traveler.eidenz.moe', 'https://hub.eidenz.moe'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+app.options('*', cors()); // Handle preflight requests
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Static files - provide access to uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
