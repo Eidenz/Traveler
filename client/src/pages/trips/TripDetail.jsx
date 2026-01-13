@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, WifiOff, Plane, Bed, FileText, Plus
+  ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -76,6 +76,13 @@ const TripDetail = () => {
   const containerRef = useRef(null);
   const MIN_PANEL_WIDTH = 450;
   const MAX_PANEL_WIDTH = 800;
+
+  // Mobile map scroll state
+  const [mobileMapVisible, setMobileMapVisible] = useState(true);
+  const [mobileMapHeight] = useState(280); // Height of mobile map in pixels
+  const mobileScrollRef = useRef(null);
+  const lastScrollY = useRef(0);
+  const scrollThreshold = 50; // Pixels before map starts hiding
 
   // Note: Share state is now managed in ShareModal component
 
@@ -185,6 +192,32 @@ const TripDetail = () => {
       document.body.style.userSelect = '';
     };
   }, [isResizing, handleResizeMove, handleResizeEnd]);
+
+  // Mobile map scroll handling
+  const handleMobileScroll = useCallback((e) => {
+    const scrollTop = e.target.scrollTop;
+    const scrollDelta = scrollTop - lastScrollY.current;
+
+    // Scrolling down - hide map after threshold
+    if (scrollDelta > 0 && scrollTop > scrollThreshold) {
+      setMobileMapVisible(false);
+    }
+    // Scrolling up - show map
+    else if (scrollDelta < -10) {
+      setMobileMapVisible(true);
+    }
+
+    lastScrollY.current = scrollTop;
+  }, [scrollThreshold]);
+
+  // Function to toggle mobile map visibility
+  const toggleMobileMap = () => {
+    setMobileMapVisible(prev => !prev);
+    // If showing map, scroll to top
+    if (!mobileMapVisible && mobileScrollRef.current) {
+      mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   // Permission helpers
   const canEdit = () => {
@@ -326,220 +359,454 @@ const TripDetail = () => {
   }
 
   return (
-    <div ref={containerRef} className="h-full flex overflow-hidden">
-      {/* Left Panel - Trip Timeline */}
-      <div
-        className="trip-left-panel w-full md:w-auto bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0 flex-shrink-0"
-        style={{
-          // CSS variable for panel width - used by media query
-          '--panel-width': hasMapboxToken ? `${panelWidth}px` : '100%',
-        }}
-      >
-        {/* Responsive style for panel width */}
-        <style>{`
-          @media (min-width: 768px) {
-            .trip-left-panel {
-              width: var(--panel-width) !important;
-            }
-          }
-        `}</style>
-        {/* Back button - mobile only */}
-        <div className="md:hidden px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
-          <Link
-            to="/trips"
-            className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
+    <>
+      {/* Mobile layout with map */}
+      <div className="md:hidden h-full flex flex-col overflow-hidden relative">
+        {/* Mobile Map Container - fixed at top */}
+        {hasMapboxToken && (
+          <div
+            className="absolute top-0 left-0 right-0 z-0 transition-all duration-300 ease-out"
+            style={{
+              height: `${mobileMapHeight}px`,
+              transform: mobileMapVisible ? 'translateY(0)' : `translateY(-${mobileMapHeight - 60}px)`,
+              opacity: mobileMapVisible ? 1 : 0.5,
+            }}
           >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            {t('common.back', 'Back')}
-          </Link>
-        </div>
-
-        {/* Trip header */}
-        <div className="flex-shrink-0">
-          <TripPanelHeader
-            trip={trip}
-            members={members}
-            isAvailableOffline={isAvailableOffline}
-            isSavingOffline={isSavingOffline}
-            onShare={() => setIsShareModalOpen(true)}
-            onSaveOffline={handleSaveOffline}
-            canEdit={canEdit()}
-          />
-        </div>
-
-        {/* Tab navigation */}
-        <div className="flex-shrink-0">
-          <TabNav
-            activeTab={activeTab}
-            onChange={setActiveTab}
-            tabs={tabs}
-          />
-        </div>
-
-        {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-          {activeTab === 'timeline' && (
-            <TripTimeline
+            <TripMap
               trip={trip}
+              activities={activities}
               transportation={transportation}
               lodging={lodging}
-              activities={activities}
-              onTransportClick={(item) => handleOpenTransportModal(item?.id)}
-              onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
               onActivityClick={handleOpenActivityModal}
-              onAddActivity={handleOpenActivityModal}
-              onDocumentClick={handleViewDocument}
+              selectedActivityId={selectedActivityId}
+              compact={true}
+            />
+
+            {/* Map toggle button when hidden */}
+            {!mobileMapVisible && (
+              <button
+                onClick={toggleMobileMap}
+                className="absolute bottom-2 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 z-20"
+              >
+                <Map className="w-4 h-4" />
+                {t('trips.showMap', 'Show map')}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Mobile Content Panel - scrollable, floats over map */}
+        <div
+          ref={mobileScrollRef}
+          onScroll={handleMobileScroll}
+          className="flex-1 overflow-y-auto custom-scrollbar z-10 transition-all duration-300 ease-out"
+          style={{
+            marginTop: hasMapboxToken && mobileMapVisible ? `${mobileMapHeight - 20}px` : '0',
+            borderTopLeftRadius: hasMapboxToken && mobileMapVisible ? '24px' : '0',
+            borderTopRightRadius: hasMapboxToken && mobileMapVisible ? '24px' : '0',
+            boxShadow: hasMapboxToken && mobileMapVisible ? '0 -4px 20px rgba(0,0,0,0.15)' : 'none',
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 min-h-full">
+            {/* Pull indicator when map is visible */}
+            {hasMapboxToken && mobileMapVisible && (
+              <div className="flex justify-center pt-2 pb-1">
+                <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
+              </div>
+            )}
+
+            {/* Back button - mobile */}
+            <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <Link
+                to="/trips"
+                className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
+              >
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                {t('common.back', 'Back')}
+              </Link>
+
+              {/* Map toggle button */}
+              {hasMapboxToken && !mobileMapVisible && (
+                <button
+                  onClick={toggleMobileMap}
+                  className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"
+                >
+                  <Map className="w-4 h-4" />
+                  {t('trips.map', 'Map')}
+                </button>
+              )}
+            </div>
+
+            {/* Trip header */}
+            <TripPanelHeader
+              trip={trip}
+              members={members}
+              isAvailableOffline={isAvailableOffline}
+              isSavingOffline={isSavingOffline}
+              onShare={() => setIsShareModalOpen(true)}
+              onSaveOffline={handleSaveOffline}
               canEdit={canEdit()}
             />
-          )}
 
-          {activeTab === 'transport' && (
-            <div className="p-4 space-y-3">
-              {/* Add button */}
-              {canEdit() && (
-                <div className="flex justify-end mb-2">
-                  <Button size="sm" onClick={() => handleOpenTransportModal()} icon={<Plus className="w-4 h-4" />}>
-                    {t('transportation.add', 'Add transport')}
-                  </Button>
-                </div>
+            {/* Tab navigation */}
+            <TabNav
+              activeTab={activeTab}
+              onChange={setActiveTab}
+              tabs={tabs}
+            />
+
+            {/* Tab content */}
+            <div className="min-h-[50vh]">
+              {activeTab === 'timeline' && (
+                <TripTimeline
+                  trip={trip}
+                  transportation={transportation}
+                  lodging={lodging}
+                  activities={activities}
+                  onTransportClick={(item) => handleOpenTransportModal(item?.id)}
+                  onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
+                  onActivityClick={handleOpenActivityModal}
+                  onAddActivity={handleOpenActivityModal}
+                  onDocumentClick={handleViewDocument}
+                  canEdit={canEdit()}
+                />
               )}
 
-              {transportation.length === 0 ? (
-                <div className="text-center py-12">
-                  <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
+              {activeTab === 'transport' && (
+                <div className="p-4 space-y-3">
                   {canEdit() && (
-                    <Button onClick={() => handleOpenTransportModal()} className="mt-4">
-                      {t('transportation.add', 'Add transport')}
-                    </Button>
+                    <div className="flex justify-end mb-2">
+                      <Button size="sm" onClick={() => handleOpenTransportModal()} icon={<Plus className="w-4 h-4" />}>
+                        {t('transportation.add', 'Add transport')}
+                      </Button>
+                    </div>
                   )}
-                </div>
-              ) : (
-                transportation.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                    onClick={() => handleOpenTransportModal(item.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                          <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
-                          </p>
-                        </div>
-                      </div>
-                      {item.has_documents > 0 && (
-                        <FileText className="w-4 h-4 text-gray-400" />
+
+                  {transportation.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
+                      {canEdit() && (
+                        <Button onClick={() => handleOpenTransportModal()} className="mt-4">
+                          {t('transportation.add', 'Add transport')}
+                        </Button>
                       )}
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === 'lodging' && (
-            <div className="p-4 space-y-3">
-              {/* Add button */}
-              {canEdit() && (
-                <div className="flex justify-end mb-2">
-                  <Button size="sm" onClick={() => handleOpenLodgingModal()} icon={<Plus className="w-4 h-4" />}>
-                    {t('lodging.add', 'Add lodging')}
-                  </Button>
-                </div>
-              )}
-
-              {lodging.length === 0 ? (
-                <div className="text-center py-12">
-                  <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
-                  {canEdit() && (
-                    <Button onClick={() => handleOpenLodgingModal()} className="mt-4">
-                      {t('lodging.add', 'Add lodging')}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                lodging.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                    onClick={() => handleOpenLodgingModal(item.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                          <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
-                          </p>
+                  ) : (
+                    transportation.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
+                        onClick={() => handleOpenTransportModal(item.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                              <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
+                              </p>
+                            </div>
+                          </div>
+                          {item.has_documents > 0 && (
+                            <FileText className="w-4 h-4 text-gray-400" />
+                          )}
                         </div>
                       </div>
-                      {item.has_documents > 0 && (
-                        <FileText className="w-4 h-4 text-gray-400" />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'lodging' && (
+                <div className="p-4 space-y-3">
+                  {canEdit() && (
+                    <div className="flex justify-end mb-2">
+                      <Button size="sm" onClick={() => handleOpenLodgingModal()} icon={<Plus className="w-4 h-4" />}>
+                        {t('lodging.add', 'Add lodging')}
+                      </Button>
+                    </div>
+                  )}
+
+                  {lodging.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
+                      {canEdit() && (
+                        <Button onClick={() => handleOpenLodgingModal()} className="mt-4">
+                          {t('lodging.add', 'Add lodging')}
+                        </Button>
                       )}
                     </div>
-                  </div>
-                ))
+                  ) : (
+                    lodging.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
+                        onClick={() => handleOpenLodgingModal(item.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                              <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
+                              </p>
+                            </div>
+                          </div>
+                          {item.has_documents > 0 && (
+                            <FileText className="w-4 h-4 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'checklist' && (
+                <div className="p-4">
+                  <TripChecklist
+                    tripId={tripId}
+                    canEdit={canEdit()}
+                  />
+                </div>
               )}
             </div>
-          )}
 
-          {activeTab === 'checklist' && (
-            <div className="p-4">
-              <TripChecklist
-                tripId={tripId}
-                canEdit={canEdit()}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Members footer */}
-        <div className="flex-shrink-0">
-          <TripMembers
-            members={members}
-            onManageAccess={() => setIsShareModalOpen(true)}
-            onAddMember={() => setIsShareModalOpen(true)}
-            canManage={isOwner()}
-          />
+            {/* Members footer */}
+            <TripMembers
+              members={members}
+              onManageAccess={() => setIsShareModalOpen(true)}
+              onAddMember={() => setIsShareModalOpen(true)}
+              canManage={isOwner()}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Resize Handle - only show when map is visible */}
-      {hasMapboxToken && (
+      {/* Desktop layout - unchanged */}
+      <div ref={containerRef} className="hidden md:flex h-full overflow-hidden">
+        {/* Left Panel - Trip Timeline */}
         <div
-          className="hidden md:flex w-1 bg-gray-200 dark:bg-gray-700 hover:bg-accent hover:w-1.5 cursor-col-resize transition-all duration-150 flex-shrink-0 group relative"
-          onMouseDown={handleResizeStart}
+          className="trip-left-panel w-full md:w-auto bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0 flex-shrink-0"
+          style={{
+            // CSS variable for panel width - used by media query
+            '--panel-width': hasMapboxToken ? `${panelWidth}px` : '100%',
+          }}
         >
-          {/* Visual indicator on hover */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-12 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-      )}
+          {/* Responsive style for panel width */}
+          <style>{`
+            @media (min-width: 768px) {
+              .trip-left-panel {
+                width: var(--panel-width) !important;
+              }
+            }
+          `}</style>
+          {/* Back button - mobile only */}
+          <div className="md:hidden px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+            <Link
+              to="/trips"
+              className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              {t('common.back', 'Back')}
+            </Link>
+          </div>
 
-      {/* Right Panel - Map */}
-      {hasMapboxToken && (
-        <div className="hidden md:flex flex-1 relative min-w-0">
-          <TripMap
-            trip={trip}
-            activities={activities}
-            transportation={transportation}
-            lodging={lodging}
-            onActivityClick={handleOpenActivityModal}
-            selectedActivityId={selectedActivityId}
-          />
-        </div>
-      )}
+          {/* Trip header */}
+          <div className="flex-shrink-0">
+            <TripPanelHeader
+              trip={trip}
+              members={members}
+              isAvailableOffline={isAvailableOffline}
+              isSavingOffline={isSavingOffline}
+              onShare={() => setIsShareModalOpen(true)}
+              onSaveOffline={handleSaveOffline}
+              canEdit={canEdit()}
+            />
+          </div>
 
-      {/* Modals */}
+          {/* Tab navigation */}
+          <div className="flex-shrink-0">
+            <TabNav
+              activeTab={activeTab}
+              onChange={setActiveTab}
+              tabs={tabs}
+            />
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            {activeTab === 'timeline' && (
+              <TripTimeline
+                trip={trip}
+                transportation={transportation}
+                lodging={lodging}
+                activities={activities}
+                onTransportClick={(item) => handleOpenTransportModal(item?.id)}
+                onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
+                onActivityClick={handleOpenActivityModal}
+                onAddActivity={handleOpenActivityModal}
+                onDocumentClick={handleViewDocument}
+                canEdit={canEdit()}
+              />
+            )}
+
+            {activeTab === 'transport' && (
+              <div className="p-4 space-y-3">
+                {/* Add button */}
+                {canEdit() && (
+                  <div className="flex justify-end mb-2">
+                    <Button size="sm" onClick={() => handleOpenTransportModal()} icon={<Plus className="w-4 h-4" />}>
+                      {t('transportation.add', 'Add transport')}
+                    </Button>
+                  </div>
+                )}
+
+                {transportation.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
+                    {canEdit() && (
+                      <Button onClick={() => handleOpenTransportModal()} className="mt-4">
+                        {t('transportation.add', 'Add transport')}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  transportation.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
+                      onClick={() => handleOpenTransportModal(item.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
+                            </p>
+                          </div>
+                        </div>
+                        {item.has_documents > 0 && (
+                          <FileText className="w-4 h-4 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'lodging' && (
+              <div className="p-4 space-y-3">
+                {/* Add button */}
+                {canEdit() && (
+                  <div className="flex justify-end mb-2">
+                    <Button size="sm" onClick={() => handleOpenLodgingModal()} icon={<Plus className="w-4 h-4" />}>
+                      {t('lodging.add', 'Add lodging')}
+                    </Button>
+                  </div>
+                )}
+
+                {lodging.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
+                    {canEdit() && (
+                      <Button onClick={() => handleOpenLodgingModal()} className="mt-4">
+                        {t('lodging.add', 'Add lodging')}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  lodging.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
+                      onClick={() => handleOpenLodgingModal(item.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                            <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
+                            </p>
+                          </div>
+                        </div>
+                        {item.has_documents > 0 && (
+                          <FileText className="w-4 h-4 text-gray-400" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'checklist' && (
+              <div className="p-4">
+                <TripChecklist
+                  tripId={tripId}
+                  canEdit={canEdit()}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Members footer */}
+          <div className="flex-shrink-0">
+            <TripMembers
+              members={members}
+              onManageAccess={() => setIsShareModalOpen(true)}
+              onAddMember={() => setIsShareModalOpen(true)}
+              canManage={isOwner()}
+            />
+          </div>
+        </div>
+
+        {/* Resize Handle - only show when map is visible */}
+        {hasMapboxToken && (
+          <div
+            className="hidden md:flex w-1 bg-gray-200 dark:bg-gray-700 hover:bg-accent hover:w-1.5 cursor-col-resize transition-all duration-150 flex-shrink-0 group relative"
+            onMouseDown={handleResizeStart}
+          >
+            {/* Visual indicator on hover */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-12 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        )}
+
+        {/* Right Panel - Map */}
+        {hasMapboxToken && (
+          <div className="hidden md:flex flex-1 relative min-w-0">
+            <TripMap
+              trip={trip}
+              activities={activities}
+              transportation={transportation}
+              lodging={lodging}
+              onActivityClick={handleOpenActivityModal}
+              selectedActivityId={selectedActivityId}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Modals - shared between mobile and desktop */}
       <TransportModal
         isOpen={isTransportModalOpen}
         onClose={() => setIsTransportModalOpen(false)}
@@ -592,8 +859,9 @@ const TripDetail = () => {
         onUpdate={fetchTripData}
         currentUserId={user?.id}
       />
-    </div>
+    </>
   );
 };
 
 export default TripDetail;
+

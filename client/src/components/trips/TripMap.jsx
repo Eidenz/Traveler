@@ -15,6 +15,7 @@ const TripMap = ({
   lodging = [],
   onActivityClick,
   selectedActivityId,
+  compact = false, // Mobile/compact mode - hides controls and shows minimal legend
   className = ''
 }) => {
   const mapContainer = useRef(null);
@@ -456,56 +457,81 @@ const TripMap = ({
       {/* Gradient overlay for left panel edge */}
       <div className="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-white/20 to-transparent pointer-events-none dark:from-gray-900/20" />
 
-      {/* Custom controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
-        <button
-          onClick={handleZoomIn}
-          className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title="Zoom in"
-        >
-          <Plus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={handleZoomOut}
-          className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title="Zoom out"
-        >
-          <Minus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-        <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
-        <button
-          onClick={toggleMapStyle}
-          className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title="Change map style"
-        >
-          <Layers className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={handleCenter}
-          className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          title="Center on trip"
-        >
-          <Navigation className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        </button>
-      </div>
+      {/* Custom controls - hidden in compact mode */}
+      {!compact && (
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
+          <button
+            onClick={handleZoomIn}
+            className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Zoom in"
+          >
+            <Plus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Zoom out"
+          >
+            <Minus className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <div className="w-10 h-px bg-gray-200 dark:bg-gray-700 mx-auto" />
+          <button
+            onClick={toggleMapStyle}
+            className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Change map style"
+          >
+            <Layers className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <button
+            onClick={handleCenter}
+            className="w-10 h-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Center on trip"
+          >
+            <Navigation className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+        </div>
+      )}
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 shadow-lg">
-        <div className="flex flex-col gap-1.5 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-base">🎯</span>
-            <span className="text-gray-600 dark:text-gray-300">Trip location</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold">1</div>
-            <span className="text-gray-600 dark:text-gray-300">Activity</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🏨</span>
-            <span className="text-gray-600 dark:text-gray-300">Lodging</span>
+      {/* Legend - compact version for mobile, full version for desktop */}
+      {compact ? (
+        // Compact inline legend for mobile - positioned higher with text labels
+        <div className="absolute bottom-6 left-2 right-2 flex items-center justify-center">
+          <div className="flex items-center gap-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md text-xs">
+            <div className="flex items-center gap-1">
+              <span className="text-sm">🎯</span>
+              <span className="text-gray-600 dark:text-gray-300">Trip</span>
+            </div>
+            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center text-white text-[10px] font-semibold">1</div>
+              <span className="text-gray-600 dark:text-gray-300">Activity</span>
+            </div>
+            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <div className="flex items-center gap-1">
+              <span className="text-sm">🏨</span>
+              <span className="text-gray-600 dark:text-gray-300">Stay</span>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // Full legend for desktop
+        <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 shadow-lg">
+          <div className="flex flex-col gap-1.5 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎯</span>
+              <span className="text-gray-600 dark:text-gray-300">Trip location</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold">1</div>
+              <span className="text-gray-600 dark:text-gray-300">Activity</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-base">🏨</span>
+              <span className="text-gray-600 dark:text-gray-300">Lodging</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loading state */}
       {!isLoaded && (

@@ -155,7 +155,10 @@
     "destination": "Destination",
     "duration": "Durée",
     "days": "jours",
-    "checklists": "Checklists du voyage"
+    "checklists": "Checklists du voyage",
+    "map": "Carte",
+    "showMap": "Afficher la carte",
+    "timeline": "Chronologie"
   },
   "transportation": {
     "title": "Transport",

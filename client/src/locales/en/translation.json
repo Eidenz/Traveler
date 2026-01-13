@@ -155,7 +155,10 @@
     "destination": "Destination",
     "duration": "Duration",
     "days": "days",
-    "checklists": "Trip Checklists"
+    "checklists": "Trip Checklists",
+    "map": "Map",
+    "showMap": "Show map",
+    "timeline": "Timeline"
   },
   "transportation": {
     "title": "Transportation",
