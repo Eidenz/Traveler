@@ -81,25 +81,8 @@ const Header = () => {
         </form>
       </div>
 
-      {/* Right side - Status, Theme, User */}
+      {/* Right side - Theme, User */}
       <div className="flex items-center gap-2 md:gap-3">
-        {/* Online/Offline indicator */}
-        <div className={`
-          hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-sm
-          ${isOfflineMode 
-            ? 'bg-amber-500/20 text-amber-400' 
-            : 'bg-emerald-500/20 text-emerald-400'
-          }
-        `}>
-          <div className={`
-            w-2 h-2 rounded-full
-            ${isOfflineMode ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}
-          `} />
-          <span className="font-medium">
-            {isOfflineMode ? t('offline.offline', 'Offline') : t('offline.online', 'Online')}
-          </span>
-        </div>
-
         {/* Language switcher */}
         <div className="hidden md:block">
           <LanguageSwitcher />

@@ -3,18 +3,19 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Plus, Minus, Layers, Navigation, MapPin } from 'lucide-react';
+import { geocodeLocation, batchGeocode } from '../../utils/geocoding';
 
 // Use environment variable for token
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
 
-const TripMap = ({ 
+const TripMap = ({
   trip,
   activities = [],
   transportation = [],
   lodging = [],
   onActivityClick,
   selectedActivityId,
-  className = '' 
+  className = ''
 }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -22,11 +23,12 @@ const TripMap = ({
   const [mapStyle, setMapStyle] = useState('streets');
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasToken, setHasToken] = useState(true);
+  const [geocodedPoints, setGeocodedPoints] = useState([]);
 
-  // Collect all locations with coordinates
+  // Collect all locations with coordinates (from DB or geocoded)
   const getMapPoints = useCallback(() => {
     const points = [];
-    
+
     // Add trip location if it has coordinates
     if (trip?.latitude && trip?.longitude) {
       points.push({
@@ -38,9 +40,9 @@ const TripMap = ({
         isMain: true,
       });
     }
-    
-    // Add activities with location (we'll geocode text locations later if needed)
-    activities.forEach(activity => {
+
+    // Add activities with coordinates
+    activities.forEach((activity, index) => {
       if (activity.latitude && activity.longitude) {
         points.push({
           id: `activity-${activity.id}`,
@@ -51,11 +53,12 @@ const TripMap = ({
           lng: parseFloat(activity.longitude),
           date: activity.date,
           time: activity.time,
+          stepNumber: index + 1,
           data: activity,
         });
       }
     });
-    
+
     // Add lodging locations
     lodging.forEach(l => {
       if (l.latitude && l.longitude) {
@@ -69,26 +72,33 @@ const TripMap = ({
         });
       }
     });
-    
-    return points;
-  }, [trip, activities, lodging]);
 
-  // Get center point - prioritize trip location, then average of points, then default
+
+    // Merge with geocoded points (from text locations)
+    geocodedPoints.forEach(geoPoint => {
+      // Only add if not already in points (avoid duplicates)
+      if (!points.find(p => p.id === geoPoint.id)) {
+        points.push(geoPoint);
+      }
+    });
+
+    return points;
+  }, [trip, activities, lodging, geocodedPoints]);
+
+  // Get center point - prioritize trip location, then average of points, then world view
   const getCenter = useCallback(() => {
-    if (trip?.latitude && trip?.longitude) {
-      return [parseFloat(trip.longitude), parseFloat(trip.latitude)];
-    }
-    
     const points = getMapPoints();
+
     if (points.length > 0) {
+      // Calculate average of all points
       const avgLng = points.reduce((sum, p) => sum + p.lng, 0) / points.length;
       const avgLat = points.reduce((sum, p) => sum + p.lat, 0) / points.length;
       return [avgLng, avgLat];
     }
-    
-    // Default to a nice world view
-    return [0, 20];
-  }, [trip, getMapPoints]);
+
+    // Default to a nice world view (centered on Europe)
+    return [10, 30];
+  }, [getMapPoints]);
 
   // Check for token
   useEffect(() => {
@@ -97,16 +107,78 @@ const TripMap = ({
     }
   }, []);
 
+  // Geocode text locations when coordinates aren't available
+  useEffect(() => {
+    const geocodeLocations = async () => {
+      if (!hasToken) return;
+
+      const itemsToGeocode = [];
+
+      // Check trip location
+      if (trip?.location && !trip?.latitude && !trip?.longitude) {
+        itemsToGeocode.push({
+          id: 'trip-main',
+          type: 'trip',
+          location: trip.location,
+          name: trip.location || trip.name,
+          isMain: true
+        });
+      }
+
+      // Check activities
+      activities.forEach((activity, index) => {
+        if (activity.location && !activity.latitude && !activity.longitude) {
+          itemsToGeocode.push({
+            id: `activity-${activity.id}`,
+            type: 'activity',
+            location: activity.location,
+            name: activity.name,
+            stepNumber: index + 1,
+            data: activity,
+            date: activity.date,
+            time: activity.time
+          });
+        }
+      });
+
+      // Geocode all items
+      if (itemsToGeocode.length > 0) {
+        console.log('Geocoding locations:', itemsToGeocode.map(i => i.location));
+        const results = [];
+        for (const item of itemsToGeocode) {
+          const coords = await geocodeLocation(item.location);
+          if (coords) {
+            console.log(`Geocoded "${item.location}" to:`, coords);
+            results.push({
+              ...item,
+              lat: coords.lat,
+              lng: coords.lng
+            });
+          }
+        }
+        console.log('Geocoded points:', results);
+        setGeocodedPoints(results);
+      } else {
+        setGeocodedPoints([]);
+      }
+    };
+
+    geocodeLocations();
+  }, [trip, activities, hasToken]);
+
   // Initialize map
   useEffect(() => {
     if (map.current || !hasToken) return;
 
     try {
+      const points = getMapPoints();
+      const initialZoom = points.length > 0 ? 10 : 2;
+
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: `mapbox://styles/mapbox/${mapStyle}-v12`,
         center: getCenter(),
-        zoom: 10,
+        zoom: initialZoom,
         pitch: 0,
         bearing: 0,
       });
@@ -117,10 +189,10 @@ const TripMap = ({
 
       // Enable scroll zoom
       map.current.scrollZoom.enable();
-      
+
       // Add navigation controls
       map.current.addControl(
-        new mapboxgl.NavigationControl({ showCompass: false }), 
+        new mapboxgl.NavigationControl({ showCompass: false }),
         'bottom-right'
       );
 
@@ -134,7 +206,7 @@ const TripMap = ({
       console.error('Map initialization error:', error);
       setHasToken(false);
     }
-  }, [hasToken]);
+  }, [hasToken, getMapPoints, getCenter, mapStyle]);
 
   // Update markers when data changes
   useEffect(() => {
@@ -145,35 +217,76 @@ const TripMap = ({
     markersRef.current = [];
 
     const points = getMapPoints();
-    
+
+    // Add connecting lines between activity points
+    if (points.length > 1 && map.current.getSource('route')) {
+      map.current.removeLayer('route');
+      map.current.removeSource('route');
+    }
+
+    // Get activity points in order for route line
+    const activityPoints = points.filter(p => p.type === 'activity');
+    if (activityPoints.length > 1) {
+      const lineCoordinates = activityPoints.map(p => [p.lng, p.lat]);
+
+      map.current.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: lineCoordinates
+          }
+        }
+      });
+
+      map.current.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#8b5cf6',
+          'line-width': 3,
+          'line-opacity': 0.6,
+          'line-dasharray': [2, 2]
+        }
+      });
+    }
+
     // Add markers for each point
     points.forEach((point, index) => {
       // Create custom marker element
       const el = document.createElement('div');
       el.className = 'map-marker-wrapper';
-      
+
       const isSelected = point.data?.id === selectedActivityId;
       const isMain = point.isMain;
-      
+
       // Different styles based on type
       let bgColor = '#0f1419';
-      let icon = '📍';
-      
+      let content = '📍';
+
       if (point.type === 'trip' && isMain) {
         bgColor = '#e63946';
-        icon = '🎯';
+        content = '🎯';
       } else if (point.type === 'activity') {
         bgColor = isSelected ? '#e63946' : '#8b5cf6';
-        icon = '⭐';
+        // Show step number instead of emoji
+        content = `<span style="color: white; font-weight: 600; font-size: 14px;">${point.stepNumber}</span>`;
       } else if (point.type === 'lodging') {
         bgColor = '#10b981';
-        icon = '🏨';
+        content = '🏨';
       }
-      
+
       el.innerHTML = `
         <div class="map-marker" style="
-          width: ${isMain ? '40px' : '32px'};
-          height: ${isMain ? '40px' : '32px'};
+          width: ${isMain ? '40px' : '36px'};
+          height: ${isMain ? '40px' : '36px'};
           background: ${bgColor};
           border: 3px solid white;
           border-radius: 50%;
@@ -186,7 +299,7 @@ const TripMap = ({
           transition: all 0.2s ease;
           ${isSelected ? 'transform: scale(1.2);' : ''}
         ">
-          ${icon}
+          ${content}
         </div>
         <div class="marker-tooltip" style="
           position: absolute;
@@ -194,7 +307,7 @@ const TripMap = ({
           left: 50%;
           transform: translateX(-50%);
           background: white;
-          padding: 4px 8px;
+          padding: 6px 10px;
           border-radius: 6px;
           font-size: 12px;
           font-weight: 500;
@@ -204,8 +317,9 @@ const TripMap = ({
           pointer-events: none;
           transition: opacity 0.2s;
           margin-bottom: 8px;
+          color: #1f2937;
         ">
-          ${point.name}
+          ${point.stepNumber ? `Step ${point.stepNumber}: ` : ''}${point.name}
         </div>
       `;
 
@@ -239,7 +353,7 @@ const TripMap = ({
     // Fit bounds to show all markers
     if (points.length > 0) {
       const coordinates = points.map(p => [p.lng, p.lat]);
-      
+
       if (coordinates.length === 1) {
         // Single point - just center on it
         map.current.flyTo({
@@ -268,7 +382,7 @@ const TripMap = ({
     const currentIndex = styles.indexOf(mapStyle);
     const nextIndex = (currentIndex + 1) % styles.length;
     const newStyle = styles[nextIndex];
-    
+
     setMapStyle(newStyle);
     if (map.current) {
       map.current.setStyle(`mapbox://styles/mapbox/${newStyle}-v12`);
@@ -285,12 +399,12 @@ const TripMap = ({
   // Center on trip
   const handleCenter = () => {
     if (!map.current) return;
-    
+
     const points = getMapPoints();
     if (points.length === 0) return;
-    
+
     const coordinates = points.map(p => [p.lng, p.lat]);
-    
+
     if (coordinates.length === 1) {
       map.current.flyTo({
         center: coordinates[0],
@@ -378,7 +492,7 @@ const TripMap = ({
             <span className="text-gray-600 dark:text-gray-300">Trip location</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-base">⭐</span>
+            <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-semibold">1</div>
             <span className="text-gray-600 dark:text-gray-300">Activity</span>
           </div>
           <div className="flex items-center gap-2">

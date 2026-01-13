@@ -1,7 +1,7 @@
 // client/src/pages/trips/TripDetail.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
+import {
   ArrowLeft, WifiOff, Plane, Bed, FileText, Plus
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,9 +11,9 @@ import dayjs from 'dayjs';
 // API and stores
 import { tripAPI, transportAPI, lodgingAPI, activityAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
-import { 
-  isTripAvailableOffline, saveTripOffline, removeTripOffline, 
-  getDocumentsForReference, getTripOffline 
+import {
+  isTripAvailableOffline, saveTripOffline, removeTripOffline,
+  getDocumentsForReference, getTripOffline
 } from '../../utils/offlineStorage';
 
 // Components
@@ -24,6 +24,7 @@ import TripTimeline from '../../components/trips/TripTimeline';
 import TripPanelHeader from '../../components/trips/TripPanelHeader';
 import TripMembers from '../../components/trips/TripMembers';
 import TabNav from '../../components/trips/TabNav';
+import TripChecklist from '../../components/trips/TripChecklist';
 
 // Modals
 import TransportModal from '../../components/trips/TransportModal';
@@ -45,7 +46,7 @@ const TripDetail = () => {
   const [lodging, setLodging] = useState([]);
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Offline state
   const [isAvailableOffline, setIsAvailableOffline] = useState(false);
   const [isSavingOffline, setIsSavingOffline] = useState(false);
@@ -56,7 +57,7 @@ const TripDetail = () => {
   const [isLodgingModalOpen, setIsLodgingModalOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
-  
+
   // Selection state
   const [selectedTransportId, setSelectedTransportId] = useState(null);
   const [selectedLodgingId, setSelectedLodgingId] = useState(null);
@@ -69,6 +70,9 @@ const TripDetail = () => {
   const [shareEmail, setShareEmail] = useState('');
   const [shareRole, setShareRole] = useState('viewer');
   const [isSharing, setIsSharing] = useState(false);
+
+  // Check if Mapbox token is available
+  const hasMapboxToken = import.meta.env.VITE_MAPBOX_TOKEN && import.meta.env.VITE_MAPBOX_TOKEN !== '';
 
   // Fetch trip data
   useEffect(() => {
@@ -84,7 +88,7 @@ const TripDetail = () => {
   const fetchTripData = async () => {
     try {
       setLoading(true);
-      
+
       const isOffline = !navigator.onLine;
       const offlineAvailable = await isTripAvailableOffline(tripId);
       setIsAvailableOffline(offlineAvailable);
@@ -112,7 +116,7 @@ const TripDetail = () => {
       setActivities(response.data.activities);
     } catch (error) {
       console.error('Error fetching trip:', error);
-      
+
       if (!navigator.onLine) {
         const offlineTrip = await getTripOffline(tripId);
         if (offlineTrip) {
@@ -124,7 +128,7 @@ const TripDetail = () => {
           return;
         }
       }
-      
+
       toast.error(t('errors.failedFetch'));
       navigate('/trips');
     } finally {
@@ -176,7 +180,7 @@ const TripDetail = () => {
   const handleViewDocument = async (referenceType, item) => {
     try {
       setCurrentReferenceType(referenceType);
-      
+
       if (!navigator.onLine && isAvailableOffline) {
         const offlineDocs = await getDocumentsForReference(referenceType, item.id);
         if (offlineDocs?.length > 0) {
@@ -271,11 +275,12 @@ const TripDetail = () => {
     }
   };
 
-  // Tab definitions - removed activities tab (now in timeline)
+  // Tab definitions
   const tabs = [
     { id: 'timeline', label: t('trips.timeline', 'Timeline'), count: activities.length },
     { id: 'transport', label: t('transportation.title', 'Transport'), count: transportation.length },
     { id: 'lodging', label: t('lodging.title', 'Lodging'), count: lodging.length },
+    { id: 'checklist', label: t('checklists.title', 'Checklists') },
   ];
 
   // Loading state
@@ -293,11 +298,14 @@ const TripDetail = () => {
   return (
     <div className="h-full flex overflow-hidden">
       {/* Left Panel - Trip Timeline */}
-      <div className="w-full md:w-[480px] lg:w-[520px] bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0">
+      <div className={`${hasMapboxToken
+        ? 'w-full md:w-[480px] lg:w-[520px]'
+        : 'w-full'
+        } bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0`}>
         {/* Back button - mobile only */}
         <div className="md:hidden px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
-          <Link 
-            to="/trips" 
+          <Link
+            to="/trips"
             className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
           >
             <ArrowLeft className="mr-1 h-4 w-4" />
@@ -354,7 +362,7 @@ const TripDetail = () => {
                   </Button>
                 </div>
               )}
-              
+
               {transportation.length === 0 ? (
                 <div className="text-center py-12">
                   <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -367,9 +375,9 @@ const TripDetail = () => {
                 </div>
               ) : (
                 transportation.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200" 
+                  <div
+                    key={item.id}
+                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
                     onClick={() => handleOpenTransportModal(item.id)}
                   >
                     <div className="flex items-center justify-between">
@@ -404,7 +412,7 @@ const TripDetail = () => {
                   </Button>
                 </div>
               )}
-              
+
               {lodging.length === 0 ? (
                 <div className="text-center py-12">
                   <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
@@ -417,9 +425,9 @@ const TripDetail = () => {
                 </div>
               ) : (
                 lodging.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200" 
+                  <div
+                    key={item.id}
+                    className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
                     onClick={() => handleOpenLodgingModal(item.id)}
                   >
                     <div className="flex items-center justify-between">
@@ -443,6 +451,15 @@ const TripDetail = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'checklist' && (
+            <div className="p-4">
+              <TripChecklist
+                tripId={tripId}
+                canEdit={canEdit()}
+              />
+            </div>
+          )}
         </div>
 
         {/* Members footer */}
@@ -457,16 +474,18 @@ const TripDetail = () => {
       </div>
 
       {/* Right Panel - Map */}
-      <div className="hidden md:flex flex-1 relative">
-        <TripMap
-          trip={trip}
-          activities={activities}
-          transportation={transportation}
-          lodging={lodging}
-          onActivityClick={handleOpenActivityModal}
-          selectedActivityId={selectedActivityId}
-        />
-      </div>
+      {hasMapboxToken && (
+        <div className="hidden md:flex flex-1 relative">
+          <TripMap
+            trip={trip}
+            activities={activities}
+            transportation={transportation}
+            lodging={lodging}
+            onActivityClick={handleOpenActivityModal}
+            selectedActivityId={selectedActivityId}
+          />
+        </div>
+      )}
 
       {/* Modals */}
       <TransportModal
@@ -504,8 +523,8 @@ const TripDetail = () => {
         referenceType={currentReferenceType}
         referenceId={
           currentReferenceType === 'transport' ? selectedTransportId :
-          currentReferenceType === 'lodging' ? selectedLodgingId :
-          selectedActivityId
+            currentReferenceType === 'lodging' ? selectedLodgingId :
+              selectedActivityId
         }
         tripId={tripId}
         isOfflineMode={!navigator.onLine && isAvailableOffline}
@@ -590,8 +609,8 @@ const TripDetail = () => {
                   </div>
                   <span className={`
                     text-xs px-2 py-1 rounded-full
-                    ${member.role === 'owner' 
-                      ? 'bg-accent/10 text-accent' 
+                    ${member.role === 'owner'
+                      ? 'bg-accent/10 text-accent'
                       : member.role === 'editor'
                         ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                         : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
