@@ -1,7 +1,7 @@
 // client/src/components/layout/Header.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, User, LogOut, Sun, Moon, ChevronDown, MapPin } from 'lucide-react';
+import { Search, User, LogOut, Sun, Moon, ChevronDown } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import useThemeStore from '../../stores/themeStore';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -50,9 +50,11 @@ const Header = () => {
       <div className="flex items-center gap-4 md:gap-8">
         {/* Logo */}
         <Link to="/dashboard" className="flex items-center gap-2 text-white hover:text-white">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <MapPin className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo.svg"
+            alt="Traveler Logo"
+            className="w-8 h-8 rounded-lg"
+          />
           <span className="hidden sm:block text-lg font-display font-semibold tracking-tight">
             Traveler
           </span>
