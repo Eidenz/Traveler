@@ -47,15 +47,34 @@ if (!fs.existsSync(dbDir)) {
 
 // Middleware
 app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-        "img-src": ["'self'", "data:", "https://images.unsplash.com", process.env.FRONTEND_URL],
-      },
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "default-src": ["'self'"],
+      "script-src": ["'self'", "'unsafe-inline'"], // Mapbox GL requires some inline scripts
+      "style-src": ["'self'", "'unsafe-inline'", "blob:"], // Mapbox styles + inline styles
+      "img-src": [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://images.unsplash.com",
+        "https://*.tiles.mapbox.com", // Mapbox map tiles
+        "https://api.mapbox.com", // Mapbox images/sprites
+        process.env.FRONTEND_URL
+      ],
+      "connect-src": [
+        "'self'",
+        "https://api.mapbox.com", // Mapbox API (geocoding, styles, etc.)
+        "https://events.mapbox.com" // Mapbox analytics (optional)
+      ],
+      "worker-src": ["'self'", "blob:"], // Web Workers for Mapbox GL
+      "child-src": ["'self'", "blob:"], // For older browsers
+      "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
     },
-    crossOriginResourcePolicy: { policy: "cross-origin" }, // Changed from default "same-origin"
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Less restrictive
-  }));
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+}));
 app.use(morgan('dev'));
 
 // Updated CORS configuration
@@ -116,10 +135,10 @@ if (process.env.NODE_ENV === 'production') {
 
       let fullImageUrl = getFallbackImageUrl('trip'); // Use a default fallback
       if (trip.cover_image) {
-          // Handle both external URLs and local paths
-          fullImageUrl = trip.cover_image.startsWith('http') 
-            ? trip.cover_image 
-            : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
+        // Handle both external URLs and local paths
+        fullImageUrl = trip.cover_image.startsWith('http')
+          ? trip.cover_image
+          : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
       }
 
       // Construct meta tags
@@ -167,103 +186,103 @@ app.use((err, req, res, next) => {
 // --- Trip Reminder Cron Job ---
 // Schedule to run every day at 8:00 AM server time
 cron.schedule('0 8 * * *', async () => {
-    console.log('Running daily trip reminder check...');
-    try {
-        const today = new Date();
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-        const tomorrowDateString = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD format
+  console.log('Running daily trip reminder check...');
+  try {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowDateString = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-        // Find trips starting tomorrow
-        const tripsStartingTomorrow = db.prepare('SELECT * FROM trips WHERE start_date = ?').all(tomorrowDateString);
+    // Find trips starting tomorrow
+    const tripsStartingTomorrow = db.prepare('SELECT * FROM trips WHERE start_date = ?').all(tomorrowDateString);
 
-        console.log(`Found ${tripsStartingTomorrow.length} trips starting tomorrow.`);
+    console.log(`Found ${tripsStartingTomorrow.length} trips starting tomorrow.`);
 
-        for (const trip of tripsStartingTomorrow) {
-            // Get all members of the trip
-            const members = db.prepare(`
+    for (const trip of tripsStartingTomorrow) {
+      // Get all members of the trip
+      const members = db.prepare(`
                 SELECT u.id, u.name, u.email, u.receiveEmails
                 FROM users u
                 JOIN trip_members tm ON u.id = tm.user_id
                 WHERE tm.trip_id = ? AND u.receiveEmails = 1
             `).all(trip.id);
 
-            if (members.length === 0) continue;
+      if (members.length === 0) continue;
 
-            console.log(`Processing reminders for trip: ${trip.name} (ID: ${trip.id}) for ${members.length} members.`);
+      console.log(`Processing reminders for trip: ${trip.name} (ID: ${trip.id}) for ${members.length} members.`);
 
-            // --- Prepare common email data ---
-            const firstLodging = db.prepare('SELECT name, address, confirmation_code FROM lodging WHERE trip_id = ? ORDER BY check_in ASC LIMIT 1').get(trip.id);
-            const firstTransport = db.prepare('SELECT type, company, from_location, to_location, departure_time, confirmation_code FROM transportation WHERE trip_id = ? AND departure_date = ? ORDER BY departure_time ASC LIMIT 1').get(trip.id, tomorrowDateString);
-            const firstActivity = db.prepare('SELECT name, time, location, confirmation_code FROM activities WHERE trip_id = ? AND date = ? ORDER BY time ASC LIMIT 1').get(trip.id, tomorrowDateString);
-            const checklists = db.prepare('SELECT id FROM checklists WHERE trip_id = ?').all(trip.id);
+      // --- Prepare common email data ---
+      const firstLodging = db.prepare('SELECT name, address, confirmation_code FROM lodging WHERE trip_id = ? ORDER BY check_in ASC LIMIT 1').get(trip.id);
+      const firstTransport = db.prepare('SELECT type, company, from_location, to_location, departure_time, confirmation_code FROM transportation WHERE trip_id = ? AND departure_date = ? ORDER BY departure_time ASC LIMIT 1').get(trip.id, tomorrowDateString);
+      const firstActivity = db.prepare('SELECT name, time, location, confirmation_code FROM activities WHERE trip_id = ? AND date = ? ORDER BY time ASC LIMIT 1').get(trip.id, tomorrowDateString);
+      const checklists = db.prepare('SELECT id FROM checklists WHERE trip_id = ?').all(trip.id);
 
-            // Simple placeholder for weather - replace with actual API call if desired
-            const weather = { temp: 15, condition: 'Partly cloudy', icon: 'https://example.com/weather-icon.png' };
+      // Simple placeholder for weather - replace with actual API call if desired
+      const weather = { temp: 15, condition: 'Partly cloudy', icon: 'https://example.com/weather-icon.png' };
 
-            const commonEmailData = {
-                tripName: trip.name,
-                tripDestination: trip.location || 'Unknown Destination',
-                tripImage: trip.cover_image ? `${process.env.FRONTEND_URL}${trip.cover_image}` : 'https://example.com/default-trip.png',
-                tripStartDate: new Date(trip.start_date).toLocaleDateString(),
-                tripEndDate: new Date(trip.end_date).toLocaleDateString(),
-                tripLink: `${process.env.FRONTEND_URL}/trips/${trip.id}`,
-                offlineLink: `${process.env.FRONTEND_URL}/trips/${trip.id}?offline=true`, // Example link
-                privacyLink: `${process.env.FRONTEND_URL}/privacy`,
-                termsLink: `${process.env.FRONTEND_URL}/terms`,
-                unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
-                facebookLink: 'https://facebook.com',
-                twitterLink: 'https://twitter.com',
-                instagramLink: 'https://instagram.com',
-                // First day details
-                firstLodgingName: firstLodging?.name || 'N/A',
-                firstLodgingAddress: firstLodging?.address || 'N/A',
-                hasCheckIn: !!firstLodging,
-                checkInTime: 'Afternoon', // Placeholder, get from lodging if available
-                firstLodgingCode: firstLodging?.confirmation_code || '',
-                hasFirstDayTransport: !!firstTransport,
-                firstTransportType: firstTransport?.type || '',
-                firstTransportCompany: firstTransport?.company || '',
-                firstTransportFrom: firstTransport?.from_location || '',
-                firstTransportTo: firstTransport?.to_location || '',
-                firstTransportTime: firstTransport?.departure_time || 'Morning',
-                firstTransportCode: firstTransport?.confirmation_code || '',
-                hasFirstDayActivity: !!firstActivity,
-                firstActivityName: firstActivity?.name || '',
-                firstActivityTime: firstActivity?.time || 'Anytime',
-                firstActivityLocation: firstActivity?.location || '',
-                firstActivityCode: firstActivity?.confirmation_code || '',
-                // Weather
-                weatherIcon: weather.icon,
-                weatherTemp: weather.temp,
-                weatherCondition: weather.condition,
-                // Checklists
-                hasChecklists: checklists.length > 0,
-            };
+      const commonEmailData = {
+        tripName: trip.name,
+        tripDestination: trip.location || 'Unknown Destination',
+        tripImage: trip.cover_image ? `${process.env.FRONTEND_URL}${trip.cover_image}` : 'https://example.com/default-trip.png',
+        tripStartDate: new Date(trip.start_date).toLocaleDateString(),
+        tripEndDate: new Date(trip.end_date).toLocaleDateString(),
+        tripLink: `${process.env.FRONTEND_URL}/trips/${trip.id}`,
+        offlineLink: `${process.env.FRONTEND_URL}/trips/${trip.id}?offline=true`, // Example link
+        privacyLink: `${process.env.FRONTEND_URL}/privacy`,
+        termsLink: `${process.env.FRONTEND_URL}/terms`,
+        unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
+        facebookLink: 'https://facebook.com',
+        twitterLink: 'https://twitter.com',
+        instagramLink: 'https://instagram.com',
+        // First day details
+        firstLodgingName: firstLodging?.name || 'N/A',
+        firstLodgingAddress: firstLodging?.address || 'N/A',
+        hasCheckIn: !!firstLodging,
+        checkInTime: 'Afternoon', // Placeholder, get from lodging if available
+        firstLodgingCode: firstLodging?.confirmation_code || '',
+        hasFirstDayTransport: !!firstTransport,
+        firstTransportType: firstTransport?.type || '',
+        firstTransportCompany: firstTransport?.company || '',
+        firstTransportFrom: firstTransport?.from_location || '',
+        firstTransportTo: firstTransport?.to_location || '',
+        firstTransportTime: firstTransport?.departure_time || 'Morning',
+        firstTransportCode: firstTransport?.confirmation_code || '',
+        hasFirstDayActivity: !!firstActivity,
+        firstActivityName: firstActivity?.name || '',
+        firstActivityTime: firstActivity?.time || 'Anytime',
+        firstActivityLocation: firstActivity?.location || '',
+        firstActivityCode: firstActivity?.confirmation_code || '',
+        // Weather
+        weatherIcon: weather.icon,
+        weatherTemp: weather.temp,
+        weatherCondition: weather.condition,
+        // Checklists
+        hasChecklists: checklists.length > 0,
+      };
 
-            // Send email to each member
-            for (const member of members) {
-                const memberSpecificData = {
-                    ...commonEmailData,
-                    userName: member.name,
-                    userEmail: member.email,
-                };
+      // Send email to each member
+      for (const member of members) {
+        const memberSpecificData = {
+          ...commonEmailData,
+          userName: member.name,
+          userEmail: member.email,
+        };
 
-                sendEmail(
-                    member.email,
-                    `Reminder: Your trip to ${trip.name} starts tomorrow!`,
-                    'trip-reminder-template',
-                    memberSpecificData
-                );
-            }
-        }
-        console.log('Finished daily trip reminder check.');
-    } catch (error) {
-        console.error('Error running trip reminder job:', error);
+        sendEmail(
+          member.email,
+          `Reminder: Your trip to ${trip.name} starts tomorrow!`,
+          'trip-reminder-template',
+          memberSpecificData
+        );
+      }
     }
+    console.log('Finished daily trip reminder check.');
+  } catch (error) {
+    console.error('Error running trip reminder job:', error);
+  }
 }, {
-    scheduled: true,
-    timezone: "UTC" // Or your server's timezone e.g., "Europe/London"
+  scheduled: true,
+  timezone: "UTC" // Or your server's timezone e.g., "Europe/London"
 });
 
 
