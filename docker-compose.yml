@@ -20,6 +20,7 @@ services:
       - EMAIL_PASS=your_smtp_password_or_api_key
       - EMAIL_FROM="Traveler <no-reply@yourdomain.com>"
       - FRONTEND_URL=http://traveler.myapp.com
+      - VITE_MAPBOX_TOKEN=your_mapbox_token_here
     restart: unless-stopped
     # Override the default command to build client and start server in production mode
     command: >

@@ -20,8 +20,8 @@ RUN cd client && npm install
 # Copy the rest of the application code
 COPY . .
 
-# Rewrite .env for production
-RUN printf 'VITE_API_URL=/api\nVITE_BASE_URL=' > ./client/.env
+# Rewrite .env for production with placeholder for runtime injection
+RUN printf "VITE_API_URL=/api\nVITE_BASE_URL=\nVITE_MAPBOX_TOKEN=MAPBOX_TOKEN_PLACEHOLDER" > ./client/.env
 
 # Create needed directories
 RUN mkdir -p server/uploads/documents server/uploads/trips server/uploads/profiles server/db/data
@@ -32,11 +32,18 @@ RUN chmod -R 777 server/uploads server/db/data
 # Build production frontend
 RUN cd client && npm run build
 
+# Copy and set permissions for entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Expose only the backend port (will serve static frontend)
 EXPOSE 5000
 
 # Environment variables
 ENV NODE_ENV=production
+
+# Use entrypoint script to inject runtime configuration
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 # Command to run the production app
 CMD ["node", "server/index.js"]
