@@ -2,27 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ArrowLeft,
-  Plus,
-  X,
-  Calendar,
-  Plane,
-  Home,
-  Compass,
-  Edit,
-  Gift,
-  Coffee,
-  DollarSign,
-  CreditCard,
-  Trash2,
-  ArrowRight,
-  Map,
-  Users,
-  User
+  ArrowLeft, Plus, X, Calendar, Plane, Home, Compass, Edit,
+  Gift, Coffee, DollarSign, CreditCard, Trash2, ArrowRight,
+  Map, Users, User, TrendingUp, TrendingDown, Wallet
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import StatusBadge from '../../components/ui/StatusBadge';
 import { budgetAPI, personalBudgetAPI, tripAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -57,16 +43,12 @@ const BudgetDashboard = () => {
   const [personalCategoryTotals, setPersonalCategoryTotals] = useState({});
   const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
 
-
   useEffect(() => {
-    // Fetch user's trips
     const fetchTrips = async () => {
       try {
         const response = await tripAPI.getUserTrips();
         if (response.data.trips && response.data.trips.length > 0) {
           setTrips(response.data.trips);
-          
-          // If there's only one trip, automatically select it
           if (response.data.trips.length === 1) {
             setSelectedTrip(response.data.trips[0]);
             setHasExplicitlySelected(true);
@@ -79,11 +61,9 @@ const BudgetDashboard = () => {
         setLoading(false);
       }
     };
-
     fetchTrips();
   }, [t]);
 
-  // Fetch budget when selected trip changes
   useEffect(() => {
     if (selectedTrip?.id && hasExplicitlySelected) {
       fetchSharedBudget(selectedTrip.id);
@@ -95,14 +75,12 @@ const BudgetDashboard = () => {
     try {
       setLoading(true);
       const response = await budgetAPI.getTripBudget(tripId);
-      
       setSharedBudget(response.data.budget);
       setSharedExpenses(response.data.expenses || []);
       setSharedCategoryTotals(response.data.categoryTotals || {});
       setSharedTotalSpent(response.data.totalSpent || 0);
     } catch (error) {
       console.error('Error fetching shared budget:', error);
-      toast.error(t('errors.failedFetch'));
     } finally {
       setLoading(false);
     }
@@ -110,21 +88,21 @@ const BudgetDashboard = () => {
 
   const fetchPersonalBudget = async (tripId) => {
     try {
-      setLoading(true);
       const response = await personalBudgetAPI.getTripBudget(tripId);
-      
       setPersonalBudget(response.data.budget);
       setPersonalExpenses(response.data.expenses || []);
       setPersonalCategoryTotals(response.data.categoryTotals || {});
       setPersonalTotalSpent(response.data.totalSpent || 0);
     } catch (error) {
-      console.error('Error fetching budget:', error);
-      toast.error(t('errors.failedFetch'));
-    } finally {
-      setLoading(false);
+      console.error('Error fetching personal budget:', error);
     }
   };
 
+  const canEditShared = selectedTrip?.role === 'owner' || selectedTrip?.role === 'editor';
+
+  const currentData = activeBudgetTab === 'shared' 
+    ? { budget: sharedBudget, expenses: sharedExpenses, categoryTotals: sharedCategoryTotals, totalSpent: sharedTotalSpent, canEdit: canEditShared }
+    : { budget: personalBudget, expenses: personalExpenses, categoryTotals: personalCategoryTotals, totalSpent: personalTotalSpent, canEdit: true };
 
   const selectTrip = (trip) => {
     setSelectedTrip(trip);
@@ -138,32 +116,22 @@ const BudgetDashboard = () => {
 
     try {
       const response = await apiCall;
-
       if (activeBudgetTab === 'shared') {
         setSharedBudget(response.data.budget);
       } else {
         setPersonalBudget(response.data.budget);
       }
-      
       setShowCreateBudgetForm(false);
       toast.success(t('budget.budgetCreated'));
     } catch (error) {
-      console.error('Error creating budget:', error);
-      if (error.response?.data?.message === 'Budget already exists for this trip') {
-        toast.error(t('budget.budgetExists'));
-      } else {
-        toast.error(t('errors.saveFailed', { item: t('budget.title').toLowerCase() }));
-      }
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
     }
   };
 
   const handleUpdateBudget = async (budgetData) => {
-    const budgetToUpdate = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
-    if (!budgetToUpdate) return;
-
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.updateBudget(budgetToUpdate.id, budgetData, selectedTrip.id)
-      : personalBudgetAPI.updateBudget(budgetToUpdate.id, budgetData);
+      ? budgetAPI.updateBudget(selectedTrip.id, budgetData)
+      : personalBudgetAPI.updateBudget(selectedTrip.id, budgetData);
 
     try {
       const response = await apiCall;
@@ -175,22 +143,17 @@ const BudgetDashboard = () => {
       setShowCreateBudgetForm(false);
       toast.success(t('budget.budgetUpdated'));
     } catch (error) {
-      console.error('Error updating budget:', error);
-      toast.error(t('errors.saveFailed', { item: t('budget.title').toLowerCase() }));
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
     }
   };
 
   const handleDeleteBudget = async () => {
-    const budgetToDelete = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
-    if (!budgetToDelete) return;
-
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.deleteBudget(budgetToDelete.id, selectedTrip.id)
-      : personalBudgetAPI.deleteBudget(budgetToDelete.id);
+      ? budgetAPI.deleteBudget(selectedTrip.id)
+      : personalBudgetAPI.deleteBudget(selectedTrip.id);
 
     try {
       await apiCall;
-      toast.success(t('budget.budgetDeleted'));
       if (activeBudgetTab === 'shared') {
         setSharedBudget(null);
         setSharedExpenses([]);
@@ -203,77 +166,67 @@ const BudgetDashboard = () => {
         setPersonalTotalSpent(0);
       }
       setShowDeleteModal(false);
+      toast.success(t('budget.budgetDeleted'));
     } catch (error) {
-      console.error('Error deleting budget:', error);
-      toast.error(t('errors.deleteFailed', { item: t('budget.title').toLowerCase() }));
+      toast.error(error.response?.data?.message || t('errors.deleteFailed'));
     }
   };
-  
-  const handleAddExpense = async (expenseData) => {
-    const budget = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
-    if (!budget) return;
 
+  const handleAddExpense = async (expenseData) => {
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.addExpense(budget.id, expenseData, selectedTrip.id)
-      : personalBudgetAPI.addExpense(budget.id, expenseData);
+      ? budgetAPI.addExpense(selectedTrip.id, expenseData)
+      : personalBudgetAPI.addExpense(selectedTrip.id, expenseData);
 
     try {
       await apiCall;
+      if (activeBudgetTab === 'shared') {
+        fetchSharedBudget(selectedTrip.id);
+      } else {
+        fetchPersonalBudget(selectedTrip.id);
+      }
       setShowExpenseForm(false);
       toast.success(t('budget.expenseAdded'));
-      // Refresh data
-      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
-      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
-      console.error('Error adding expense:', error);
-      toast.error(t('errors.saveFailed', { item: t('budget.addExpense').toLowerCase() }));
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
     }
   };
-  
+
   const handleUpdateExpense = async (expenseData) => {
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.updateExpense(selectedExpense.id, expenseData, selectedTrip.id)
-      : personalBudgetAPI.updateExpense(selectedExpense.id, expenseData);
+      ? budgetAPI.updateExpense(selectedTrip.id, selectedExpense.id, expenseData)
+      : personalBudgetAPI.updateExpense(selectedTrip.id, selectedExpense.id, expenseData);
 
     try {
       await apiCall;
+      if (activeBudgetTab === 'shared') {
+        fetchSharedBudget(selectedTrip.id);
+      } else {
+        fetchPersonalBudget(selectedTrip.id);
+      }
       setShowExpenseForm(false);
       setSelectedExpense(null);
       toast.success(t('budget.expenseUpdated'));
-      // Refresh data
-      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
-      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
-      console.error('Error updating expense:', error);
-      toast.error(t('errors.saveFailed', { item: t('budget.editExpense').toLowerCase() }));
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
     }
   };
 
   const handleDeleteExpense = async (expenseId) => {
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.deleteExpense(expenseId, selectedTrip.id)
-      : personalBudgetAPI.deleteExpense(expenseId);
+      ? budgetAPI.deleteExpense(selectedTrip.id, expenseId)
+      : personalBudgetAPI.deleteExpense(selectedTrip.id, expenseId);
 
     try {
       await apiCall;
+      if (activeBudgetTab === 'shared') {
+        fetchSharedBudget(selectedTrip.id);
+      } else {
+        fetchPersonalBudget(selectedTrip.id);
+      }
       toast.success(t('budget.expenseDeleted'));
-      // Refresh data
-      if (activeBudgetTab === 'shared') await fetchSharedBudget(selectedTrip.id);
-      else await fetchPersonalBudget(selectedTrip.id);
     } catch (error) {
-      console.error('Error deleting expense:', error);
-      toast.error(t('errors.deleteFailed', { item: t('budget.deleteExpense').toLowerCase() }));
+      toast.error(error.response?.data?.message || t('errors.deleteFailed'));
     }
-  };
-
-  const canEditShared = selectedTrip && (selectedTrip.role === 'owner' || selectedTrip.role === 'editor');
-
-  const currentData = {
-    budget: activeBudgetTab === 'shared' ? sharedBudget : personalBudget,
-    expenses: activeBudgetTab === 'shared' ? sharedExpenses : personalExpenses,
-    categoryTotals: activeBudgetTab === 'shared' ? sharedCategoryTotals : personalCategoryTotals,
-    totalSpent: activeBudgetTab === 'shared' ? sharedTotalSpent : personalTotalSpent,
-    canEdit: activeBudgetTab === 'shared' ? canEditShared : true,
   };
 
   const editExpense = (expense) => {
@@ -281,486 +234,407 @@ const BudgetDashboard = () => {
     setShowExpenseForm(true);
   };
 
-  const TabButton = ({ tabName, label, icon }) => (
-    <button
-      onClick={() => setActiveBudgetTab(tabName)}
-      className={`flex items-center px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-        activeBudgetTab === tabName
-          ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
-          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white'
-      }`}
-    >
-      {icon}
-      <span className="ml-2">{label}</span>
-    </button>
-  );
-
-  // Get category icon
   const getCategoryIcon = (category) => {
-    switch(category) {
-      case "transport": return <Plane className="text-blue-500" size={18} />;
-      case "lodging": return <Home className="text-green-500" size={18} />;
-      case "activities": return <Compass className="text-purple-500" size={18} />;
-      case "food": return <Coffee className="text-orange-500" size={18} />;
-      case "other": return <Gift className="text-pink-500" size={18} />;
-      default: return <CreditCard className="text-gray-500" size={18} />;
-    }
+    const icons = {
+      transport: <Plane className="w-5 h-5" />,
+      lodging: <Home className="w-5 h-5" />,
+      activities: <Compass className="w-5 h-5" />,
+      food: <Coffee className="w-5 h-5" />,
+      other: <Gift className="w-5 h-5" />,
+    };
+    return icons[category] || <CreditCard className="w-5 h-5" />;
   };
 
-  // Get category color
-  const getCategoryColor = (category) => {
-    switch(category) {
-      case "transport": return "text-blue-500 bg-blue-50 dark:bg-blue-900/20";
-      case "lodging": return "text-green-500 bg-green-50 dark:bg-green-900/20";
-      case "activities": return "text-purple-500 bg-purple-50 dark:bg-purple-900/20";
-      case "food": return "text-orange-500 bg-orange-50 dark:bg-orange-900/20";
-      case "other": return "text-pink-500 bg-pink-50 dark:bg-pink-900/20";
-      default: return "text-gray-500 bg-gray-50 dark:bg-gray-700";
-    }
+  const getCategoryStyle = (category) => {
+    const styles = {
+      transport: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' },
+      lodging: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+      activities: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200 dark:border-purple-800' },
+      food: { bg: 'bg-orange-100 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-200 dark:border-orange-800' },
+      other: { bg: 'bg-pink-100 dark:bg-pink-900/30', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-200 dark:border-pink-800' },
+    };
+    return styles[category] || { bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
   };
 
-  // Filter expenses based on active tab
   const filteredExpenses = activeExpenseTab === 'all' 
     ? currentData.expenses 
     : currentData.expenses.filter(expense => expense.category === activeExpenseTab);
 
+  // Loading state
   if (loading && !trips.length) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="h-full flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
+  // No trips state
   if (!trips.length) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center py-12">
-          <DollarSign className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{t('budget.title')}</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{t('trips.noTrips')}</p>
-          <Link 
-            to="/trips/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium"
-          >
-            {t('trips.createTrip')}
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent-soft flex items-center justify-center">
+            <Wallet className="w-10 h-10 text-accent" />
+          </div>
+          <h2 className="text-2xl font-display font-semibold text-gray-900 dark:text-white mb-2">
+            {t('budget.title', 'Trip Budget')}
+          </h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">
+            {t('budget.noTripsMessage', 'Create a trip first to start tracking your budget')}
+          </p>
+          <Link to="/trips/new">
+            <Button icon={<Plus className="w-5 h-5" />}>
+              {t('trips.createTrip', 'Create trip')}
+            </Button>
           </Link>
         </div>
       </div>
     );
   }
 
-  // Display the trip selection screen if we have multiple trips and none has been explicitly selected
+  // Trip selection state
   if (!hasExplicitlySelected && trips.length > 1) {
     return (
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('budget.selectTripForBudget')}</h1>
-          <p className="text-gray-500 dark:text-gray-400">{t('budget.selectTripDescription')}</p>
-        </div>
-        
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {trips.map(trip => (
-            <div 
-              key={trip.id}
-              onClick={() => selectTrip(trip)}
-              className="group cursor-pointer bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow transform hover:-translate-y-1 transition-transform duration-200"
-            >
-              <div className="h-48 w-full relative">
-                <img 
-                  src={trip.cover_image 
-                    ? getImageUrl(trip.cover_image)
-                    : getFallbackImageUrl('trip')
-                  } 
-                  alt={trip.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-4">
-                  <h2 className="text-xl font-bold text-white">{trip.name}</h2>
-                  <div className="flex items-center text-white/80 mt-1">
-                    <Calendar className="h-4 w-4 mr-2" />
-                    <span>{dayjs(trip.start_date).format('MMM D')} - {dayjs(trip.end_date).format('MMM D, YYYY')}</span>
+      <div className="h-full overflow-y-auto custom-scrollbar">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+          <div className="mb-8">
+            <h1 className="text-2xl font-display font-semibold text-gray-900 dark:text-white">
+              {t('budget.selectTripForBudget', 'Select a trip')}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {t('budget.selectTripDescription', 'Choose which trip budget to manage')}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {trips.map(trip => (
+              <button 
+                key={trip.id}
+                onClick={() => selectTrip(trip)}
+                className="group text-left bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="h-40 relative">
+                  <img 
+                    src={trip.cover_image ? getImageUrl(trip.cover_image) : getFallbackImageUrl('trip')} 
+                    alt={trip.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-0 left-0 p-4">
+                    <h2 className="text-lg font-display font-semibold text-white">{trip.name}</h2>
+                    <div className="flex items-center text-white/80 text-sm mt-1">
+                      <Calendar className="w-4 h-4 mr-1.5" />
+                      {dayjs(trip.start_date).format('MMM D')} - {dayjs(trip.end_date).format('MMM D')}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="p-4 flex justify-between items-center">
-                <div className="flex items-center">
-                  <Map className="h-5 w-5 text-gray-500 dark:text-gray-400 mr-2" />
-                  <span className="text-gray-600 dark:text-gray-300">{trip.location || t('common.noLocation')}</span>
+                <div className="p-4 flex items-center justify-between">
+                  <div className="flex items-center text-gray-500 dark:text-gray-400">
+                    <Map className="w-4 h-4 mr-1.5" />
+                    <span className="text-sm">{trip.location || t('common.noLocation', 'No location')}</span>
+                  </div>
+                  <span className="text-accent font-medium text-sm flex items-center group-hover:underline">
+                    {t('budget.selectTrip', 'Select')}
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </span>
                 </div>
-                <div className="flex items-center text-blue-600 dark:text-blue-400 font-medium group-hover:underline">
-                  {t('budget.selectTrip')}
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </div>
-              </div>
-            </div>
-          ))}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  // If we don't have a selected trip (this shouldn't happen, but just in case)
-  if (!selectedTrip) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center py-12">
-          <DollarSign className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">{t('budget.noTripSelected')}</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">{t('budget.pleaseSelectTrip')}</p>
-          <Button
-            variant="primary"
-            onClick={() => setHasExplicitlySelected(false)}
-          >
-            {t('budget.selectTrip')}
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // Main budget view
+  const budgetPercentUsed = currentData.budget 
+    ? (currentData.totalSpent / currentData.budget.total_amount) * 100 
+    : 0;
+  const isOverBudget = budgetPercentUsed > 100;
+  const isNearLimit = budgetPercentUsed > 80 && !isOverBudget;
 
-  // Main budget content (once a trip is selected)
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-          <div className="mb-4 sm:mb-0">
+    <div className="h-full overflow-y-auto custom-scrollbar">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
             <button 
               onClick={() => setHasExplicitlySelected(false)}
-              className="text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white flex items-center"
+              className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              {t('budget.backToSelection')}
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              {t('budget.backToSelection', 'Back to trips')}
             </button>
+            <h1 className="text-2xl font-display font-semibold text-gray-900 dark:text-white">
+              {selectedTrip.name}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {dayjs(selectedTrip.start_date).format('MMM D')} - {dayjs(selectedTrip.end_date).format('MMM D, YYYY')}
+            </p>
           </div>
           
           <div className="flex flex-wrap gap-2">
             {currentData.budget && currentData.canEdit && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreateBudgetForm(true)}
-                >
-                  {t('budget.update')}
+                <Button variant="secondary" size="sm" onClick={() => setShowCreateBudgetForm(true)}>
+                  {t('budget.update', 'Update')}
                 </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteModal(true)}
-                  icon={<Trash2 className="h-4 w-4" />}
-                >
-                  {t('budget.delete')}
+                <Button variant="secondary" size="sm" onClick={() => setShowDeleteModal(true)} icon={<Trash2 className="w-4 h-4" />}>
+                  {t('budget.delete', 'Delete')}
                 </Button>
-                
-                <Button
-                  variant="primary"
-                  icon={<Plus className="h-5 w-5" />}
-                  onClick={() => {
-                    setSelectedExpense(null);
-                    setShowExpenseForm(true);
-                  }}
-                >
-                  {t('budget.addExpense')}
+                <Button size="sm" onClick={() => { setSelectedExpense(null); setShowExpenseForm(true); }} icon={<Plus className="w-4 h-4" />}>
+                  {t('budget.addExpense', 'Add expense')}
                 </Button>
               </>
             )}
-            
-            
-            <Link 
-              to={`/trips/${selectedTrip.id}`}
-              className="flex items-center px-4 py-2 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-            >
-              <span>{t('trips.viewDetails')}</span>
+            <Link to={`/trips/${selectedTrip.id}`}>
+              <Button variant="ghost" size="sm">
+                {t('trips.viewDetails', 'View trip')}
+              </Button>
             </Link>
           </div>
         </div>
-      </div>
 
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <div className="flex space-x-4">
-          <TabButton tabName="shared" label="Shared Budget" icon={<Users size={16} />} />
-          <TabButton tabName="personal" label="Personal Budget" icon={<User size={16} />} />
+        {/* Budget type tabs */}
+        <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl w-fit">
+          <button
+            onClick={() => setActiveBudgetTab('shared')}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+              ${activeBudgetTab === 'shared' 
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            <Users className="w-4 h-4" />
+            {t('budget.shared', 'Shared')}
+          </button>
+          <button
+            onClick={() => setActiveBudgetTab('personal')}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+              ${activeBudgetTab === 'personal' 
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+              }
+            `}
+          >
+            <User className="w-4 h-4" />
+            {t('budget.personal', 'Personal')}
+          </button>
         </div>
-      </div>
-      
-      {/* Budget Content */}
-      <div>
-        {loading && !currentData.budget ? ( <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto my-12"></div>) :
-        !currentData.budget ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-            <DollarSign className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{t('budget.setupBudget')}</h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">{activeBudgetTab === 'shared' && !canEditShared ? "Only trip editors can create a shared budget." :
-              t('budget.setupBudgetMessage')}
+
+        {/* Budget content */}
+        {loading && !currentData.budget ? (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : !currentData.budget ? (
+          /* No budget state */
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-soft flex items-center justify-center">
+              <Wallet className="w-8 h-8 text-accent" />
+            </div>
+            <h2 className="text-xl font-display font-medium text-gray-900 dark:text-white mb-2">
+              {t('budget.setupBudget', 'Set up your budget')}
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+              {activeBudgetTab === 'shared' && !canEditShared 
+                ? t('budget.onlyEditorsCanCreate', 'Only trip editors can create a shared budget')
+                : t('budget.setupBudgetMessage', 'Track your travel expenses and stay on top of your spending')
+              }
             </p>
             <Button
-              variant="primary"
               onClick={() => setShowCreateBudgetForm(true)}
               disabled={activeBudgetTab === 'shared' && !canEditShared}
+              icon={<Plus className="w-5 h-5" />}
             >
-              {t('budget.createBudgetButton')}
+              {t('budget.createBudgetButton', 'Create budget')}
             </Button>
           </div>
         ) : (
-          <>
-            {/* Budget Card */}
-            <Card className="mb-6">
-              <CardContent className="p-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">{selectedTrip.name}</h1>
-                  <div className="flex items-center text-gray-500 dark:text-gray-400 mb-4">
-                    <Calendar size={16} className="mr-1" />
-                    <span>
-                      {dayjs(selectedTrip.start_date).format('MMM D')} - {dayjs(selectedTrip.end_date).format('MMM D, YYYY')}
-                    </span>
-                  </div>
-                  
-                  <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('budget.title')}</h2>
-                  <div className="flex items-baseline">
-                    <span className="text-3xl sm:text-4xl font-bold">{currentData.budget.currency}
-                      {(currentData.budget.total_amount - currentData.totalSpent).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </span>
-                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">{t('budget.remaining')}</span>
-                  </div>
-                  
-                  {/* Budget Bar */}
-                  <div className="mt-6 mb-2">
-                    <div className="relative w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      {/* This is the remaining budget bar (decreases as you spend) */}
-                      <div 
-                        className={`absolute top-0 left-0 h-full transition-all duration-500 ease-out ${ 
-                          currentData.totalSpent > currentData.budget.total_amount * 0.9 // Change color when almost depleted
-                            ? 'bg-red-500 dark:bg-red-600' 
-                            : 'bg-blue-500 dark:bg-blue-600'
-                        }`} style={{ width: `${Math.max(100 - (currentData.totalSpent / currentData.budget.total_amount) * 100, 0)}%` }}
-                      ></div>
-                    </div>
-                    <div className="flex justify-between text-xs mt-1 text-gray-500 dark:text-gray-400">
-                      <span>{t('budget.empty')}</span>
-                      <span>{t('budget.full')}</span>
+          <div className="space-y-6">
+            {/* Budget overview card */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-6">
+                {/* Main stats */}
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                      {t('budget.remaining', 'Remaining')}
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`text-4xl font-display font-bold ${isOverBudget ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+                        {currentData.budget.currency}
+                        {Math.abs(currentData.budget.total_amount - currentData.totalSpent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      {isOverBudget && (
+                        <span className="text-sm text-red-500 flex items-center gap-1">
+                          <TrendingDown className="w-4 h-4" />
+                          {t('budget.overBudget', 'over budget')}
+                        </span>
+                      )}
                     </div>
                   </div>
                   
-                  <div className="mt-4 flex flex-col sm:flex-row sm:justify-between space-y-2 sm:space-y-0 text-sm">
+                  <div className="flex gap-6 text-sm">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">{t('budget.total')}: </span> <span className="font-semibold">{currentData.budget.currency}
-                        {currentData.budget.total_amount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}</span>
+                      <p className="text-gray-500 dark:text-gray-400">{t('budget.total', 'Total')}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {currentData.budget.currency}{currentData.budget.total_amount.toLocaleString()}
+                      </p>
                     </div>
-                    <div> <span className="text-gray-500 dark:text-gray-400">{t('budget.spent')}: </span>
-                      <span className="font-semibold">{currentData.budget.currency}{currentData.totalSpent.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}</span>
+                    <div>
+                      <p className="text-gray-500 dark:text-gray-400">{t('budget.spent', 'Spent')}</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {currentData.budget.currency}{currentData.totalSpent.toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 </div>
+
+                {/* Progress bar */}
+                <div className="relative h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div 
+                    className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${
+                      isOverBudget ? 'bg-red-500' : isNearLimit ? 'bg-amber-500' : 'bg-accent'
+                    }`}
+                    style={{ width: `${Math.min(budgetPercentUsed, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-gray-400 mt-1">
+                  <span>0%</span>
+                  <span>{Math.round(budgetPercentUsed)}% {t('budget.used', 'used')}</span>
+                  <span>100%</span>
+                </div>
+              </div>
+
+              {/* Category breakdown */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-px bg-gray-100 dark:bg-gray-700 border-t border-gray-100 dark:border-gray-700">
+                {['transport', 'lodging', 'activities', 'food', 'other'].map(category => {
+                  const style = getCategoryStyle(category);
+                  return (
+                    <div key={category} className="bg-white dark:bg-gray-800 p-4 text-center">
+                      <div className={`w-10 h-10 mx-auto mb-2 rounded-xl ${style.bg} ${style.text} flex items-center justify-center`}>
+                        {getCategoryIcon(category)}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 capitalize mb-1">
+                        {t(`budget.${category}`, category)}
+                      </p>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {currentData.budget.currency}{(currentData.categoryTotals[category] || 0).toLocaleString()}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Expenses section */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+                <h2 className="text-lg font-display font-medium text-gray-900 dark:text-white mb-4">
+                  {t('budget.allExpenses', 'All expenses')}
+                </h2>
                 
-                {/* Category Breakdown */}
-                <div className="grid grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mt-6 border-t pt-6">
-                  <div className="p-3 md:p-4 text-center rounded-lg bg-blue-50 dark:bg-blue-900/20">
-                    <div className="text-blue-500 dark:text-blue-400 mb-1">
-                      <Plane size={20} className="inline-block" />
-                    </div>
-                    <div className="font-medium text-xs">{t('budget.transport')}</div>
-                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.transport || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</div>
-                  </div>
-                  
-                  <div className="p-3 md:p-4 text-center rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <div className="text-green-500 dark:text-green-400 mb-1">
-                      <Home size={20} className="inline-block" />
-                    </div>
-                    <div className="font-medium text-xs">{t('budget.lodging')}</div>
-                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.lodging || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</div>
-                  </div>
-                  
-                  <div className="p-3 md:p-4 text-center rounded-lg bg-purple-50 dark:bg-purple-900/20">
-                    <div className="text-purple-500 dark:text-purple-400 mb-1">
-                      <Compass size={20} className="inline-block" />
-                    </div>
-                    <div className="font-medium text-xs">{t('budget.activities')}</div>
-                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.activities || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</div>
-                  </div>
-                  
-                  <div className="p-3 md:p-4 text-center rounded-lg bg-orange-50 dark:bg-orange-900/20">
-                    <div className="text-orange-500 dark:text-orange-400 mb-1">
-                      <Coffee size={20} className="inline-block" />
-                    </div>
-                    <div className="font-medium text-xs">{t('budget.food')}</div>
-                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.food || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</div>
-                  </div>
-                  
-                  <div className="p-3 md:p-4 text-center rounded-lg bg-pink-50 dark:bg-pink-900/20">
-                    <div className="text-pink-500 dark:text-pink-400 mb-1">
-                      <Gift size={20} className="inline-block" />
-                    </div>
-                    <div className="font-medium text-xs">{t('budget.other')}</div>
-                    <div className="font-semibold text-sm md:text-base">{currentData.budget.currency}{(currentData.categoryTotals.other || 0).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}</div>
-                  </div>
+                {/* Category filter pills */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                  {['all', 'transport', 'lodging', 'activities', 'food', 'other'].map(tab => {
+                    const isActive = activeExpenseTab === tab;
+                    const style = tab === 'all' ? null : getCategoryStyle(tab);
+                    
+                    return (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveExpenseTab(tab)}
+                        className={`
+                          px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all
+                          ${isActive 
+                            ? tab === 'all'
+                              ? 'bg-nav dark:bg-white text-white dark:text-gray-900'
+                              : `${style.bg} ${style.text} ring-2 ring-current`
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }
+                        `}
+                      >
+                        {tab === 'all' ? t('common.all', 'All') : t(`budget.${tab}`, tab)}
+                      </button>
+                    );
+                  })}
                 </div>
-              </CardContent>
-            </Card>
-            
-            {/* Expenses List */}
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('budget.allExpenses')}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {/* Tab Navigation */}
-                <div className="flex mb-6 overflow-x-auto pb-2">
-                  <button 
-                    className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'all' 
-                        ? 'bg-gray-800 dark:bg-gray-700 text-white' 
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                    onClick={() => setActiveExpenseTab('all')}
-                  >
-                    {t('budget.allExpenses')}
-                  </button>
-                  
-                  <button 
-                    className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'transport' 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
-                    }`}
-                    onClick={() => setActiveExpenseTab('transport')}
-                  >
-                    {t('budget.transport')}
-                  </button>
-                  
-                  <button 
-                    className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'lodging' 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30'
-                    }`}
-                    onClick={() => setActiveExpenseTab('lodging')}
-                  >
-                    {t('budget.lodging')}
-                  </button>
-                  
-                  <button 
-                    className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'activities' 
-                        ? 'bg-purple-500 text-white' 
-                        : 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/30'
-                    }`}
-                    onClick={() => setActiveExpenseTab('activities')}
-                  >
-                    {t('budget.activities')}
-                  </button>
-                  
-                  <button 
-                    className={`mr-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'food' 
-                        ? 'bg-orange-500 text-white' 
-                        : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900/30'
-                    }`}
-                    onClick={() => setActiveExpenseTab('food')}
-                  >
-                    {t('budget.food')}
-                  </button>
-                  
-                  <button 
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                      activeExpenseTab === 'other' 
-                        ? 'bg-pink-500 text-white' 
-                        : 'bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/30'
-                    }`}
-                    onClick={() => setActiveExpenseTab('other')}
-                  >
-                    {t('budget.other')}
-                  </button>
-                </div>
-                
-                {/* Expenses */}
-                <div className="space-y-4">
-                  {filteredExpenses.length === 0 ? (
-                    <div className="text-center py-6 text-gray-500 dark:text-gray-400">{t('budget.noExpenses')}</div>
-                  ) : (
-                    filteredExpenses.map(expense => (
+              </div>
+
+              {/* Expenses list */}
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {filteredExpenses.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                    {t('budget.noExpenses', 'No expenses yet')}
+                  </div>
+                ) : (
+                  filteredExpenses.map(expense => {
+                    const style = getCategoryStyle(expense.category);
+                    return (
                       <div 
                         key={expense.id} 
-                        className="flex flex-col sm:flex-row sm:items-center p-4 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                        className="flex items-center gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                       >
-                        <div className="flex items-center mb-3 sm:mb-0">
-                          <div className={`p-3 mr-4 rounded-full ${getCategoryColor(expense.category)}`}>
-                            {getCategoryIcon(expense.category)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium">{expense.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              {dayjs(expense.date).format('MMM D, YYYY')}
-                            </div>
-                          </div>
+                        <div className={`w-12 h-12 rounded-xl ${style.bg} ${style.text} flex items-center justify-center flex-shrink-0`}>
+                          {getCategoryIcon(expense.category)}
                         </div>
                         
-                        <div className="flex items-center justify-between sm:justify-end sm:flex-1">
-                          <div className="font-bold text-lg sm:mr-4 sm:ml-4">
-                            {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
-                          </div>
-                          <div className="flex">
-                            <button 
-                              onClick={() => editExpense(expense)} 
-                              className="p-2 text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-1"
-                            >
-                              <Compass size={18} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteExpense(expense.id)} 
-                              className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              <X size={18} />
-                            </button>
-                          </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-white truncate">
+                            {expense.name}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {dayjs(expense.date).format('MMM D, YYYY')}
+                          </p>
                         </div>
+                        
+                        <div className="text-right flex-shrink-0">
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                          </p>
+                        </div>
+                        
+                        {currentData.canEdit && (
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => editExpense(expense)}
+                              className="p-2 text-gray-400 hover:text-accent rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteExpense(expense.id)}
+                              className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
-      
-      {/* Add Expense Modal */}
+
+      {/* Modals */}
       <ExpenseForm
         isOpen={showExpenseForm}
-        onClose={() => {
-          setShowExpenseForm(false);
-          setSelectedExpense(null);
-        }}
+        onClose={() => { setShowExpenseForm(false); setSelectedExpense(null); }}
         onSubmit={selectedExpense ? handleUpdateExpense : handleAddExpense}
         expense={selectedExpense}
         currency={currentData.budget?.currency || '$'}
       />
       
-      {/* Create Budget Modal */}
       <CreateBudgetForm
         isOpen={showCreateBudgetForm}
         onClose={() => setShowCreateBudgetForm(false)}
@@ -768,30 +642,22 @@ const BudgetDashboard = () => {
         budget={currentData.budget}
       />
       
-      {/* Delete Budget Confirmation Modal */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title={t('budget.deleteBudget')}
+        title={t('budget.deleteBudget', 'Delete Budget')}
         size="sm"
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            {t('budget.deleteConfirmation')}
+            {t('budget.deleteConfirmation', 'Are you sure you want to delete this budget? All expenses will be removed.')}
           </p>
-          <div className="flex justify-end space-x-3">
-            <Button
-              variant="secondary"
-              onClick={() => setShowDeleteModal(false)}
-            >
-              {t('budget.cancel')}
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+              {t('common.cancel', 'Cancel')}
             </Button>
-            <Button
-              variant="danger"
-              onClick={handleDeleteBudget}
-              icon={<Trash2 className="h-5 w-5" />}
-            >
-              {t('budget.delete')}
+            <Button variant="danger" onClick={handleDeleteBudget} icon={<Trash2 className="w-4 h-4" />}>
+              {t('common.delete', 'Delete')}
             </Button>
           </div>
         </div>

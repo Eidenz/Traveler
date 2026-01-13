@@ -1,19 +1,184 @@
 // client/src/pages/trips/MyTrips.jsx
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   PlusCircle, Calendar, MapPin, User, Trash2, Edit, Clock, Search,
-  Wifi, WifiOff, AlertTriangle
+  WifiOff, Filter, Grid, List, ChevronRight, Plane, Building2, Ticket
 } from 'lucide-react';
-import { Card, CardContent } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
+import StatusBadge from '../../components/ui/StatusBadge';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import { getAllOfflineTrips, removeTripOffline } from '../../utils/offlineStorage';
+
+const TripCard = ({ trip, isOfflineMode, isOfflineAvailable, onDelete, onEdit }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  // Get trip status
+  const getTripStatus = () => {
+    const now = dayjs();
+    const start = dayjs(trip.start_date);
+    const end = dayjs(trip.end_date);
+    
+    if (now.isBefore(start)) return 'upcoming';
+    if (now.isAfter(end)) return 'completed';
+    return 'active';
+  };
+
+  // Calculate duration
+  const getDuration = () => {
+    const nights = dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day');
+    return nights;
+  };
+
+  // Format date
+  const formatDate = () => {
+    const start = dayjs(trip.start_date);
+    const end = dayjs(trip.end_date);
+    return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
+  };
+
+  const status = getTripStatus();
+  const nights = getDuration();
+
+  return (
+    <Link 
+      to={`/trips/${trip.id}`}
+      className="group block animate-fade-in"
+      style={{ animationDelay: `${Math.random() * 0.2}s` }}
+    >
+      <div className="relative bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+        {/* Cover image */}
+        <div className="relative h-44 overflow-hidden">
+          <img 
+            src={trip.cover_image ? getImageUrl(trip.cover_image) : getFallbackImageUrl('trip')} 
+            alt={trip.name}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+          
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          
+          {/* Top badges */}
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <StatusBadge status={status} size="sm" />
+            
+            <div className="flex items-center gap-1.5">
+              {isOfflineAvailable && (
+                <div className="p-1.5 bg-emerald-500/90 rounded-full" title={t('offline.availableOffline')}>
+                  <WifiOff className="w-3.5 h-3.5 text-white" />
+                </div>
+              )}
+              
+              {!isOfflineMode && (trip.role === 'owner' || trip.role === 'editor') && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEdit(trip.id);
+                  }}
+                  className="p-1.5 bg-white/90 hover:bg-white rounded-full text-gray-700 transition-colors"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+              )}
+              
+              {(isOfflineMode || trip.role === 'owner') && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onDelete(trip.id);
+                  }}
+                  className="p-1.5 bg-white/90 hover:bg-white rounded-full text-red-600 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Title overlay */}
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <h3 className="text-xl font-display font-semibold text-white mb-1 truncate">
+              {trip.name}
+            </h3>
+            {trip.location && (
+              <div className="flex items-center text-white/80 text-sm">
+                <MapPin className="w-3.5 h-3.5 mr-1 flex-shrink-0" />
+                <span className="truncate">{trip.location}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Card content */}
+        <div className="p-4">
+          {/* Date and duration */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+              <Calendar className="w-4 h-4 mr-1.5" />
+              <span>{formatDate()}</span>
+            </div>
+            <span className="text-sm font-medium text-gray-900 dark:text-white">
+              {nights} {nights === 1 ? t('common.night', 'night') : t('common.nights', 'nights')}
+            </span>
+          </div>
+
+          {/* Quick stats */}
+          <div className="flex items-center gap-3 mb-4">
+            {trip.transportation_count > 0 && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                  <Plane className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span>{trip.transportation_count}</span>
+              </div>
+            )}
+            {trip.lodging_count > 0 && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Building2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <span>{trip.lodging_count}</span>
+              </div>
+            )}
+            {trip.activities_count > 0 && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <Ticket className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                </div>
+                <span>{trip.activities_count}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+            {/* Role badge or members */}
+            {!isOfflineMode && trip.role && (
+              <StatusBadge status={trip.role} size="xs" showDot={false} />
+            )}
+            {isOfflineMode && (
+              <span className="text-xs text-gray-500">{t('offline.savedOffline', 'Saved offline')}</span>
+            )}
+            
+            {/* View link */}
+            <span className="text-sm font-medium text-accent group-hover:underline flex items-center gap-1">
+              {t('trips.viewDetails', 'View')}
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+};
 
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
@@ -25,9 +190,17 @@ const MyTrips = () => {
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [offlineTrips, setOfflineTrips] = useState([]);
   const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
+  const [filter, setFilter] = useState('all'); // all, upcoming, active, past
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   
   const navigate = useNavigate();
+
+  // Check for search param from header
+  useEffect(() => {
+    const search = searchParams.get('search');
+    if (search) setSearchTerm(search);
+  }, [searchParams]);
 
   // Monitor online/offline status
   useEffect(() => {
@@ -58,14 +231,10 @@ const MyTrips = () => {
       setLoading(true);
       const response = await tripAPI.getUserTrips();
       setTrips(response.data.trips || []);
-      
-      // Also fetch offline trips to mark which ones are available offline
       fetchOfflineTrips(false);
     } catch (error) {
       console.error('Error fetching trips:', error);
       toast.error(t('errors.failedFetch'));
-      
-      // If server fetch fails, try offline fallback
       fetchOfflineTrips();
       setIsOfflineMode(true);
     } finally {
@@ -76,27 +245,20 @@ const MyTrips = () => {
   const fetchOfflineTrips = async (setAsMainTrips = true) => {
     try {
       const offlineData = await getAllOfflineTrips();
-      
       if (setAsMainTrips) {
-        // If we're in offline mode, use these as the main trips
         setTrips(offlineData || []);
       } else {
-        // Otherwise just track which trips are available offline
         setOfflineTrips(offlineData || []);
       }
     } catch (error) {
       console.error('Error fetching offline trips:', error);
-      if (setAsMainTrips) {
-        setTrips([]);
-      }
+      if (setAsMainTrips) setTrips([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteClick = (tripId, e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteClick = (tripId) => {
     setSelectedTripId(tripId);
     setIsDeleteModalOpen(true);
   };
@@ -108,22 +270,15 @@ const MyTrips = () => {
       setIsDeleting(true);
       
       if (isOfflineMode) {
-        // If offline, just remove from IndexedDB
         await removeTripOffline(selectedTripId);
         setTrips(trips.filter(trip => trip.id !== selectedTripId));
         toast.success(t('trips.deleteSuccess'));
       } else {
-        // Otherwise delete from server
         await tripAPI.deleteTrip(selectedTripId);
         setTrips(trips.filter(trip => trip.id !== selectedTripId));
-        
-        // Also remove from offline storage if it exists there
         try {
           await removeTripOffline(selectedTripId);
-        } catch (err) {
-          // Ignore errors removing from offline storage
-        }
-        
+        } catch (err) { /* ignore */ }
         toast.success(t('trips.deleteSuccess'));
       }
       
@@ -136,297 +291,269 @@ const MyTrips = () => {
     }
   };
 
-  const getDateRangeString = (startDate, endDate) => {
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-    
-    return `${start.format('MMM D')} - ${end.format('MMM D, YYYY')}`;
-  };
-
-  const getTripStatus = (startDate, endDate) => {
-    const now = dayjs();
-    const start = dayjs(startDate);
-    const end = dayjs(endDate);
-    
-    if (now < start) {
-      return {
-        label: t('trips.upcoming'),
-        className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      };
-    } else if (now > end) {
-      return {
-        label: t('trips.past'),
-        className: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-      };
-    } else {
-      return {
-        label: 'Active',
-        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      };
-    }
-  };
-  
-  const getRoleLabel = (role) => {
-    if (role === 'owner') {
-      return {
-        label: t('trips.owner'),
-        className: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-      };
-    } else if (role === 'editor') {
-      return {
-        label: t('trips.editor'),
-        className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-      };
-    } else {
-      return {
-        label: t('trips.viewer'),
-        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      };
-    }
-  };
-
-  // Check if a trip is available offline
   const isTripOffline = (tripId) => {
     return offlineTrips.some(trip => trip.id === tripId);
   };
 
-  const filteredTrips = trips.filter(trip => 
-    trip.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (trip.location && trip.location.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Filter trips
+  const getFilteredTrips = () => {
+    let filtered = trips;
+    
+    // Apply status filter
+    if (filter !== 'all') {
+      const now = dayjs();
+      filtered = trips.filter(trip => {
+        const start = dayjs(trip.start_date);
+        const end = dayjs(trip.end_date);
+        
+        if (filter === 'upcoming') return now.isBefore(start);
+        if (filter === 'active') return now.isAfter(start) && now.isBefore(end);
+        if (filter === 'past') return now.isAfter(end);
+        return true;
+      });
+    }
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(trip => 
+        trip.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        trip.location?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  };
+
+  const filteredTrips = getFilteredTrips();
+
+  // Group trips by status for display
+  const groupedTrips = {
+    active: filteredTrips.filter(t => {
+      const now = dayjs();
+      return now.isAfter(dayjs(t.start_date)) && now.isBefore(dayjs(t.end_date));
+    }),
+    upcoming: filteredTrips.filter(t => dayjs().isBefore(dayjs(t.start_date))),
+    past: filteredTrips.filter(t => dayjs().isAfter(dayjs(t.end_date))),
+  };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isOfflineMode ? 'Offline Trips' : t('trips.title')}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            {isOfflineMode 
-              ? 'Showing trips available offline' 
-              : t('trips.tagline2')}
-          </p>
-        </div>
-        {!isOfflineMode && (
-          <Button
-            variant="primary"
-            className="mt-4 md:mt-0"
-            onClick={() => navigate('/trips/new')}
-            icon={<PlusCircle className="h-5 w-5" />}
-          >
-            {t('trips.createTrip')}
-          </Button>
-        )}
-      </div>
-
-      {/* Offline mode banner */}
-      {isOfflineMode && (
-        <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-          <div className="flex items-center">
-            <WifiOff className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
-            <p className="text-yellow-800 dark:text-yellow-200">
-              You're currently in offline mode. Only trips saved for offline use are shown.
+    <div className="h-full overflow-y-auto custom-scrollbar">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-display font-semibold text-gray-900 dark:text-white">
+              {t('trips.title', 'My Trips')}
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
+              {isOfflineMode 
+                ? t('offline.viewingOffline', 'Viewing offline trips')
+                : `${trips.length} ${trips.length === 1 ? t('common.trip', 'trip') : t('common.trips', 'trips')}`
+              }
             </p>
           </div>
+          
+          <Button
+            onClick={() => navigate('/trips/new')}
+            icon={<PlusCircle className="w-5 h-5" />}
+            disabled={isOfflineMode}
+          >
+            {t('trips.create', 'New Trip')}
+          </Button>
         </div>
-      )}
 
-      {/* Search and filters */}
-      <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder={t('trips.search')}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-600 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Trips grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, index) => (
-            <Card key={index} className="animate-pulse">
-              <div className="h-48 bg-gray-300 dark:bg-gray-700 rounded-t-xl"></div>
-              <CardContent className="p-4">
-                <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
-                <div className="flex space-x-2 mb-4">
-                  <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-16"></div>
-                  <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-16"></div>
-                </div>
-                <div className="h-10 bg-gray-300 dark:bg-gray-700 rounded"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : filteredTrips.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTrips.map((trip) => {
-            const tripStatus = getTripStatus(trip.start_date, trip.end_date);
-            const roleLabel = getRoleLabel(trip.role);
-            const isOfflineAvailable = isOfflineMode || isTripOffline(trip.id);
-            
-            return (
-              <Link 
-                key={trip.id}
-                to={`/trips/${trip.id}`}
-                className="block group"
+        {/* Filters and Search */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Filter pills */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+            {['all', 'active', 'upcoming', 'past'].map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap
+                  transition-all duration-200
+                  ${filter === f 
+                    ? 'bg-nav dark:bg-white text-white dark:text-gray-900' 
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }
+                `}
               >
-                <Card className="h-full transition-transform hover:transform hover:scale-[1.01] hover:shadow-md">
-                  <div className="h-48 relative">
-                    <img 
-                      src={trip.cover_image 
-                        ? getImageUrl(trip.cover_image)
-                        : getFallbackImageUrl('trip')
-                      } 
-                      alt={trip.name}
-                      className="h-full w-full object-cover rounded-t-xl"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent rounded-t-xl"></div>
-                    <div className="absolute top-3 right-3 flex space-x-2">
-                      {/* Offline indicator */}
-                      {isOfflineAvailable && (
-                        <div className="p-1.5 bg-green-500/80 hover:bg-green-500 rounded-full text-white" title="Available offline">
-                          <WifiOff size={16} />
-                        </div>
-                      )}
-                      
-                      {/* Edit button */}
-                      {!isOfflineMode && (trip.role === 'owner' || trip.role === 'editor') && (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigate(`/trips/${trip.id}/edit`);
-                          }}
-                          className="p-1.5 bg-white/80 hover:bg-white rounded-full text-gray-700 hover:text-gray-900 transition-colors"
-                        >
-                          <Edit size={16} />
-                        </button>
-                      )}
-                      
-                      {/* Delete button (only for owners) */}
-                      {(isOfflineMode || trip.role === 'owner') && (
-                        <button
-                          onClick={(e) => handleDeleteClick(trip.id, e)}
-                          className="p-1.5 bg-white/80 hover:bg-white rounded-full text-red-600 hover:text-red-700 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">{trip.name}</h3>
-                    
-                    {trip.location && (
-                      <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-3">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        <span className="truncate">{trip.location}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm mb-4">
-                      <Clock className="h-4 w-4 mr-1" />
-                      <span>{getDateRangeString(trip.start_date, trip.end_date)}</span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2 mb-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${tripStatus.className}`}>
-                        {tripStatus.label}
-                      </span>
-                      
-                      {!isOfflineMode && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleLabel.className}`}>
-                          {roleLabel.label}
-                        </span>
-                      )}
-                      
-                      {isOfflineAvailable && (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                          Offline
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <div className="flex -space-x-2">
-                        <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold border-2 border-white dark:border-gray-800">
-                          <User size={16} />
-                        </div>
-                      </div>
-                      <button className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300">
-                      {t('trips.viewDetails')} →
-                      </button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <div className="mx-auto h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-            <Calendar className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+                {f === 'all' && t('common.all', 'All')}
+                {f === 'active' && t('trips.active', 'Active')}
+                {f === 'upcoming' && t('trips.upcoming', 'Upcoming')}
+                {f === 'past' && t('trips.past', 'Past')}
+                {f !== 'all' && (
+                  <span className="ml-1.5 opacity-60">
+                    {f === 'active' && groupedTrips.active.length}
+                    {f === 'upcoming' && groupedTrips.upcoming.length}
+                    {f === 'past' && groupedTrips.past.length}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            {isOfflineMode 
-              ? 'No offline trips available' 
-              : t('trips.noTrips')}
-          </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-            {isOfflineMode 
-              ? 'You haven\'t saved any trips for offline use. When online, visit a trip and click "Save Offline".'
-              : searchTerm 
-                ? t('trips.noTripsMatching', {searchTerm})
-                : t('trips.noTripsMessage')}
-          </p>
-          {!isOfflineMode && !searchTerm && (
-            <Button
-              variant="primary"
-              onClick={() => navigate('/trips/new')}
-              icon={<PlusCircle className="h-5 w-5" />}
-            >
-              {t('trips.createFirst')}
-            </Button>
-          )}
+
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder={t('trips.search', 'Search trips...')}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-      )}
+
+        {/* Loading state */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, index) => (
+              <div key={index} className="animate-pulse">
+                <div className="h-44 bg-gray-200 dark:bg-gray-700 rounded-t-2xl" />
+                <div className="bg-white dark:bg-gray-800 rounded-b-2xl p-4 border border-gray-100 dark:border-gray-700 border-t-0">
+                  <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4" />
+                  <div className="flex gap-2">
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg w-6" />
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg w-6" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredTrips.length > 0 ? (
+          <div className="space-y-8">
+            {/* Active trips section */}
+            {groupedTrips.active.length > 0 && (filter === 'all' || filter === 'active') && (
+              <section>
+                <h2 className="text-lg font-display font-medium text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  {t('trips.activeTrips', 'Active Trips')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedTrips.active.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isOfflineMode={isOfflineMode}
+                      isOfflineAvailable={isOfflineMode || isTripOffline(trip.id)}
+                      onDelete={handleDeleteClick}
+                      onEdit={(id) => navigate(`/trips/${id}/edit`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Upcoming trips section */}
+            {groupedTrips.upcoming.length > 0 && (filter === 'all' || filter === 'upcoming') && (
+              <section>
+                <h2 className="text-lg font-display font-medium text-gray-900 dark:text-white mb-4">
+                  {t('trips.upcomingTrips', 'Upcoming Trips')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedTrips.upcoming.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isOfflineMode={isOfflineMode}
+                      isOfflineAvailable={isOfflineMode || isTripOffline(trip.id)}
+                      onDelete={handleDeleteClick}
+                      onEdit={(id) => navigate(`/trips/${id}/edit`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Past trips section */}
+            {groupedTrips.past.length > 0 && (filter === 'all' || filter === 'past') && (
+              <section>
+                <h2 className="text-lg font-display font-medium text-gray-900 dark:text-white mb-4">
+                  {t('trips.pastTrips', 'Past Trips')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {groupedTrips.past.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isOfflineMode={isOfflineMode}
+                      isOfflineAvailable={isOfflineMode || isTripOffline(trip.id)}
+                      onDelete={handleDeleteClick}
+                      onEdit={(id) => navigate(`/trips/${id}/edit`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        ) : (
+          /* Empty state */
+          <div className="text-center py-16">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <Calendar className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-display font-medium text-gray-900 dark:text-white mb-2">
+              {isOfflineMode 
+                ? t('offline.noOfflineTrips', 'No offline trips')
+                : searchTerm 
+                  ? t('trips.noResults', 'No trips found')
+                  : t('trips.noTrips', 'No trips yet')
+              }
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto">
+              {isOfflineMode 
+                ? t('offline.saveTripsMessage', 'Save trips for offline use by visiting a trip and clicking "Save Offline"')
+                : searchTerm 
+                  ? t('trips.tryDifferentSearch', 'Try a different search term')
+                  : t('trips.createFirstMessage', 'Start planning your next adventure')
+              }
+            </p>
+            {!isOfflineMode && !searchTerm && (
+              <Button
+                onClick={() => navigate('/trips/new')}
+                icon={<PlusCircle className="w-5 h-5" />}
+                size="lg"
+              >
+                {t('trips.createFirst', 'Create your first trip')}
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Delete confirmation modal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title={isOfflineMode ? "Remove Offline Trip" : "Delete Trip"}
+        title={isOfflineMode ? t('offline.removeTrip', 'Remove Offline Trip') : t('trips.deleteTrip', 'Delete Trip')}
         size="sm"
       >
         <div className="p-6">
           <p className="text-gray-600 dark:text-gray-300 mb-6">
             {isOfflineMode
-              ? "Are you sure you want to remove this trip from offline storage?"
-              : t('trips.deleteConfirm')}
+              ? t('offline.removeConfirm', 'Remove this trip from offline storage?')
+              : t('trips.deleteConfirm', 'Are you sure you want to delete this trip? This action cannot be undone.')
+            }
           </p>
-          <div className="flex justify-end space-x-3">
+          <div className="flex justify-end gap-3">
             <Button
               variant="secondary"
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={isDeleting}
             >
-              {t('common.cancel')}
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={handleDeleteTrip}
               loading={isDeleting}
-              icon={<Trash2 className="h-5 w-5" />}
+              icon={<Trash2 className="w-4 h-4" />}
             >
-              {isOfflineMode ? "Remove" : t('common.delete')}
+              {isOfflineMode ? t('common.remove', 'Remove') : t('common.delete', 'Delete')}
             </Button>
           </div>
         </div>

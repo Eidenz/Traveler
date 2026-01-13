@@ -18,7 +18,8 @@ const ActivityModal = ({
   tripId,
   activityId = null,
   onSuccess,
-  initialData = null
+  initialData = null,
+  defaultDate = null
 }) => {
   const { t } = useTranslation();
   const isEditMode = !!activityId;
@@ -58,9 +59,11 @@ const ActivityModal = ({
       setExistingBannerImage(initialData.banner_image || null);
     } else if (isOpen) {
       // Reset form for new activity
+      // Use defaultDate if provided, otherwise use today
+      const activityDate = defaultDate ? new Date(defaultDate) : new Date();
       setFormData({
         name: '',
-        date: new Date(),
+        date: activityDate,
         time: '',
         location: '',
         confirmation_code: '',
@@ -74,7 +77,7 @@ const ActivityModal = ({
       setDocuments([]);
       setErrors({});
     }
-  }, [isOpen, activityId, initialData]);
+  }, [isOpen, activityId, initialData, defaultDate]);
 
   const fetchActivity = async () => {
     try {

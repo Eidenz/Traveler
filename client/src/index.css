@@ -3,15 +3,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Enhanced base styles for a more polished look */
+/* Enhanced base styles for the new design */
 @layer base {
   :root {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    /* Core design tokens */
+    --accent: #e63946;
+    --accent-soft: #fef1f2;
+    --accent-hover: #d62839;
+    --nav-bg: #0f1419;
+    --nav-light: #1a2028;
+    --nav-border: #2f3336;
+    
+    /* Panel colors */
+    --panel-bg: #ffffff;
+    --panel-border: #e5e7eb;
+    
+    /* Text colors */
+    --text-primary: #1a1a2e;
+    --text-muted: #6b7280;
+    
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.5;
     color-scheme: light;
   }
 
   .dark {
+    --panel-bg: #1f2937;
+    --panel-border: #374151;
+    --text-primary: #f9fafb;
+    --text-muted: #9ca3af;
     color-scheme: dark;
   }
 
@@ -22,7 +42,13 @@
     padding: 0;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  /* Display font for headings */
+  h1, h2, h3 {
+    font-family: 'Fraunces', Georgia, serif;
+    @apply font-semibold;
+  }
+
+  h4, h5, h6 {
     @apply font-medium;
   }
 
@@ -39,11 +65,11 @@
   }
 
   a {
-    @apply font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300;
+    @apply font-medium text-accent hover:text-accent-hover;
     text-decoration: none;
   }
 
-  /* Smooth transitions for dark mode */
+  /* Smooth transitions for dark mode - excluding transforms for animation performance */
   *, *::before, *::after {
     transition-property: background-color, border-color, color, fill, stroke;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
@@ -55,50 +81,171 @@
 @layer components {
   /* Card styles */
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden;
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden;
   }
 
   .card-header {
-    @apply px-6 py-4 border-b border-gray-200 dark:border-gray-700;
+    @apply px-6 py-4 border-b border-gray-100 dark:border-gray-700;
   }
 
   .card-title {
     @apply text-lg font-semibold text-gray-900 dark:text-white;
+    font-family: 'Fraunces', Georgia, serif;
   }
 
   .card-content {
     @apply p-6;
   }
+  
+  /* Card variants */
+  .card-timeline {
+    @apply bg-white border border-gray-100 rounded-2xl shadow-sm;
+    @apply transition-all duration-300;
+    @apply hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .card-transport {
+    @apply bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3;
+  }
+  
+  .card-lodging {
+    @apply bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3;
+  }
+  
+  .card-activity {
+    @apply bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3;
+  }
 
-  /* Button styles */
+  /* Button styles - updated with accent color */
   .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-xl font-medium transition-all duration-200;
+    @apply active:scale-95;
   }
 
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800;
+    @apply bg-accent hover:bg-accent-hover text-white;
+    @apply focus:ring-2 focus:ring-accent/50 focus:ring-offset-2;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200;
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-800;
+    @apply dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200;
+  }
+  
+  .btn-ghost {
+    @apply hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400;
+  }
+  
+  .btn-outline {
+    @apply border border-gray-200 hover:bg-gray-50 text-gray-700;
+    @apply dark:border-gray-600 dark:hover:bg-gray-800 dark:text-gray-300;
   }
 
-  /* Form styles */
+  /* Form styles - updated with accent focus */
   .form-input {
-    @apply block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply block w-full rounded-xl border border-gray-200 dark:border-gray-600;
+    @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-white;
+    @apply py-2.5 px-4;
+    @apply focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent;
+    @apply transition-all duration-200;
   }
 
   .form-label {
-    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5;
+  }
+  
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+  }
+  
+  .badge-warning {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+  
+  .badge-neutral {
+    @apply bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400;
+  }
+  
+  .badge-accent {
+    @apply bg-accent-soft text-accent;
   }
 
-  /* Animation utilities */
-  .animate-fade-in {
-    animation: fadeIn 0.3s ease-in-out;
+  /* Icon sidebar styles */
+  .sidebar-icon {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center;
+    @apply text-gray-400 transition-all duration-200;
+    @apply hover:bg-white/10 hover:text-white hover:scale-110;
   }
-
-  .animate-slide-up {
-    animation: slideUp 0.4s ease-in-out;
+  
+  .sidebar-icon.active {
+    @apply bg-white/15 text-accent;
+  }
+  
+  /* Tab pills */
+  .tab-pill {
+    @apply px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200;
+    @apply text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700;
+  }
+  
+  .tab-pill.active {
+    @apply bg-nav text-white dark:bg-white dark:text-gray-900;
+  }
+  
+  /* Timeline styles */
+  .timeline-connector {
+    @apply absolute left-[19px] top-10 bottom-0 w-0.5;
+    background: linear-gradient(to bottom, var(--accent) 0%, var(--panel-border) 100%);
+  }
+  
+  .timeline-dot {
+    @apply relative z-10;
+  }
+  
+  .timeline-dot::before {
+    content: '';
+    @apply absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
+    @apply w-10 h-10 rounded-full opacity-15;
+    background: var(--accent);
+    animation: pulseRing 2s ease-out infinite;
+  }
+  
+  /* Glass effect for overlays */
+  .glass {
+    @apply bg-white/95 dark:bg-gray-800/95;
+    backdrop-filter: blur(20px);
+  }
+  
+  /* Floating action button */
+  .fab {
+    @apply fixed bottom-6 right-6 w-14 h-14;
+    @apply bg-accent text-white rounded-2xl shadow-xl;
+    @apply flex items-center justify-center;
+    @apply transition-all duration-300;
+    @apply hover:scale-110 hover:shadow-2xl;
+    @apply active:scale-95;
+    z-index: 50;
+  }
+  
+  /* Custom scrollbar for panels */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
   }
 }
 
@@ -113,17 +260,45 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
-/* Date picker styles */
+@keyframes slideInLeft {
+  0% { transform: translateX(-30px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+  0% { transform: translateX(30px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes pulseRing {
+  0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+}
+
+/* Animation delay utilities */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+/* Date picker styles - updated with accent color */
 .react-datepicker-wrapper {
   @apply block w-full;
 }
 
 .react-datepicker {
-  @apply border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg rounded-lg !important;
+  @apply border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xl rounded-2xl !important;
+  font-family: 'DM Sans', sans-serif !important;
 }
 
 .react-datepicker__header {
-  @apply bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 !important;
+  @apply bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 rounded-t-2xl !important;
 }
 
 .react-datepicker__day-name, .react-datepicker__day {
@@ -131,24 +306,24 @@
 }
 
 .react-datepicker__day:hover {
-  @apply bg-gray-200 dark:bg-gray-600 !important;
+  @apply bg-gray-100 dark:bg-gray-600 rounded-lg !important;
 }
 
 .react-datepicker__day--selected, 
 .react-datepicker__day--in-selecting-range, 
 .react-datepicker__day--in-range {
-  @apply bg-blue-500 dark:bg-blue-600 text-white !important;
+  @apply bg-accent text-white rounded-lg !important;
 }
 
 .react-datepicker__day--keyboard-selected {
-  @apply bg-blue-300 dark:bg-blue-800 !important;
+  @apply bg-accent-soft text-accent rounded-lg !important;
 }
 
 .react-datepicker__day--disabled {
-  @apply text-gray-400 dark:text-gray-600 !important;
+  @apply text-gray-300 dark:text-gray-600 !important;
 }
 
-/* Custom scrollbar */
+/* Default scrollbar */
 ::-webkit-scrollbar {
   @apply w-2 h-2;
 }
@@ -163,4 +338,74 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* Map marker styles */
+.map-marker {
+  @apply w-6 h-6 rounded-full cursor-pointer;
+  @apply border-[3px] border-white shadow-lg;
+  background: var(--accent);
+  transition: transform 0.2s ease;
+}
+
+.map-marker:hover {
+  transform: scale(1.2);
+}
+
+/* Mobile bottom navigation */
+@media (max-width: 768px) {
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 h-16;
+    @apply bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700;
+    @apply flex items-center justify-around px-4;
+    @apply safe-area-inset-bottom;
+    z-index: 50;
+  }
+  
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center gap-1 py-2 px-3;
+    @apply text-gray-500 dark:text-gray-400;
+    @apply transition-colors duration-200;
+  }
+  
+  .bottom-nav-item.active {
+    @apply text-accent;
+  }
+  
+  .bottom-nav-item span {
+    @apply text-[10px] font-medium;
+  }
+}
+
+/* Safe area for iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
+}
+
+/* Ensure full height for trip detail layout */
+.trip-detail-container {
+  @apply flex-1 flex overflow-hidden;
+  min-height: 0; /* Important for nested flex overflow */
+}
+
+.trip-panel {
+  @apply flex flex-col overflow-hidden;
+  min-height: 0; /* Important for nested flex overflow */
+}
+
+.trip-panel-content {
+  @apply flex-1 overflow-y-auto;
+  min-height: 0; /* Important for nested flex overflow */
 }

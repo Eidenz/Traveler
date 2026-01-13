@@ -1,19 +1,17 @@
 // client/src/pages/Profile.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
-import ToggleSwitch from '../components/ui/ToggleSwitch'; // Import ToggleSwitch
 import { userAPI } from '../services/api';
 import useAuthStore from '../stores/authStore';
 import toast from 'react-hot-toast';
-import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils'; // Import fallback
+import { getImageUrl } from '../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import {
-  User, Mail, Lock, Camera, Save,
-  Trash2, LogOut, AlertTriangle, ShieldAlert, Bell, BellOff
+  User, Mail, Lock, Camera, Save, Trash2, LogOut, 
+  AlertTriangle, Bell, BellOff, Shield, Eye, EyeOff, Check
 } from 'lucide-react';
 
 const Profile = () => {
@@ -25,15 +23,14 @@ const Profile = () => {
   const [profileForm, setProfileForm] = useState({
     name: '',
     email: '',
-    receiveEmails: true, // Added state for email preference
+    receiveEmails: true,
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const [existingProfileImage, setExistingProfileImage] = useState(null);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileErrors, setProfileErrors] = useState({});
-  const [deletePassword, setDeletePassword] = useState('');
-  const [removeProfileImageFlag, setRemoveProfileImageFlag] = useState(false); // Flag to track removal
+  const [removeProfileImageFlag, setRemoveProfileImageFlag] = useState(false);
 
   // Password form state
   const [passwordForm, setPasswordForm] = useState({
@@ -41,22 +38,24 @@ const Profile = () => {
     new_password: '',
     confirm_password: ''
   });
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false
+  });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // Account deletion state
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load user data
   useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user]); // Re-fetch if user object changes
+    if (user) fetchUserProfile();
+  }, [user]);
 
-  // Reset password and confirmation when modal closes
   useEffect(() => {
     if (!isDeleteModalOpen) {
       setDeleteConfirmation('');
@@ -64,7 +63,6 @@ const Profile = () => {
     }
   }, [isDeleteModalOpen]);
 
-  // Fetch user profile data
   const fetchUserProfile = async () => {
     try {
       const response = await userAPI.getProfile();
@@ -73,531 +71,453 @@ const Profile = () => {
       setProfileForm({
         name: userData.name || '',
         email: userData.email || '',
-        receiveEmails: userData.receiveEmails !== undefined ? userData.receiveEmails : true, // Set email pref
+        receiveEmails: userData.receiveEmails !== undefined ? userData.receiveEmails : true,
       });
 
       if (userData.profile_image) {
         setExistingProfileImage(getImageUrl(userData.profile_image));
-        setProfileImagePreview(getImageUrl(userData.profile_image)); // Also set preview initially
+        setProfileImagePreview(getImageUrl(userData.profile_image));
       } else {
         setExistingProfileImage(null);
         setProfileImagePreview(null);
       }
-      setRemoveProfileImageFlag(false); // Reset remove flag on fetch
+      setRemoveProfileImageFlag(false);
     } catch (error) {
       console.error('Error fetching user profile:', error);
       toast.error(t('errors.loadFailed', { item: t('auth.profile').toLowerCase() }));
     }
   };
 
-  // Handle profile form change (name)
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileForm(prev => ({ ...prev, [name]: value }));
-
     if (profileErrors[name]) {
       setProfileErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-   // Handle email preference toggle
-  const handleEmailPreferenceChange = (checked) => {
-    setProfileForm(prev => ({ ...prev, receiveEmails: checked }));
-  };
-
-  // Handle profile image change
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-
     if (file) {
-      // Basic validation (can be extended)
-       if (file.size > 10 * 1024 * 1024) { // 10MB limit
-          toast.error(t('common.imageTooLarge'));
-          return;
-        }
-        if (!file.type.startsWith('image/')) {
-          toast.error(t('common.imageError'));
-          return;
-        }
-
-      setProfileImage(file); // Set the file object for upload
-      setRemoveProfileImageFlag(false); // Unset remove flag if new image is selected
-
-      // Create a preview URL
+      setProfileImage(file);
+      setRemoveProfileImageFlag(false);
       const reader = new FileReader();
-      reader.onload = () => {
-        setProfileImagePreview(reader.result);
-      };
+      reader.onload = () => setProfileImagePreview(reader.result);
       reader.readAsDataURL(file);
-
-      if (profileErrors.profile_image) {
-        setProfileErrors(prev => ({ ...prev, profile_image: '' }));
-      }
     }
   };
 
-  // Handle remove image
   const handleRemoveImage = () => {
-    setProfileImage(null); // Clear the selected file
-    setProfileImagePreview(null); // Clear the preview
-    setExistingProfileImage(null); // Clear existing image URL
-    setRemoveProfileImageFlag(true); // Set flag to indicate removal
+    setProfileImage(null);
+    setProfileImagePreview(null);
+    setRemoveProfileImageFlag(true);
   };
 
-  // Validate profile form
   const validateProfileForm = () => {
-    const errors = {};
+    const newErrors = {};
     if (!profileForm.name.trim()) {
-      errors.name = t('errors.required', { field: t('auth.fullName') });
+      newErrors.name = t('auth.nameRequired');
     }
-    setProfileErrors(errors);
-    return Object.keys(errors).length === 0;
+    setProfileErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Handle profile form submission
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
-
     if (validateProfileForm()) {
       try {
         setIsUpdatingProfile(true);
-
         const formData = new FormData();
         formData.append('name', profileForm.name);
-        formData.append('receiveEmails', profileForm.receiveEmails); // Send email preference
-
-        if (profileImage) { // If a new image was selected
+        formData.append('receiveEmails', profileForm.receiveEmails);
+        if (removeProfileImageFlag) {
+          formData.append('remove_profile_image', 'true');
+        } else if (profileImage) {
           formData.append('profile_image', profileImage);
-        } else if (removeProfileImageFlag) { // If remove button was clicked
-          formData.append('remove_profile_image', 'true'); // Send flag to backend
         }
-        // If neither, the backend will keep the existing image
 
         const response = await userAPI.updateProfile(formData);
-        const updatedUserData = response.data.user;
-
-        // Update user in auth store
-        updateUser(updatedUserData);
-
-        // Update local state after successful update
-        setProfileForm(prev => ({
-            ...prev,
-            name: updatedUserData.name,
-            receiveEmails: updatedUserData.receiveEmails
-        }));
-        if (updatedUserData.profile_image) {
-            const newImageUrl = getImageUrl(updatedUserData.profile_image);
-            setExistingProfileImage(newImageUrl);
-            setProfileImagePreview(newImageUrl); // Update preview
-        } else {
-            setExistingProfileImage(null);
-            setProfileImagePreview(null);
-        }
-        setProfileImage(null); // Clear staged image file
-        setRemoveProfileImageFlag(false); // Reset remove flag
-
-        toast.success(t('profile.updateSuccess'));
+        updateUser(response.data.user);
+        toast.success(t('auth.profileUpdated'));
+        fetchUserProfile();
       } catch (error) {
-        console.error('Error updating profile:', error);
-        toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('auth.profile').toLowerCase() }));
+        toast.error(error.response?.data?.message || t('errors.saveFailed'));
       } finally {
         setIsUpdatingProfile(false);
       }
     }
   };
 
-  // Handle password form change
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
     setPasswordForm(prev => ({ ...prev, [name]: value }));
-
     if (passwordErrors[name]) {
       setPasswordErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  // Validate password form
   const validatePasswordForm = () => {
-    const errors = {};
+    const newErrors = {};
     if (!passwordForm.current_password) {
-      errors.current_password = t('errors.required', { field: t('profile.currentPassword') });
+      newErrors.current_password = t('auth.currentPasswordRequired');
     }
     if (!passwordForm.new_password) {
-      errors.new_password = t('errors.required', { field: t('profile.newPassword') });
+      newErrors.new_password = t('auth.newPasswordRequired');
     } else if (passwordForm.new_password.length < 6) {
-      errors.new_password = t('errors.minLength', { field: t('profile.newPassword'), length: 6 });
+      newErrors.new_password = t('auth.passwordLength');
     }
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      errors.confirm_password = t('errors.passwordsMatch');
+      newErrors.confirm_password = t('errors.passwordsMatch');
     }
-    setPasswordErrors(errors);
-    return Object.keys(errors).length === 0;
+    setPasswordErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Handle password form submission
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
-
     if (validatePasswordForm()) {
       try {
         setIsChangingPassword(true);
-        const { confirm_password, ...passwordData } = passwordForm;
-        await userAPI.changePassword(passwordData);
+        await userAPI.changePassword({
+          currentPassword: passwordForm.current_password,
+          newPassword: passwordForm.new_password
+        });
+        toast.success(t('auth.passwordChanged'));
         setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
-        toast.success(t('profile.passwordChangeSuccess'));
       } catch (error) {
-        console.error('Error changing password:', error);
-        if (error.response?.data?.message === 'Current password is incorrect') {
-          setPasswordErrors({ current_password: t('profile.incorrectPassword') });
-        } else {
-          toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('profile.password').toLowerCase() }));
-        }
+        toast.error(error.response?.data?.message || t('errors.saveFailed'));
       } finally {
         setIsChangingPassword(false);
       }
     }
   };
 
-  // Handle account deletion
   const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== user?.email) {
-      toast.error(t('profile.confirmEmailToDelete'));
+    if (deleteConfirmation !== 'DELETE') {
+      toast.error(t('auth.typeDelete'));
       return;
     }
-    if (!deletePassword) {
-      toast.error(t('errors.required', { field: t('auth.password') }));
-      return;
-    }
-
     try {
       setIsDeleting(true);
-      await userAPI.deleteAccount(deletePassword);
-      logout(); // Clear local state/storage
-      toast.success(t('profile.accountDeletedSuccess'));
-      navigate('/login'); // Redirect after successful deletion
+      await userAPI.deleteAccount({ password: deletePassword });
+      toast.success(t('auth.accountDeleted'));
+      logout();
+      navigate('/login');
     } catch (error) {
-      console.error('Error deleting account:', error);
-      if (error.response?.status === 400 && error.response?.data?.message === 'Incorrect password') {
-        toast.error(t('profile.incorrectPassword'));
-      } else {
-        toast.error(error.response?.data?.message || t('errors.deleteFailed', { item: t('profile.account').toLowerCase() }));
-      }
+      toast.error(error.response?.data?.message || t('errors.deleteFailed'));
     } finally {
       setIsDeleting(false);
-      setIsDeleteModalOpen(false); // Close modal regardless of outcome
     }
   };
 
-
-  if (!user) {
-    return (
-      <div className="max-w-3xl mx-auto">
-        <div className="animate-pulse">
-          <div className="h-10 w-64 bg-gray-300 dark:bg-gray-700 rounded mb-4"></div>
-          <div className="h-96 bg-gray-300 dark:bg-gray-700 rounded"></div>
-        </div>
-      </div>
-    );
-  }
+  const handleLogout = () => {
+    logout();
+    toast.success(t('auth.logoutSuccess'));
+    navigate('/login');
+  };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">{t('profile.title')}</h1>
+    <div className="h-full overflow-y-auto custom-scrollbar">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-display font-semibold text-gray-900 dark:text-white">
+            {t('auth.profile', 'Profile')}
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            {t('auth.manageProfile', 'Manage your account settings')}
+          </p>
+        </div>
 
-      {/* Profile Information Section */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>{t('profile.personalInfo')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleProfileSubmit}>
-            {/* Profile Image */}
-            <div className="mb-6 flex flex-col items-center">
-              <div className="relative mb-4">
-                <div className="h-32 w-32 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                   <img
-                      src={profileImagePreview || getFallbackImageUrl('profile')} // Use preview or fallback
-                      alt={profileForm.name || 'Profile'}
-                      className="h-full w-full object-cover"
-                      onError={(e) => { e.target.src = getFallbackImageUrl('profile'); }} // Handle image load error
-                    />
-                </div>
-                <div className="absolute bottom-0 right-0">
-                  <label
-                    htmlFor="profile_image"
-                    className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white flex items-center justify-center cursor-pointer shadow-md"
-                  >
-                    <Camera className="h-5 w-5" />
-                    <input
-                      id="profile_image"
-                      name="profile_image"
-                      type="file"
-                      className="sr-only"
-                      accept="image/*"
-                      onChange={handleImageChange}
-                    />
+        <div className="space-y-6">
+          {/* Profile Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5 text-gray-400" />
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {t('auth.personalInfo', 'Personal Information')}
+                </h2>
+              </div>
+            </div>
+            
+            <form onSubmit={handleProfileSubmit} className="p-6 space-y-6">
+              {/* Avatar */}
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                    {profileImagePreview ? (
+                      <img src={profileImagePreview} alt={profileForm.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl font-medium text-white">
+                        {profileForm.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </span>
+                    )}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-accent rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:bg-accent-hover transition-colors">
+                    <Camera className="w-4 h-4 text-white" />
+                    <input type="file" className="sr-only" accept="image/*" onChange={handleImageChange} />
                   </label>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{t('auth.profilePhoto', 'Profile photo')}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {t('auth.photoHelp', 'JPG, PNG or GIF. Max 5MB.')}
+                  </p>
+                  {profileImagePreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="text-sm text-red-600 hover:underline mt-2"
+                    >
+                      {t('common.remove', 'Remove')}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              {/* Remove image button if there's an image */}
-              {(profileImagePreview) && (
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  {t('profile.removePhoto')}
-                </button>
-              )}
-            </div>
-
-            {/* Name Field */}
-            <div className="mb-4">
               <Input
-                label={t('auth.fullName')}
+                label={t('auth.fullName', 'Full name')}
                 id="name"
                 name="name"
                 value={profileForm.name}
                 onChange={handleProfileChange}
-                placeholder={t('auth.fullNamePlaceholder')}
                 error={profileErrors.name}
                 required
-                icon={<User className="h-5 w-5 text-gray-400" />}
               />
-            </div>
 
-            {/* Email Field - Display only */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('auth.email')}
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              <Input
+                label={t('auth.email', 'Email')}
+                id="email"
+                name="email"
+                value={profileForm.email}
+                disabled
+                className="opacity-60"
+              />
+
+              {/* Email notifications */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  {profileForm.receiveEmails ? (
+                    <Bell className="w-5 h-5 text-accent" />
+                  ) : (
+                    <BellOff className="w-5 h-5 text-gray-400" />
+                  )}
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {t('auth.emailNotifications', 'Email notifications')}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t('auth.emailNotificationsHelp', 'Receive updates about your trips')}
+                    </p>
+                  </div>
                 </div>
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  className="block w-full pl-10 py-2 pr-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md opacity-75 cursor-not-allowed"
-                  disabled
-                />
+                <button
+                  type="button"
+                  onClick={() => setProfileForm(prev => ({ ...prev, receiveEmails: !prev.receiveEmails }))}
+                  className={`
+                    relative w-12 h-7 rounded-full transition-colors
+                    ${profileForm.receiveEmails ? 'bg-accent' : 'bg-gray-300 dark:bg-gray-600'}
+                  `}
+                >
+                  <div className={`
+                    absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform
+                    ${profileForm.receiveEmails ? 'left-6' : 'left-1'}
+                  `} />
+                </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {t('profile.emailChangeNotAllowed')}
-              </p>
-            </div>
 
-             {/* Email Preference Toggle */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email Notifications
-              </label>
-              <div className="flex items-center space-x-3">
-                <ToggleSwitch
-                  id="receiveEmails"
-                  checked={profileForm.receiveEmails}
-                  onChange={handleEmailPreferenceChange}
-                />
-                 {profileForm.receiveEmails ? (
-                    <Bell className="h-5 w-5 text-green-500" />
-                ) : (
-                    <BellOff className="h-5 w-5 text-gray-400" />
-                )}
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {profileForm.receiveEmails ? t('profile.emailsOn') : t('profile.emailsOff')}
-                </span>
+              <div className="flex justify-end">
+                <Button type="submit" loading={isUpdatingProfile} icon={<Check className="w-4 h-4" />}>
+                  {t('common.saveChanges', 'Save changes')}
+                </Button>
               </div>
-            </div>
-
-
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<Save className="h-5 w-5" />}
-                loading={isUpdatingProfile}
-              >
-                {t('profile.saveChanges')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Password Section */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>{t('profile.changePassword')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordSubmit}>
-            <div className="space-y-4">
-              <Input
-                label={t('profile.currentPassword')}
-                type="password"
-                id="current_password"
-                name="current_password"
-                value={passwordForm.current_password}
-                onChange={handlePasswordChange}
-                placeholder="••••••••"
-                error={passwordErrors.current_password}
-                required
-                icon={<Lock className="h-5 w-5 text-gray-400" />}
-              />
-
-              <Input
-                label={t('profile.newPassword')}
-                type="password"
-                id="new_password"
-                name="new_password"
-                value={passwordForm.new_password}
-                onChange={handlePasswordChange}
-                placeholder="••••••••"
-                error={passwordErrors.new_password}
-                required
-                icon={<Lock className="h-5 w-5 text-gray-400" />}
-              />
-
-              <Input
-                label={t('profile.confirmNewPassword')}
-                type="password"
-                id="confirm_password"
-                name="confirm_password"
-                value={passwordForm.confirm_password}
-                onChange={handlePasswordChange}
-                placeholder="••••••••"
-                error={passwordErrors.confirm_password}
-                required
-                icon={<Lock className="h-5 w-5 text-gray-400" />}
-              />
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <Button
-                type="submit"
-                variant="primary"
-                icon={<ShieldAlert className="h-5 w-5" />}
-                loading={isChangingPassword}
-              >
-                {t('profile.updatePassword')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Danger Zone Section */}
-      <Card className="border-red-300 dark:border-red-700">
-        <CardHeader className="bg-red-50 dark:bg-red-900/20 border-b border-red-300 dark:border-red-700">
-          <CardTitle className="text-red-700 dark:text-red-400 flex items-center">
-            <AlertTriangle className="h-5 w-5 mr-2" />
-            {t('profile.dangerZone')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6 py-6">
-          <div>
-            <h3 className="text-lg font-medium mb-2">{t('profile.deleteAccount')}</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {t('profile.deleteAccountWarning')}
-            </p>
-            <Button
-              variant="danger"
-              icon={<Trash2 className="h-5 w-5" />}
-              onClick={() => setIsDeleteModalOpen(true)}
-            >
-              {t('profile.deleteMyAccount')}
-            </Button>
+            </form>
           </div>
 
-          <div>
-            <h3 className="text-lg font-medium mb-2">{t('profile.logout')}</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {t('profile.logoutDescription')}
-            </p>
-            <Button
-              variant="secondary"
-              icon={<LogOut className="h-5 w-5" />}
-              onClick={() => {
-                logout();
-                navigate('/login');
-                toast.success(t('auth.logoutSuccess'));
-              }}
-            >
-              {t('auth.logout')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          {/* Password Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-gray-400" />
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  {t('auth.security', 'Security')}
+                </h2>
+              </div>
+            </div>
+            
+            <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
+              <div className="relative">
+                <Input
+                  label={t('auth.currentPassword', 'Current password')}
+                  type={showPasswords.current ? 'text' : 'password'}
+                  id="current_password"
+                  name="current_password"
+                  value={passwordForm.current_password}
+                  onChange={handlePasswordChange}
+                  error={passwordErrors.current_password}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords(p => ({ ...p, current: !p.current }))}
+                  className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
+                >
+                  {showPasswords.current ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
 
-      {/* Delete Account Confirmation Modal */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="relative">
+                  <Input
+                    label={t('auth.newPassword', 'New password')}
+                    type={showPasswords.new ? 'text' : 'password'}
+                    id="new_password"
+                    name="new_password"
+                    value={passwordForm.new_password}
+                    onChange={handlePasswordChange}
+                    error={passwordErrors.new_password}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(p => ({ ...p, new: !p.new }))}
+                    className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Input
+                    label={t('auth.confirmPassword', 'Confirm password')}
+                    type={showPasswords.confirm ? 'text' : 'password'}
+                    id="confirm_password"
+                    name="confirm_password"
+                    value={passwordForm.confirm_password}
+                    onChange={handlePasswordChange}
+                    error={passwordErrors.confirm_password}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))}
+                    className="absolute right-3 top-9 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="submit" loading={isChangingPassword} icon={<Lock className="w-4 h-4" />}>
+                  {t('auth.changePassword', 'Change password')}
+                </Button>
+              </div>
+            </form>
+          </div>
+
+          {/* Danger Zone */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden">
+            <div className="p-6 border-b border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h2 className="text-lg font-medium text-red-600 dark:text-red-400">
+                  {t('auth.dangerZone', 'Danger Zone')}
+                </h2>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {t('auth.logout', 'Log out')}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('auth.logoutHelp', 'Sign out of your account')}
+                  </p>
+                </div>
+                <Button variant="secondary" onClick={handleLogout} icon={<LogOut className="w-4 h-4" />}>
+                  {t('auth.logout', 'Log out')}
+                </Button>
+              </div>
+
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-red-600 dark:text-red-400">
+                      {t('auth.deleteAccount', 'Delete account')}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t('auth.deleteAccountHelp', 'Permanently delete your account and all data')}
+                    </p>
+                  </div>
+                  <Button variant="danger" onClick={() => setIsDeleteModalOpen(true)} icon={<Trash2 className="w-4 h-4" />}>
+                    {t('common.delete', 'Delete')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Account Modal */}
       <Modal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        title={t('profile.confirmDeletion')}
+        title={t('auth.deleteAccount', 'Delete Account')}
         size="md"
       >
         <div className="p-6">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-4 mb-6">
-            <div className="flex">
-              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3 flex-shrink-0" />
-              <div>
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-300">
-                  {t('profile.warningTitle')}
-                </h3>
-                <div className="mt-2 text-sm text-red-700 dark:text-red-200">
-                  <p>{t('profile.deleteWarningDescription')}</p>
-                </div>
-              </div>
+          <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl mb-6">
+            <AlertTriangle className="w-8 h-8 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-red-600 dark:text-red-400">
+                {t('auth.deleteWarningTitle', 'This action cannot be undone')}
+              </p>
+              <p className="text-sm text-red-500 dark:text-red-300">
+                {t('auth.deleteWarning', 'All your trips, data, and account information will be permanently deleted.')}
+              </p>
             </div>
           </div>
 
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            {t('profile.enterEmailToDelete')}
-          </p>
-
-          <Input
-            label={t('auth.email')}
-            type="email"
-            id="delete_confirmation"
-            name="delete_confirmation"
-            value={deleteConfirmation}
-            onChange={(e) => setDeleteConfirmation(e.target.value)}
-            placeholder={profileForm.email}
-            required
-            icon={<Mail className="h-5 w-5 text-gray-400" />}
-          />
-
-          <div className="mt-4">
+          <div className="space-y-4">
             <Input
-              label={t('auth.password')}
+              label={t('auth.enterPassword', 'Enter your password')}
               type="password"
-              id="delete_password"
-              name="delete_password"
               value={deletePassword}
               onChange={(e) => setDeletePassword(e.target.value)}
               placeholder="••••••••"
-              required
-              icon={<Lock className="h-5 w-5 text-gray-400" />}
             />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                {t('auth.typeDeleteConfirm', 'Type DELETE to confirm')}
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="DELETE"
+                className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white py-3 px-4 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500"
+              />
+            </div>
           </div>
 
-          <div className="mt-6 flex justify-end space-x-3">
-            <Button
-              variant="secondary"
-              onClick={() => setIsDeleteModalOpen(false)}
-              disabled={isDeleting}
-            >
-              {t('common.cancel')}
+          <div className="flex justify-end gap-3 mt-6">
+            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
+              {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               variant="danger"
               onClick={handleDeleteAccount}
               loading={isDeleting}
-              icon={<Trash2 className="h-5 w-5" />}
-              disabled={deleteConfirmation !== profileForm.email || !deletePassword || isDeleting}
+              disabled={deleteConfirmation !== 'DELETE' || !deletePassword}
+              icon={<Trash2 className="w-4 h-4" />}
             >
-              {t('profile.permanentlyDeleteAccount')}
+              {t('auth.deleteAccount', 'Delete account')}
             </Button>
           </div>
         </div>
