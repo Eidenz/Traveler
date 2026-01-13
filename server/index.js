@@ -52,7 +52,13 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
       "script-src": ["'self'", "'unsafe-inline'"], // Mapbox GL requires some inline scripts
-      "style-src": ["'self'", "'unsafe-inline'", "blob:"], // Mapbox styles + inline styles
+      "style-src": [
+        "'self'",
+        "'unsafe-inline'",
+        "blob:",
+        "https://fonts.googleapis.com", // Google Fonts
+        "https://api.mapbox.com" // Mapbox GL CSS
+      ],
       "img-src": [
         "'self'",
         "data:",
