@@ -1,8 +1,7 @@
 // server/controllers/transportationController.js
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
-const { sendEmail } = require('../utils/emailService');
-const { getUserById } = require('./tripController'); // Import helper
+const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 
 // Helper to get trip members who should receive notifications
 const getTripMembersForNotification = (tripId, excludeUserId) => {
@@ -130,46 +129,22 @@ const createTransportation = (req, res) => {
     // Get the created transportation
     const transportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(result.lastInsertRowid);
 
-    // Send notification emails to other trip members
-    const membersToNotify = getTripMembersForNotification(tripId, updaterUserId);
-    const updater = getUserById(updaterUserId);
+    // Queue notification emails for other trip members (batched)
+    const updateData = {
+      transportType: type,
+      transportCompany: company || 'N/A',
+      transportFrom: from_location,
+      transportTo: to_location,
+      transportDate: new Date(departure_date).toLocaleDateString(),
+      transportTime: departure_time || '',
+      transportCode: confirmation_code || '',
+      transportImage: bannerImage ? `${process.env.FRONTEND_URL}${bannerImage}` : null
+    };
 
-    membersToNotify.forEach(member => {
-        const emailData = {
-            isTransportation: true, // Flag for template
-            userName: member.name,
-            userEmail: member.email,
-            updaterName: updater.name,
-            updaterAvatar: updater.profile_image ? `${process.env.FRONTEND_URL}${updater.profile_image}` : 'https://example.com/default-avatar.png',
-            tripName: trip.name,
-            tripDestination: trip.location || 'Unknown Destination',
-            updateType: 'Transportation',
-            transportType: type,
-            transportCompany: company || 'N/A',
-            transportFrom: from_location,
-            transportTo: to_location,
-            transportDate: new Date(departure_date).toLocaleDateString(),
-            transportTime: departure_time || '',
-            transportCode: confirmation_code || '',
-            transportImage: bannerImage ? `${process.env.FRONTEND_URL}${bannerImage}` : null,
-            tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
-            appLink: `${process.env.FRONTEND_URL}/dashboard`, // Generic link
-            // Add common links
-            privacyLink: `${process.env.FRONTEND_URL}/privacy`,
-            termsLink: `${process.env.FRONTEND_URL}/terms`,
-            unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
-            facebookLink: 'https://facebook.com',
-            twitterLink: 'https://twitter.com',
-            instagramLink: 'https://instagram.com'
-        };
-        sendEmail(
-            member.email,
-            `Update on trip "${trip.name}": New Transportation Added`,
-            'trip-update-template',
-            emailData
-        );
+    queueNotificationsForTripMembers(tripId, updaterUserId, 'transportation', updateData, {
+      name: trip.name,
+      location: trip.location
     });
-
 
     return res.status(201).json({
       message: 'Transportation added successfully',
@@ -300,28 +275,28 @@ const deleteTransportation = (req, res) => {
     try {
       // Delete banner image if exists
       if (transportation.banner_image) {
-         try { // Add try-catch for file deletion
-            const imagePath = path.join(__dirname, '..', transportation.banner_image);
-            if (fs.existsSync(imagePath)) {
-              fs.unlinkSync(imagePath);
-            }
-         } catch(err) {
-             console.error("Error deleting transportation banner:", err);
-         }
+        try { // Add try-catch for file deletion
+          const imagePath = path.join(__dirname, '..', transportation.banner_image);
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+          }
+        } catch (err) {
+          console.error("Error deleting transportation banner:", err);
+        }
       }
 
       // Delete documents first (foreign key constraint)
       if (documents.length > 0) {
         // Also delete document files
         documents.forEach(doc => {
-            try {
-                const filePath = path.join(__dirname, '..', doc.file_path);
-                if(fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-            } catch(err) {
-                 console.error("Error deleting document file:", err);
+          try {
+            const filePath = path.join(__dirname, '..', doc.file_path);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
             }
+          } catch (err) {
+            console.error("Error deleting document file:", err);
+          }
         });
 
         db.prepare(`

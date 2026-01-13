@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Updates: {{tripName}}</title>
+    <style type="text/css">
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f9fafb;
+            color: #374151;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .email-header {
+            background-color: #3b82f6;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .email-header img {
+            width: 120px;
+            height: auto;
+        }
+        
+        .email-body {
+            padding: 40px 30px;
+            line-height: 1.6;
+        }
+        
+        .email-footer {
+            background-color: #f3f4f6;
+            padding: 20px 30px;
+            font-size: 12px;
+            color: #6b7280;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #1e40af;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 24px;
+        }
+        
+        h2 {
+            color: #1f2937;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 18px;
+        }
+        
+        p {
+            margin: 0 0 20px;
+            font-size: 16px;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: #3b82f6;
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            text-align: center;
+            transition: background-color 0.2s;
+        }
+        
+        .button:hover {
+            background-color: #2563eb;
+        }
+        
+        .summary-badge {
+            display: inline-block;
+            background-color: #dbeafe;
+            color: #1e40af;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .section-icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 15px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .section-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1f2937;
+        }
+        
+        .section-count {
+            margin-left: auto;
+            background-color: #3b82f6;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 10px;
+            border-radius: 10px;
+        }
+        
+        .update-list {
+            padding: 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .update-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .update-item:last-child {
+            border-bottom: none;
+        }
+        
+        .update-item-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 5px;
+        }
+        
+        .update-item-details {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        
+        .update-item-meta {
+            font-size: 12px;
+            color: #9ca3af;
+            font-style: italic;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .email-container {
+                width: 100%;
+                border-radius: 0;
+            }
+            
+            .email-header, .email-body, .email-footer {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 22px;
+            }
+            
+            p {
+                font-size: 15px;
+            }
+            
+            .button {
+                display: block;
+                font-size: 15px;
+            }
+            
+            .section-header {
+                padding: 12px 15px;
+            }
+            
+            .update-item {
+                padding: 12px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 20px;">
+        <table class="email-container" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+            <!-- Header -->
+            <tr>
+                <td class="email-header" style="background-color: #3b82f6; padding: 30px; text-align: center;">
+                    <img src="/logo.png" alt="Traveler Logo" width="120" style="width: 120px; height: auto;">
+                </td>
+            </tr>
+            
+            <!-- Body -->
+            <tr>
+                <td class="email-body" style="padding: 40px 30px; line-height: 1.6;">
+                    <div class="summary-badge" style="display: inline-block; background-color: #dbeafe; color: #1e40af; font-weight: 600; font-size: 14px; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;">
+                        {{totalUpdates}} update{{#unless (eq totalUpdates 1)}}s{{/unless}}
+                    </div>
+                    
+                    <h1 style="color: #1e40af; margin-top: 0; margin-bottom: 20px; font-weight: 600; font-size: 24px;">Updates on {{tripName}}</h1>
+                    
+                    <p style="margin: 0 0 20px; font-size: 16px;">Hello {{userName}},</p>
+                    
+                    <p style="margin: 0 0 20px; font-size: 16px;">There have been updates to your trip to <strong>{{tripDestination}}</strong>. Here's what's new:</p>
+                    
+                    <!-- Activities Section -->
+                    {{#if hasActivities}}
+                    <div class="section-card" style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin: 20px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+                        <div class="section-header" style="display: flex; align-items: center; padding: 15px 20px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                            <div class="section-icon" style="width: 30px; height: 30px; margin-right: 15px; background-color: #8b5cf6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">🎭</div>
+                            <div class="section-title" style="font-weight: 600; font-size: 16px; color: #1f2937;">Activities</div>
+                            <div class="section-count" style="margin-left: auto; background-color: #8b5cf6; color: white; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px;">{{activitiesCount}}</div>
+                        </div>
+                        <ul class="update-list" style="padding: 0; margin: 0; list-style: none;">
+                            {{#each activities}}
+                            <li class="update-item" style="padding: 15px 20px; border-bottom: 1px solid #f3f4f6;">
+                                <div class="update-item-title" style="font-weight: 600; color: #1f2937; margin-bottom: 5px;">{{name}}</div>
+                                <div class="update-item-details" style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">📅 {{date}} {{#if time}}at {{time}}{{/if}} {{#if location}}• 📍 {{location}}{{/if}}</div>
+                                <div class="update-item-meta" style="font-size: 12px; color: #9ca3af; font-style: italic;">Added by {{addedBy}}</div>
+                            </li>
+                            {{/each}}
+                        </ul>
+                    </div>
+                    {{/if}}
+                    
+                    <!-- Transportation Section -->
+                    {{#if hasTransportation}}
+                    <div class="section-card" style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin: 20px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+                        <div class="section-header" style="display: flex; align-items: center; padding: 15px 20px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                            <div class="section-icon" style="width: 30px; height: 30px; margin-right: 15px; background-color: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">✈️</div>
+                            <div class="section-title" style="font-weight: 600; font-size: 16px; color: #1f2937;">Transportation</div>
+                            <div class="section-count" style="margin-left: auto; background-color: #3b82f6; color: white; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px;">{{transportationCount}}</div>
+                        </div>
+                        <ul class="update-list" style="padding: 0; margin: 0; list-style: none;">
+                            {{#each transportationItems}}
+                            <li class="update-item" style="padding: 15px 20px; border-bottom: 1px solid #f3f4f6;">
+                                <div class="update-item-title" style="font-weight: 600; color: #1f2937; margin-bottom: 5px;">{{type}} {{#if company}}– {{company}}{{/if}}</div>
+                                <div class="update-item-details" style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">{{from}} → {{to}} • 📅 {{date}} {{#if time}}at {{time}}{{/if}}</div>
+                                <div class="update-item-meta" style="font-size: 12px; color: #9ca3af; font-style: italic;">Added by {{addedBy}}</div>
+                            </li>
+                            {{/each}}
+                        </ul>
+                    </div>
+                    {{/if}}
+                    
+                    <!-- Lodging Section -->
+                    {{#if hasLodging}}
+                    <div class="section-card" style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin: 20px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+                        <div class="section-header" style="display: flex; align-items: center; padding: 15px 20px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                            <div class="section-icon" style="width: 30px; height: 30px; margin-right: 15px; background-color: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">🏨</div>
+                            <div class="section-title" style="font-weight: 600; font-size: 16px; color: #1f2937;">Accommodations</div>
+                            <div class="section-count" style="margin-left: auto; background-color: #10b981; color: white; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px;">{{lodgingCount}}</div>
+                        </div>
+                        <ul class="update-list" style="padding: 0; margin: 0; list-style: none;">
+                            {{#each lodgingItems}}
+                            <li class="update-item" style="padding: 15px 20px; border-bottom: 1px solid #f3f4f6;">
+                                <div class="update-item-title" style="font-weight: 600; color: #1f2937; margin-bottom: 5px;">{{name}}</div>
+                                <div class="update-item-details" style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">📍 {{address}} • Check-in: {{checkIn}} • Check-out: {{checkOut}}</div>
+                                <div class="update-item-meta" style="font-size: 12px; color: #9ca3af; font-style: italic;">Added by {{addedBy}}</div>
+                            </li>
+                            {{/each}}
+                        </ul>
+                    </div>
+                    {{/if}}
+                    
+                    <!-- Checklists Section -->
+                    {{#if hasChecklists}}
+                    <div class="section-card" style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin: 20px 0; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);">
+                        <div class="section-header" style="display: flex; align-items: center; padding: 15px 20px; background-color: #f3f4f6; border-bottom: 1px solid #e5e7eb;">
+                            <div class="section-icon" style="width: 30px; height: 30px; margin-right: 15px; background-color: #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">✓</div>
+                            <div class="section-title" style="font-weight: 600; font-size: 16px; color: #1f2937;">Checklists</div>
+                            <div class="section-count" style="margin-left: auto; background-color: #f59e0b; color: white; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 10px;">{{checklistsCount}}</div>
+                        </div>
+                        <ul class="update-list" style="padding: 0; margin: 0; list-style: none;">
+                            {{#each checklistItems}}
+                            <li class="update-item" style="padding: 15px 20px; border-bottom: 1px solid #f3f4f6;">
+                                <div class="update-item-title" style="font-weight: 600; color: #1f2937; margin-bottom: 5px;">{{name}}</div>
+                                <div class="update-item-meta" style="font-size: 12px; color: #9ca3af; font-style: italic;">Added by {{addedBy}}</div>
+                            </li>
+                            {{/each}}
+                        </ul>
+                    </div>
+                    {{/if}}
+                    
+                    <!-- Buttons -->
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{{tripLink}}" class="button" style="display: inline-block; background-color: #3b82f6; color: #ffffff; font-weight: 600; font-size: 16px; text-decoration: none; padding: 12px 30px; border-radius: 6px; margin: 0 10px 10px 0; text-align: center;">View Trip Details</a>
+                        <a href="{{appLink}}" style="display: inline-block; color: #3b82f6; font-weight: 600; font-size: 16px; text-decoration: none; padding: 12px 0; margin: 0 0 10px 0; text-align: center;">Open in App</a>
+                    </div>
+                    
+                    <p style="margin: 30px 0 0; font-size: 16px;">Happy travels,<br>The Traveler Team</p>
+                </td>
+            </tr>
+            
+            <!-- Footer -->
+            <tr>
+                <td class="email-footer" style="background-color: #f3f4f6; padding: 20px 30px; font-size: 12px; color: #6b7280; text-align: center;">
+                    <p style="margin: 0 0 10px; font-size: 12px;">© 2025 Traveler. All rights reserved.</p>
+                    <p style="margin: 0 0 10px; font-size: 12px;">This email was sent to {{userEmail}}</p>
+                    <p style="margin: 0; font-size: 12px;">
+                        <a href="{{unsubscribeLink}}" style="color: #6b7280;">Unsubscribe</a> • 
+                        <a href="{{privacyLink}}" style="color: #6b7280;">Privacy Policy</a> • 
+                        <a href="{{termsLink}}" style="color: #6b7280;">Terms of Service</a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

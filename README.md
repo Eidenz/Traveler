@@ -39,6 +39,7 @@ For any issues or questions, consider consulting online resources, community for
 - **PDF Viewer**: Built-in viewer for PDF documents and tickets
 - **User Profiles**: Edit profile, update password, and manage account
 - **Real-time Permission Management**: Control sharing access levels (view/edit)
+- **Smart Email Notifications**: Batched email notifications to prevent spam when multiple changes are made quickly (configurable delay, default 1 hour)
 
 ## Tech Stack
 
@@ -121,6 +122,20 @@ This application can run in both development and production modes with data pers
    ```
    npm run dev
    ```
+
+## Environment Variables
+
+The application supports the following optional environment variables for email notification configuration:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `EMAIL_QUEUE_DURATION_MS` | Time to wait before sending batched notifications (in milliseconds) | `3600000` (1 hour) |
+| `EMAIL_PROCESS_INTERVAL_MS` | How often to check for pending notifications (in milliseconds) | `300000` (5 minutes) |
+
+**Example:** To send batched emails after 30 minutes of inactivity:
+```
+EMAIL_QUEUE_DURATION_MS=1800000
+```
 
 ## Project Structure
 

@@ -1,9 +1,7 @@
 // server/controllers/lodgingController.js
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
-const { sendEmail } = require('../utils/emailService');
-const { getUserById } = require('./tripController'); // Import helper
-const { getTripMembersForNotification } = require('./transportationController'); // Import helper
+const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const path = require('path'); // Import path
 const fs = require('fs'); // Import fs
 
@@ -114,42 +112,19 @@ const createLodging = (req, res) => {
     // Get the created lodging
     const lodging = db.prepare('SELECT * FROM lodging WHERE id = ?').get(result.lastInsertRowid);
 
-    // Send notification emails to other trip members
-    const membersToNotify = getTripMembersForNotification(tripId, updaterUserId);
-    const updater = getUserById(updaterUserId);
+    // Queue notification emails for other trip members (batched)
+    const updateData = {
+      lodgingName: name,
+      lodgingAddress: address || 'N/A',
+      lodgingCheckIn: new Date(check_in).toLocaleDateString(),
+      lodgingCheckOut: new Date(check_out).toLocaleDateString(),
+      lodgingCode: confirmation_code || '',
+      lodgingImage: bannerImage ? `${process.env.FRONTEND_URL}${bannerImage}` : null
+    };
 
-    membersToNotify.forEach(member => {
-        const emailData = {
-            isLodging: true, // Flag for template
-            userName: member.name,
-            userEmail: member.email,
-            updaterName: updater.name,
-            updaterAvatar: updater.profile_image ? `${process.env.FRONTEND_URL}${updater.profile_image}` : 'https://example.com/default-avatar.png',
-            tripName: trip.name,
-            tripDestination: trip.location || 'Unknown Destination',
-            updateType: 'Accommodation',
-            lodgingName: name,
-            lodgingAddress: address || 'N/A',
-            lodgingCheckIn: new Date(check_in).toLocaleDateString(),
-            lodgingCheckOut: new Date(check_out).toLocaleDateString(),
-            lodgingCode: confirmation_code || '',
-            lodgingImage: bannerImage ? `${process.env.FRONTEND_URL}${bannerImage}` : null,
-            tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
-            appLink: `${process.env.FRONTEND_URL}/dashboard`,
-            // Add common links
-            privacyLink: `${process.env.FRONTEND_URL}/privacy`,
-            termsLink: `${process.env.FRONTEND_URL}/terms`,
-            unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
-            facebookLink: 'https://facebook.com',
-            twitterLink: 'https://twitter.com',
-            instagramLink: 'https://instagram.com'
-        };
-        sendEmail(
-            member.email,
-            `Update on trip "${trip.name}": New Accommodation Added`,
-            'trip-update-template',
-            emailData
-        );
+    queueNotificationsForTripMembers(tripId, updaterUserId, 'lodging', updateData, {
+      name: trip.name,
+      location: trip.location
     });
 
     return res.status(201).json({
@@ -204,7 +179,7 @@ const updateLodging = (req, res) => {
             fs.unlinkSync(oldImagePath);
           }
         } catch (fileError) {
-           console.error('Error deleting old banner image:', fileError);
+          console.error('Error deleting old banner image:', fileError);
         }
       }
     } else if (req.body.remove_banner === 'true') {
@@ -272,28 +247,28 @@ const deleteLodging = (req, res) => {
     try {
       // Delete banner image if exists
       if (lodging.banner_image) {
-         try { // Add try-catch for file deletion
-            const imagePath = path.join(__dirname, '..', lodging.banner_image);
-            if (fs.existsSync(imagePath)) {
-              fs.unlinkSync(imagePath);
-            }
-         } catch(err) {
-            console.error("Error deleting lodging banner:", err);
-         }
+        try { // Add try-catch for file deletion
+          const imagePath = path.join(__dirname, '..', lodging.banner_image);
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+          }
+        } catch (err) {
+          console.error("Error deleting lodging banner:", err);
+        }
       }
 
       // Delete documents first (foreign key constraint)
       if (documents.length > 0) {
-         // Also delete document files
+        // Also delete document files
         documents.forEach(doc => {
-            try {
-                const filePath = path.join(__dirname, '..', doc.file_path);
-                if(fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                }
-            } catch(err) {
-                 console.error("Error deleting document file:", err);
+          try {
+            const filePath = path.join(__dirname, '..', doc.file_path);
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
             }
+          } catch (err) {
+            console.error("Error deleting document file:", err);
+          }
         });
         db.prepare(`
           DELETE FROM documents

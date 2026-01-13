@@ -1,9 +1,7 @@
 // server/controllers/checklistController.js
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
-const { sendEmail } = require('../utils/emailService');
-const { getUserById } = require('./tripController'); // Import helper
-const { getTripMembersForNotification } = require('./transportationController'); // Import helper
+const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 
 /**
  * Get all checklists for a trip
@@ -182,19 +180,19 @@ const updateUserItemStatus = async (req, res) => {
       let skippedCount = 0;
 
       for (const memberId of tripMembers) {
-          const memberStatus = userStatuses.find(s => s.user_id === memberId);
-          if (memberStatus && (memberStatus.status === 'checked' || memberStatus.status === 'skipped')) {
-              actionedCount++;
-              if(memberStatus.status === 'checked') checkedCount++;
-              if(memberStatus.status === 'skipped') skippedCount++;
-          }
+        const memberStatus = userStatuses.find(s => s.user_id === memberId);
+        if (memberStatus && (memberStatus.status === 'checked' || memberStatus.status === 'skipped')) {
+          actionedCount++;
+          if (memberStatus.status === 'checked') checkedCount++;
+          if (memberStatus.status === 'skipped') skippedCount++;
+        }
       }
 
       let collectiveStatus = 'pending';
       if (actionedCount === totalMembers && totalMembers > 0) {
-          collectiveStatus = 'complete';
+        collectiveStatus = 'complete';
       } else if (actionedCount > 0) {
-          collectiveStatus = 'partial';
+        collectiveStatus = 'partial';
       }
 
       // Update the item's collective status
@@ -289,42 +287,16 @@ const createChecklist = (req, res) => {
       WHERE c.id = ?
     `).get(result.lastInsertRowid);
 
-    // Send notification emails to other trip members
-    const membersToNotify = getTripMembersForNotification(tripId, userId);
-    const updater = getUserById(userId);
+    // Queue notification emails for other trip members (batched)
+    const updateData = {
+      checklistName: name,
+      checklistItemCount: 0 // Initially 0 items
+    };
 
-     membersToNotify.forEach(member => {
-        const emailData = {
-            isChecklist: true, // Flag for template
-            userName: member.name,
-            userEmail: member.email,
-            updaterName: updater.name,
-            updaterAvatar: updater.profile_image ? `${process.env.FRONTEND_URL}${updater.profile_image}` : 'https://example.com/default-avatar.png',
-            tripName: trip.name,
-            tripDestination: trip.location || 'Unknown Destination',
-            updateType: 'Checklist',
-            checklistName: name,
-            checklistItemCount: 0, // Initially 0 items
-            checklistItems: [],
-            moreItems: false,
-            tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
-            appLink: `${process.env.FRONTEND_URL}/dashboard`,
-            // Add common links
-             privacyLink: `${process.env.FRONTEND_URL}/privacy`,
-             termsLink: `${process.env.FRONTEND_URL}/terms`,
-             unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
-             facebookLink: 'https://facebook.com',
-             twitterLink: 'https://twitter.com',
-             instagramLink: 'https://instagram.com'
-        };
-        sendEmail(
-            member.email,
-            `Update on trip "${trip.name}": New Checklist Added`,
-            'trip-update-template',
-            emailData
-        );
+    queueNotificationsForTripMembers(tripId, userId, 'checklist', updateData, {
+      name: trip.name,
+      location: trip.location
     });
-
 
     return res.status(201).json({
       message: 'Checklist created successfully',
@@ -516,17 +488,17 @@ const updateChecklistItem = (req, res) => {
     return res.status(200).json({
       message: 'Checklist item updated successfully',
       item: {
-          ...updatedItem,
-          user_statuses: userStatuses,
-          current_user_status: currentUserStatus ? currentUserStatus.status : 'pending',
-          completion: {
-            total_members: totalMembers,
-            checked_count: totalChecked,
-            skipped_count: totalSkipped,
-            percentage: completionPercentage,
-            is_complete: updatedItem.collective_status === 'complete'
-          }
+        ...updatedItem,
+        user_statuses: userStatuses,
+        current_user_status: currentUserStatus ? currentUserStatus.status : 'pending',
+        completion: {
+          total_members: totalMembers,
+          checked_count: totalChecked,
+          skipped_count: totalSkipped,
+          percentage: completionPercentage,
+          is_complete: updatedItem.collective_status === 'complete'
         }
+      }
     });
   } catch (error) {
     console.error('Update checklist item error:', error);

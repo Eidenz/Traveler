@@ -29,6 +29,9 @@ const { sendEmail } = require('./utils/emailService'); // Added
 const { getUserById } = require('./controllers/tripController'); // Added
 const { getFallbackImageUrl } = require('./utils/ssrUtils');
 
+// Email Queue Service
+const { initializeEmailQueue, startEmailQueueProcessor } = require('./utils/emailQueueService');
+
 // Initialize express app
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -295,6 +298,12 @@ cron.schedule('0 8 * * *', async () => {
 // Initialize database and start server
 initializeDatabase()
   .then(() => {
+    // Initialize email queue table
+    initializeEmailQueue();
+
+    // Start the email queue processor
+    startEmailQueueProcessor();
+
     // Listen on all network interfaces (0.0.0.0) instead of just localhost
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
