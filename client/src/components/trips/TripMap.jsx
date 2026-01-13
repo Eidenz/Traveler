@@ -20,6 +20,7 @@ const TripMap = ({
   const mapContainer = useRef(null);
   const map = useRef(null);
   const markersRef = useRef([]);
+  const initialFitDoneRef = useRef(false); // Track if we've done initial fit
   const [mapStyle, setMapStyle] = useState('streets');
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasToken, setHasToken] = useState(true);
@@ -350,8 +351,9 @@ const TripMap = ({
       markersRef.current.push(marker);
     });
 
-    // Fit bounds to show all markers
-    if (points.length > 0) {
+    // Fit bounds to show all markers - ONLY on initial load
+    // After that, preserve user's pan/zoom position
+    if (points.length > 0 && !initialFitDoneRef.current) {
       const coordinates = points.map(p => [p.lng, p.lat]);
 
       if (coordinates.length === 1) {
@@ -373,6 +375,9 @@ const TripMap = ({
           duration: 1000,
         });
       }
+
+      // Mark initial fit as done
+      initialFitDoneRef.current = true;
     }
   }, [getMapPoints, isLoaded, selectedActivityId, onActivityClick]);
 

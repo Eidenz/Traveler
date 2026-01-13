@@ -1,5 +1,5 @@
 // client/src/pages/trips/TripDetail.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, WifiOff, Plane, Bed, FileText, Plus
@@ -65,6 +65,17 @@ const TripDetail = () => {
   const [currentDocuments, setCurrentDocuments] = useState([]);
   const [currentReferenceType, setCurrentReferenceType] = useState('');
   const [activityDefaultDate, setActivityDefaultDate] = useState(null);
+
+  // Panel resize state
+  const [panelWidth, setPanelWidth] = useState(() => {
+    // Try to load saved width from localStorage
+    const saved = localStorage.getItem('tripPanelWidth');
+    return saved ? parseInt(saved, 10) : 480;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef(null);
+  const MIN_PANEL_WIDTH = 450;
+  const MAX_PANEL_WIDTH = 800;
 
   // Note: Share state is now managed in ShareModal component
 
@@ -132,6 +143,48 @@ const TripDetail = () => {
       setLoading(false);
     }
   };
+
+  // Panel resize handlers
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleResizeMove = useCallback((e) => {
+    if (!isResizing || !containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newWidth = e.clientX - containerRect.left;
+    const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
+
+    setPanelWidth(clampedWidth);
+  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]);
+
+  const handleResizeEnd = useCallback(() => {
+    if (isResizing) {
+      setIsResizing(false);
+      // Save to localStorage
+      localStorage.setItem('tripPanelWidth', panelWidth.toString());
+    }
+  }, [isResizing, panelWidth]);
+
+  // Attach global mouse events for resizing
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      // Add cursor style to body during resize
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   // Permission helpers
   const canEdit = () => {
@@ -273,12 +326,23 @@ const TripDetail = () => {
   }
 
   return (
-    <div className="h-full flex overflow-hidden">
+    <div ref={containerRef} className="h-full flex overflow-hidden">
       {/* Left Panel - Trip Timeline */}
-      <div className={`${hasMapboxToken
-        ? 'w-full md:w-[480px] lg:w-[520px]'
-        : 'w-full'
-        } bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0`}>
+      <div
+        className="trip-left-panel w-full md:w-auto bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0 flex-shrink-0"
+        style={{
+          // CSS variable for panel width - used by media query
+          '--panel-width': hasMapboxToken ? `${panelWidth}px` : '100%',
+        }}
+      >
+        {/* Responsive style for panel width */}
+        <style>{`
+          @media (min-width: 768px) {
+            .trip-left-panel {
+              width: var(--panel-width) !important;
+            }
+          }
+        `}</style>
         {/* Back button - mobile only */}
         <div className="md:hidden px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
           <Link
@@ -450,9 +514,20 @@ const TripDetail = () => {
         </div>
       </div>
 
+      {/* Resize Handle - only show when map is visible */}
+      {hasMapboxToken && (
+        <div
+          className="hidden md:flex w-1 bg-gray-200 dark:bg-gray-700 hover:bg-accent hover:w-1.5 cursor-col-resize transition-all duration-150 flex-shrink-0 group relative"
+          onMouseDown={handleResizeStart}
+        >
+          {/* Visual indicator on hover */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-12 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      )}
+
       {/* Right Panel - Map */}
       {hasMapboxToken && (
-        <div className="hidden md:flex flex-1 relative">
+        <div className="hidden md:flex flex-1 relative min-w-0">
           <TripMap
             trip={trip}
             activities={activities}
