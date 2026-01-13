@@ -7,7 +7,7 @@ set -e
 echo "Configuring client with environment variables..."
 
 # Find the main built JS file (usually in assets folder)
-MAIN_JS=$(find /app/server/public/assets -name 'index-*.js' -type f | head -n 1)
+MAIN_JS=$(find /app/client/dist/assets -name 'index-*.js' -type f 2>/dev/null | head -n 1)
 
 if [ -n "$MAIN_JS" ]; then
   echo "Found main JS file: $MAIN_JS"
@@ -16,8 +16,11 @@ if [ -n "$MAIN_JS" ]; then
   if [ -n "$VITE_MAPBOX_TOKEN" ]; then
     echo "Injecting VITE_MAPBOX_TOKEN..."
     sed -i "s|MAPBOX_TOKEN_PLACEHOLDER|$VITE_MAPBOX_TOKEN|g" "$MAIN_JS"
+    echo "Token injection complete"
   else
     echo "Warning: VITE_MAPBOX_TOKEN not set. Map features will be disabled."
+    # Replace with empty string to avoid errors
+    sed -i "s|MAPBOX_TOKEN_PLACEHOLDER||g" "$MAIN_JS"
   fi
 else
   echo "Warning: Could not find built JS file. Skipping token injection."
