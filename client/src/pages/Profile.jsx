@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { getImageUrl } from '../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import {
-  User, Mail, Lock, Camera, Save, Trash2, LogOut, 
+  User, Mail, Lock, Camera, Save, Trash2, LogOut,
   AlertTriangle, Bell, BellOff, Shield, Eye, EyeOff, Check
 } from 'lucide-react';
 
@@ -179,8 +179,8 @@ const Profile = () => {
       try {
         setIsChangingPassword(true);
         await userAPI.changePassword({
-          currentPassword: passwordForm.current_password,
-          newPassword: passwordForm.new_password
+          current_password: passwordForm.current_password,
+          new_password: passwordForm.new_password
         });
         toast.success(t('auth.passwordChanged'));
         setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
@@ -240,7 +240,7 @@ const Profile = () => {
                 </h2>
               </div>
             </div>
-            
+
             <form onSubmit={handleProfileSubmit} className="p-6 space-y-6">
               {/* Avatar */}
               <div className="flex items-center gap-6">
@@ -345,7 +345,7 @@ const Profile = () => {
                 </h2>
               </div>
             </div>
-            
+
             <form onSubmit={handlePasswordSubmit} className="p-6 space-y-6">
               <div className="relative">
                 <Input
@@ -427,7 +427,7 @@ const Profile = () => {
                 </h2>
               </div>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
