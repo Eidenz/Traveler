@@ -35,12 +35,12 @@ api.interceptors.response.use(
       // Handle 401 Unauthorized errors (expired token, etc.)
       if (error.response.status === 401) {
         // Only logout if not on login/register/reset pages
-         const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
-         if (!publicPaths.some(path => window.location.pathname.startsWith(path))) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login?sessionExpired=true'; // Redirect with flag
-         }
+        const publicPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+        if (!publicPaths.some(path => window.location.pathname.startsWith(path))) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login?sessionExpired=true'; // Redirect with flag
+        }
       }
     }
     return Promise.reject(error);
@@ -88,6 +88,10 @@ export const tripAPI = {
   deleteTrip: (tripId) => api.delete(`/trips/${tripId}`),
   shareTrip: (tripId, shareData) => api.post(`/trips/${tripId}/share`, shareData),
   removeTripMember: (tripId, userId) => api.delete(`/trips/${tripId}/members/${userId}`),
+  updateMemberRole: (tripId, userId, role) => api.put(`/trips/${tripId}/members/${userId}/role`, { role }),
+  generatePublicShareToken: (tripId) => api.post(`/trips/${tripId}/public-share`),
+  revokePublicShareToken: (tripId) => api.delete(`/trips/${tripId}/public-share`),
+  getTripByPublicToken: (token) => api.get(`/trips/public/${token}`),
 };
 
 // Transportation API
@@ -97,9 +101,9 @@ export const transportAPI = {
   createTransportation: (tripId, transportData) => {
     const formData = new FormData();
     for (const key in transportData) {
-       if (transportData[key] !== null && transportData[key] !== undefined) {
-            formData.append(key, transportData[key]);
-       }
+      if (transportData[key] !== null && transportData[key] !== undefined) {
+        formData.append(key, transportData[key]);
+      }
     }
     // Ensure trip_id is included for middleware
     formData.append('trip_id', tripId);
@@ -110,18 +114,18 @@ export const transportAPI = {
       },
     });
   },
- updateTransportation: (transportId, transportData, tripId) => {
+  updateTransportation: (transportId, transportData, tripId) => {
     const formData = new FormData();
-     for (const key in transportData) {
-       if (transportData[key] !== null && transportData[key] !== undefined) {
-         // Handle remove flag explicitly
-         if (key === 'remove_banner' && transportData[key]) {
-            formData.append('remove_banner', 'true');
-         } else if (key !== 'remove_banner') {
-             formData.append(key, transportData[key]);
-         }
-       }
-     }
+    for (const key in transportData) {
+      if (transportData[key] !== null && transportData[key] !== undefined) {
+        // Handle remove flag explicitly
+        if (key === 'remove_banner' && transportData[key]) {
+          formData.append('remove_banner', 'true');
+        } else if (key !== 'remove_banner') {
+          formData.append(key, transportData[key]);
+        }
+      }
+    }
     // Include tripId for middleware
     formData.append('trip_id', tripId);
 
@@ -141,9 +145,9 @@ export const lodgingAPI = {
   createLodging: (tripId, lodgingData) => {
     const formData = new FormData();
     for (const key in lodgingData) {
-       if (lodgingData[key] !== null && lodgingData[key] !== undefined) {
-            formData.append(key, lodgingData[key]);
-       }
+      if (lodgingData[key] !== null && lodgingData[key] !== undefined) {
+        formData.append(key, lodgingData[key]);
+      }
     }
     // Ensure trip_id is included for middleware
     formData.append('trip_id', tripId);
@@ -155,17 +159,17 @@ export const lodgingAPI = {
     });
   },
   updateLodging: (lodgingId, lodgingData, tripId) => {
-     const formData = new FormData();
-     for (const key in lodgingData) {
-       if (lodgingData[key] !== null && lodgingData[key] !== undefined) {
-         // Handle remove flag explicitly
-         if (key === 'remove_banner' && lodgingData[key]) {
-            formData.append('remove_banner', 'true');
-         } else if (key !== 'remove_banner') {
-             formData.append(key, lodgingData[key]);
-         }
-       }
-     }
+    const formData = new FormData();
+    for (const key in lodgingData) {
+      if (lodgingData[key] !== null && lodgingData[key] !== undefined) {
+        // Handle remove flag explicitly
+        if (key === 'remove_banner' && lodgingData[key]) {
+          formData.append('remove_banner', 'true');
+        } else if (key !== 'remove_banner') {
+          formData.append(key, lodgingData[key]);
+        }
+      }
+    }
     // Include tripId for middleware
     formData.append('trip_id', tripId);
 
@@ -185,9 +189,9 @@ export const activityAPI = {
   createActivity: (tripId, activityData) => {
     const formData = new FormData();
     for (const key in activityData) {
-       if (activityData[key] !== null && activityData[key] !== undefined) {
-           formData.append(key, activityData[key]);
-       }
+      if (activityData[key] !== null && activityData[key] !== undefined) {
+        formData.append(key, activityData[key]);
+      }
     }
     // Ensure trip_id is included for middleware
     formData.append('trip_id', tripId);
@@ -199,17 +203,17 @@ export const activityAPI = {
     });
   },
   updateActivity: (activityId, activityData, tripId) => {
-     const formData = new FormData();
-     for (const key in activityData) {
-       if (activityData[key] !== null && activityData[key] !== undefined) {
-         // Handle remove flag explicitly
-         if (key === 'remove_banner' && activityData[key]) {
-            formData.append('remove_banner', 'true');
-         } else if (key !== 'remove_banner') {
-             formData.append(key, activityData[key]);
-         }
-       }
-     }
+    const formData = new FormData();
+    for (const key in activityData) {
+      if (activityData[key] !== null && activityData[key] !== undefined) {
+        // Handle remove flag explicitly
+        if (key === 'remove_banner' && activityData[key]) {
+          formData.append('remove_banner', 'true');
+        } else if (key !== 'remove_banner') {
+          formData.append(key, activityData[key]);
+        }
+      }
+    }
     // Include tripId for middleware
     formData.append('trip_id', tripId);
 

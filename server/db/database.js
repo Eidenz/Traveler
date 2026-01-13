@@ -240,6 +240,7 @@ function initializeDatabase() {
       await runFieldMigrations();
       await runPasswordResetMigration();
       await runEmailPreferenceMigration(); // Add email preference migration
+      await runPublicShareMigration(); // Add public share token migration
 
       console.log('Database initialized successfully');
       resolve();
@@ -291,6 +292,19 @@ async function runEmailPreferenceMigration() {
 }
 
 /**
+ * Migration for public share token field
+ */
+async function runPublicShareMigration() {
+  try {
+    migrateField('trips', 'public_share_token', 'TEXT');
+    console.log('Public share token field migration completed');
+  } catch (error) {
+    console.error('Error running public share token migration:', error);
+  }
+}
+
+
+/**
  * Helper function to migrate a field to a table if it doesn't exist
  * @param {string} tableName - Name of the table
  * @param {string} fieldName - Name of the field to add
@@ -305,7 +319,7 @@ function migrateField(tableName, fieldName, fieldDefinition) {
       console.log(`Adding ${fieldName} field to ${tableName} table`);
       db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${fieldName} ${fieldDefinition};`);
     } else {
-       // console.log(`Field ${fieldName} already exists in ${tableName} table`);
+      // console.log(`Field ${fieldName} already exists in ${tableName} table`);
     }
   } catch (error) {
     console.error(`Error migrating field ${fieldName} to ${tableName}:`, error);
@@ -315,19 +329,19 @@ function migrateField(tableName, fieldName, fieldDefinition) {
 
 // --- Ensure trip_id columns are TEXT if they weren't before ---
 function ensureTripIdIsText(tableName) {
-    try {
-        const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
-        const tripIdColumn = tableInfo.find(column => column.name === 'trip_id');
+  try {
+    const tableInfo = db.prepare(`PRAGMA table_info(${tableName})`).all();
+    const tripIdColumn = tableInfo.find(column => column.name === 'trip_id');
 
-        if (tripIdColumn && tripIdColumn.type !== 'TEXT') {
-            console.warn(`Attempting to migrate ${tableName}.trip_id to TEXT. This might require manual data migration if there are foreign key constraints or existing data issues.`);
-            console.warn(`Manual migration might be needed for ${tableName}.trip_id column type.`);
-        } else if (!tripIdColumn) {
-            console.warn(`Column trip_id not found in ${tableName}. Ensure schema is correct.`);
-        }
-    } catch (error) {
-        console.error(`Error checking/migrating trip_id column type for ${tableName}:`, error);
+    if (tripIdColumn && tripIdColumn.type !== 'TEXT') {
+      console.warn(`Attempting to migrate ${tableName}.trip_id to TEXT. This might require manual data migration if there are foreign key constraints or existing data issues.`);
+      console.warn(`Manual migration might be needed for ${tableName}.trip_id column type.`);
+    } else if (!tripIdColumn) {
+      console.warn(`Column trip_id not found in ${tableName}. Ensure schema is correct.`);
     }
+  } catch (error) {
+    console.error(`Error checking/migrating trip_id column type for ${tableName}:`, error);
+  }
 }
 
 module.exports = {

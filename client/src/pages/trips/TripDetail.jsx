@@ -18,7 +18,6 @@ import {
 
 // Components
 import Button from '../../components/ui/Button';
-import Modal from '../../components/ui/Modal';
 import TripMap from '../../components/trips/TripMap';
 import TripTimeline from '../../components/trips/TripTimeline';
 import TripPanelHeader from '../../components/trips/TripPanelHeader';
@@ -31,6 +30,7 @@ import TransportModal from '../../components/trips/TransportModal';
 import LodgingModal from '../../components/trips/LodgingModal';
 import ActivityModal from '../../components/trips/ActivityModal';
 import DocumentsModal from '../../components/trips/DocumentsModal';
+import ShareModal from '../../components/trips/ShareModal';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -66,10 +66,7 @@ const TripDetail = () => {
   const [currentReferenceType, setCurrentReferenceType] = useState('');
   const [activityDefaultDate, setActivityDefaultDate] = useState(null);
 
-  // Share state
-  const [shareEmail, setShareEmail] = useState('');
-  const [shareRole, setShareRole] = useState('viewer');
-  const [isSharing, setIsSharing] = useState(false);
+  // Note: Share state is now managed in ShareModal component
 
   // Check if Mapbox token is available
   const hasMapboxToken = import.meta.env.VITE_MAPBOX_TOKEN && import.meta.env.VITE_MAPBOX_TOKEN !== '';
@@ -228,7 +225,7 @@ const TripDetail = () => {
         await removeTripOffline(tripId);
         setIsAvailableOffline(false);
         toast.success(t('offline.removed', 'Removed from offline storage'));
-      } catch (error) {
+      } catch {
         toast.error(t('offline.removeFailed', 'Failed to remove offline data'));
       } finally {
         setIsSavingOffline(false);
@@ -246,7 +243,7 @@ const TripDetail = () => {
         });
         setIsAvailableOffline(true);
         toast.success(t('offline.saved', 'Saved for offline use'));
-      } catch (error) {
+      } catch {
         toast.error(t('offline.saveFailed', 'Failed to save for offline'));
       } finally {
         setIsSavingOffline(false);
@@ -254,26 +251,6 @@ const TripDetail = () => {
     }
   };
 
-  // Share handling
-  const handleShareTrip = async (e) => {
-    e.preventDefault();
-    if (!shareEmail) {
-      toast.error(t('errors.required', { field: t('auth.email') }));
-      return;
-    }
-
-    try {
-      setIsSharing(true);
-      await tripAPI.shareTrip(tripId, { email: shareEmail, role: shareRole });
-      toast.success(t('sharing.shareSuccess'));
-      setShareEmail('');
-      fetchTripData();
-    } catch (error) {
-      toast.error(error.response?.data?.message || t('errors.saveFailed'));
-    } finally {
-      setIsSharing(false);
-    }
-  };
 
   // Tab definitions
   const tabs = [
@@ -531,99 +508,15 @@ const TripDetail = () => {
       />
 
       {/* Share Modal */}
-      <Modal
+      <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
-        title={t('sharing.shareTrip', 'Share Trip')}
-        size="md"
-      >
-        <div className="p-6">
-          <form onSubmit={handleShareTrip}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">{t('sharing.inviteByEmail', 'Invite by email')}</label>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder={t('sharing.emailPlaceholder', 'Enter email address')}
-                  value={shareEmail}
-                  onChange={(e) => setShareEmail(e.target.value)}
-                  className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-accent focus:border-transparent"
-                  required
-                />
-                <Button type="submit" loading={isSharing}>
-                  {t('sharing.invite', 'Invite')}
-                </Button>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">{t('sharing.permissionLevel', 'Permission')}</label>
-              <select
-                className="w-full px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                value={shareRole}
-                onChange={(e) => setShareRole(e.target.value)}
-              >
-                <option value="editor">{t('sharing.canEdit', 'Can edit')}</option>
-                <option value="viewer">{t('sharing.canView', 'Can view')}</option>
-              </select>
-            </div>
-          </form>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">{t('sharing.shareLink', 'Share link')}</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={`${window.location.origin}/invite/${tripId}`}
-                readOnly
-                className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-gray-500 text-sm"
-              />
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/invite/${tripId}`);
-                  toast.success(t('sharing.linkCopied', 'Link copied!'));
-                }}
-              >
-                {t('common.copy', 'Copy')}
-              </Button>
-            </div>
-          </div>
-
-          {/* Current members */}
-          <div>
-            <label className="block text-sm font-medium mb-3">{t('sharing.currentMembers', 'Current members')}</label>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-                      <span className="text-white text-xs font-medium">
-                        {member.name?.charAt(0)?.toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{member.email}</p>
-                    </div>
-                  </div>
-                  <span className={`
-                    text-xs px-2 py-1 rounded-full
-                    ${member.role === 'owner'
-                      ? 'bg-accent/10 text-accent'
-                      : member.role === 'editor'
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                    }
-                  `}>
-                    {member.role}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </Modal>
+        trip={trip}
+        members={members}
+        tripId={tripId}
+        onUpdate={fetchTripData}
+        currentUserId={user?.id}
+      />
     </div>
   );
 };

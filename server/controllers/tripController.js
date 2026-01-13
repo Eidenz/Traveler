@@ -3,12 +3,13 @@ const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { generateTripId, isValidTripId } = require('../utils/idGenerator');
 const { sendEmail } = require('../utils/emailService'); // Added
 
 // Helper function to get user details
 const getUserById = (userId) => {
-    return db.prepare('SELECT id, name, email, profile_image, receiveEmails FROM users WHERE id = ?').get(userId);
+  return db.prepare('SELECT id, name, email, profile_image, receiveEmails FROM users WHERE id = ?').get(userId);
 };
 
 /**
@@ -319,8 +320,8 @@ const shareTrip = (req, res) => {
     }
 
     // Cannot share with self
-    if(userToShareWith.id === ownerId) {
-        return res.status(400).json({ message: 'Cannot share trip with yourself.' });
+    if (userToShareWith.id === ownerId) {
+      return res.status(400).json({ message: 'Cannot share trip with yourself.' });
     }
 
     // Check if trip exists
@@ -341,42 +342,42 @@ const shareTrip = (req, res) => {
       // Update role if user is already a member
       db.prepare('UPDATE trip_members SET role = ? WHERE trip_id = ? AND user_id = ?')
         .run(role, tripId, userToShareWith.id);
-        message = `User's role updated to ${role}`;
+      message = `User's role updated to ${role}`;
     } else {
       // Add user as a member
       db.prepare('INSERT INTO trip_members (trip_id, user_id, role) VALUES (?, ?, ?)')
         .run(tripId, userToShareWith.id, role);
-        message = `Trip shared with ${userToShareWith.name}`;
+      message = `Trip shared with ${userToShareWith.name}`;
     }
 
     // Send invitation email if user allows emails
     if (userToShareWith.receiveEmails) {
       const emailData = {
-          userName: userToShareWith.name,
-          userEmail: userToShareWith.email,
-          ownerName: owner.name,
-          ownerAvatar: owner.profile_image ? `${process.env.FRONTEND_URL}${owner.profile_image}` : 'https://example.com/default-avatar.png', // Replace with actual default
-          tripName: trip.name,
-          tripDestination: trip.location || 'Unknown Destination',
-          tripImage: trip.cover_image ? `${process.env.FRONTEND_URL}${trip.cover_image}` : 'https://example.com/default-trip.png', // Replace with actual default
-          tripStartDate: new Date(trip.start_date).toLocaleDateString(),
-          tripEndDate: new Date(trip.end_date).toLocaleDateString(),
-          accessLevel: role.charAt(0).toUpperCase() + role.slice(1),
-          accessDescription: role === 'editor' ? 'Can edit trip details' : 'Can only view trip details',
-          tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
-          privacyLink: `${process.env.FRONTEND_URL}/privacy`,
-          termsLink: `${process.env.FRONTEND_URL}/terms`,
-          unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
-          facebookLink: 'https://facebook.com',
-          twitterLink: 'https://twitter.com',
-          instagramLink: 'https://instagram.com'
+        userName: userToShareWith.name,
+        userEmail: userToShareWith.email,
+        ownerName: owner.name,
+        ownerAvatar: owner.profile_image ? `${process.env.FRONTEND_URL}${owner.profile_image}` : 'https://example.com/default-avatar.png', // Replace with actual default
+        tripName: trip.name,
+        tripDestination: trip.location || 'Unknown Destination',
+        tripImage: trip.cover_image ? `${process.env.FRONTEND_URL}${trip.cover_image}` : 'https://example.com/default-trip.png', // Replace with actual default
+        tripStartDate: new Date(trip.start_date).toLocaleDateString(),
+        tripEndDate: new Date(trip.end_date).toLocaleDateString(),
+        accessLevel: role.charAt(0).toUpperCase() + role.slice(1),
+        accessDescription: role === 'editor' ? 'Can edit trip details' : 'Can only view trip details',
+        tripLink: `${process.env.FRONTEND_URL}/trips/${tripId}`,
+        privacyLink: `${process.env.FRONTEND_URL}/privacy`,
+        termsLink: `${process.env.FRONTEND_URL}/terms`,
+        unsubscribeLink: `${process.env.FRONTEND_URL}/unsubscribe`,
+        facebookLink: 'https://facebook.com',
+        twitterLink: 'https://twitter.com',
+        instagramLink: 'https://instagram.com'
       };
 
       sendEmail(
-          userToShareWith.email,
-          `${owner.name} shared the trip "${trip.name}" with you!`,
-          'trip-invitation-template',
-          emailData
+        userToShareWith.email,
+        `${owner.name} shared the trip "${trip.name}" with you!`,
+        'trip-invitation-template',
+        emailData
       );
     }
 
@@ -425,6 +426,185 @@ const removeTripMember = (req, res) => {
   }
 };
 
+/**
+ * Update a trip member's role
+ */
+const updateMemberRole = (req, res) => {
+  try {
+    const { tripId, userId } = req.params;
+    const { role } = req.body;
+
+    // Validate role
+    if (!['editor', 'viewer'].includes(role)) {
+      return res.status(400).json({ message: 'Invalid role. Must be editor or viewer.' });
+    }
+
+    // Check if trip exists
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Check if member exists
+    const member = db.prepare('SELECT * FROM trip_members WHERE trip_id = ? AND user_id = ?')
+      .get(tripId, userId);
+
+    if (!member) {
+      return res.status(404).json({ message: 'User is not a member of this trip' });
+    }
+
+    // Cannot change owner's role
+    if (member.role === 'owner') {
+      return res.status(403).json({ message: 'Cannot change the role of the trip owner' });
+    }
+
+    // Update role
+    db.prepare('UPDATE trip_members SET role = ? WHERE trip_id = ? AND user_id = ?')
+      .run(role, tripId, userId);
+
+    return res.status(200).json({
+      message: `Member role updated to ${role}`
+    });
+  } catch (error) {
+    console.error('Update member role error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Generate a public share token for a trip (owner only)
+ */
+const generatePublicShareToken = (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    // Check if trip exists
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Generate a new token
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Update trip with the token
+    db.prepare('UPDATE trips SET public_share_token = ? WHERE id = ?')
+      .run(token, tripId);
+
+    return res.status(200).json({
+      message: 'Public share link created',
+      token
+    });
+  } catch (error) {
+    console.error('Generate public share token error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Revoke the public share token for a trip (owner only)
+ */
+const revokePublicShareToken = (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    // Check if trip exists
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Remove the token
+    db.prepare('UPDATE trips SET public_share_token = NULL WHERE id = ?')
+      .run(tripId);
+
+    return res.status(200).json({
+      message: 'Public share link revoked'
+    });
+  } catch (error) {
+    console.error('Revoke public share token error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Get trip data by public share token (no auth required)
+ * Filters sensitive information like confirmation codes and documents
+ */
+const getTripByPublicToken = (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token || token.length !== 64) {
+      return res.status(400).json({ message: 'Invalid share token' });
+    }
+
+    // Find trip by token
+    const trip = db.prepare('SELECT * FROM trips WHERE public_share_token = ?').get(token);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found or link has expired' });
+    }
+
+    // Remove sensitive fields from trip
+    const publicTrip = {
+      id: trip.id,
+      name: trip.name,
+      description: trip.description,
+      location: trip.location,
+      start_date: trip.start_date,
+      end_date: trip.end_date,
+      cover_image: trip.cover_image
+    };
+
+    // Get trip members (without email for privacy)
+    const members = db.prepare(`
+      SELECT u.id, u.name, u.profile_image, tm.role
+      FROM trip_members tm
+      JOIN users u ON tm.user_id = u.id
+      WHERE tm.trip_id = ?
+    `).all(trip.id);
+
+    // Get transportation (without confirmation codes)
+    const transportation = db.prepare(`
+      SELECT id, trip_id, type, company, from_location, to_location, 
+             departure_date, departure_time, arrival_date, arrival_time, 
+             notes, banner_image
+      FROM transportation
+      WHERE trip_id = ?
+      ORDER BY departure_date, departure_time
+    `).all(trip.id);
+
+    // Get lodging (without confirmation codes)
+    const lodging = db.prepare(`
+      SELECT id, trip_id, name, address, check_in, check_out, 
+             notes, banner_image
+      FROM lodging
+      WHERE trip_id = ?
+      ORDER BY check_in
+    `).all(trip.id);
+
+    // Get activities (without confirmation codes)
+    const activities = db.prepare(`
+      SELECT id, trip_id, name, date, time, location, 
+             notes, banner_image
+      FROM activities
+      WHERE trip_id = ?
+      ORDER BY date, time
+    `).all(trip.id);
+
+    return res.status(200).json({
+      trip: publicTrip,
+      members,
+      transportation,
+      lodging,
+      activities
+    });
+  } catch (error) {
+    console.error('Get trip by public token error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getUserTrips,
   getTripById,
@@ -433,5 +613,9 @@ module.exports = {
   deleteTrip,
   shareTrip,
   removeTripMember,
+  updateMemberRole,
+  generatePublicShareToken,
+  revokePublicShareToken,
+  getTripByPublicToken,
   getUserById
 };

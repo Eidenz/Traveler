@@ -21,6 +21,9 @@ import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
 import BudgetDashboard from './pages/budget/BudgetDashboard';
 
+// Public Pages
+import PublicTripView from './pages/trips/PublicTripView';
+
 // Not Found Page
 import NotFound from './pages/NotFound';
 
@@ -39,11 +42,12 @@ function App() {
         }}
       />
       <Routes>
-        {/* Auth Routes */}
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/trip/public/:token" element={<PublicTripView />} />
 
         {/* App Routes */}
         <Route path="/" element={

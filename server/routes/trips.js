@@ -1,21 +1,28 @@
 // server/routes/trips.js
 const express = require('express');
 const { body } = require('express-validator');
-const { 
-  getUserTrips, 
-  getTripById, 
-  createTrip, 
-  updateTrip, 
+const {
+  getUserTrips,
+  getTripById,
+  createTrip,
+  updateTrip,
   deleteTrip,
   shareTrip,
-  removeTripMember
+  removeTripMember,
+  updateMemberRole,
+  generatePublicShareToken,
+  revokePublicShareToken,
+  getTripByPublicToken
 } = require('../controllers/tripController');
 const { authenticate, checkTripAccess, requireEditAccess, requireOwnerAccess } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
 
 const router = express.Router();
 
-// Authentication required for all trip routes
+// Public route - Get trip by public share token (no auth required)
+router.get('/public/:token', getTripByPublicToken);
+
+// Authentication required for all other trip routes
 router.use(authenticate);
 
 // Get user's trips
@@ -65,5 +72,21 @@ router.post(
 
 // Remove a user from a trip
 router.delete('/:tripId/members/:userId', requireOwnerAccess, removeTripMember);
+
+// Update a member's role
+router.put(
+  '/:tripId/members/:userId/role',
+  requireOwnerAccess,
+  [
+    body('role').isIn(['editor', 'viewer']).withMessage('Role must be editor or viewer')
+  ],
+  updateMemberRole
+);
+
+// Generate public share token (owner only)
+router.post('/:tripId/public-share', requireOwnerAccess, generatePublicShareToken);
+
+// Revoke public share token (owner only)
+router.delete('/:tripId/public-share', requireOwnerAccess, revokePublicShareToken);
 
 module.exports = router;
