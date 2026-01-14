@@ -39,7 +39,36 @@
     "traveler": "Traveler",
     "viewAll": "View all",
     "remove": "Remove",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "next": "Next",
+    "notes": "Notes",
+    "notesPlaceholder": "Any additional information..."
+  },
+  "wizard": {
+    "basics": "Basics",
+    "details": "Details",
+    "extras": "Extras",
+    "place": "Place",
+    "dates": "Dates",
+    "type": "Type",
+    "route": "Route",
+    "schedule": "Schedule",
+    "whatActivity": "What's the activity?",
+    "activityBasicsDesc": "Give it a name and pick a date",
+    "whereWhen": "Where & When?",
+    "activityDetailsDesc": "Add the location and time",
+    "whereStaying": "Where are you staying?",
+    "lodgingPlaceDesc": "Enter the hotel or accommodation details",
+    "whenStaying": "When are you staying?",
+    "lodgingDatesDesc": "Set your check-in and check-out dates",
+    "howTraveling": "How are you traveling?",
+    "selectTransportType": "Select your mode of transportation",
+    "whereGoing": "Where are you going?",
+    "routeDesc": "Enter your departure and arrival locations",
+    "whenTraveling": "When are you traveling?",
+    "scheduleDesc": "Set your departure and arrival times",
+    "anythingElse": "Anything else?",
+    "extrasDesc": "Add notes or attach documents"
   },
   "navigation": {
     "main": "Main",
@@ -267,7 +296,14 @@
     "noDocuments": "No documents attached",
     "close": "Close",
     "file": "file",
-    "files": "files"
+    "files": "files",
+    "shared": "Shared Documents",
+    "personal": "Personal Documents",
+    "sharedDescription": "Visible to all trip members",
+    "personalDescription": "Only visible to you",
+    "makePersonal": "Make personal",
+    "noSharedDocuments": "No shared documents",
+    "noPersonalDocuments": "No personal documents"
   },
   "offline": {
     "saveOffline": "Save Offline",

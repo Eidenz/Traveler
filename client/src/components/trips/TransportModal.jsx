@@ -1,6 +1,6 @@
 // client/src/components/trips/TransportModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Plane, Train, Bus, Car, Ship, Upload, X, Image } from 'lucide-react';
+import { Calendar, Clock, MapPin, Plane, Train, Bus, Car, Ship, Upload, X, Image, Lock, Users } from 'lucide-react';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -12,17 +12,17 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 
-const TransportModal = ({ 
-  isOpen, 
-  onClose, 
-  tripId, 
-  transportId = null, 
+const TransportModal = ({
+  isOpen,
+  onClose,
+  tripId,
+  transportId = null,
   onSuccess,
-  initialData = null 
+  initialData = null
 }) => {
   const { t } = useTranslation();
   const isEditMode = !!transportId;
-  
+
   const [formData, setFormData] = useState({
     type: 'Flight',
     company: '',
@@ -35,18 +35,19 @@ const TransportModal = ({
     confirmation_code: '',
     notes: ''
   });
-  
+
   const [bannerImage, setBannerImage] = useState(null);
   const [bannerImagePreview, setBannerImagePreview] = useState(null);
   const [existingBannerImage, setExistingBannerImage] = useState(null);
-  
+
   const [documentFile, setDocumentFile] = useState(null);
   const [documentFileName, setDocumentFileName] = useState('');
+  const [isPersonalDocument, setIsPersonalDocument] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  
+
   useEffect(() => {
     if (isOpen && isEditMode) {
       fetchTransport();
@@ -78,19 +79,20 @@ const TransportModal = ({
       setExistingBannerImage(null);
       setDocumentFile(null);
       setDocumentFileName('');
+      setIsPersonalDocument(false);
       setDocuments([]);
       setErrors({});
     }
   }, [isOpen, transportId, initialData]);
-  
+
   const fetchTransport = async () => {
     try {
       setFetchLoading(true);
       const response = await transportAPI.getTransportation(transportId);
-      
+
       const transport = response.data.transportation;
       const docs = response.data.documents || [];
-      
+
       // Format dates
       setFormData({
         type: transport.type || 'Flight',
@@ -104,12 +106,12 @@ const TransportModal = ({
         confirmation_code: transport.confirmation_code || '',
         notes: transport.notes || ''
       });
-      
+
       // Set existing banner image if available
       setExistingBannerImage(transport.banner_image || null);
       setBannerImagePreview(null);
       setBannerImage(null);
-      
+
       setDocuments(docs);
     } catch (error) {
       console.error('Error fetching transportation:', error);
@@ -126,26 +128,26 @@ const TransportModal = ({
       setBannerImagePreview(URL.createObjectURL(file));
     }
   };
-  
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Clear error for this field when user types
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
-  
+
   const handleDateChange = (field, date) => {
     setFormData(prev => ({ ...prev, [field]: date }));
-    
+
     // Clear error for this field when user selects a date
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
-  
+
   const handleDocumentChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -153,57 +155,57 @@ const TransportModal = ({
       setDocumentFileName(file.name);
     }
   };
-  
+
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.type) {
       newErrors.type = t('errors.required', { field: t('transportation.type') });
     }
-    
+
     if (!formData.from_location.trim()) {
       newErrors.from_location = t('errors.required', { field: t('transportation.fromLocation') });
     }
-    
+
     if (!formData.to_location.trim()) {
       newErrors.to_location = t('errors.required', { field: t('transportation.toLocation') });
     }
-    
+
     if (!formData.departure_date) {
       newErrors.departure_date = t('errors.required', { field: t('transportation.departureDate') });
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (validateForm()) {
       try {
         setLoading(true);
-        
+
         // Format dates for API
         const formattedData = {
           ...formData,
-          departure_date: formData.departure_date 
-            ? dayjs(formData.departure_date).format('YYYY-MM-DD') 
+          departure_date: formData.departure_date
+            ? dayjs(formData.departure_date).format('YYYY-MM-DD')
             : null,
-          arrival_date: formData.arrival_date 
-            ? dayjs(formData.arrival_date).format('YYYY-MM-DD') 
-            : formData.departure_date 
+          arrival_date: formData.arrival_date
+            ? dayjs(formData.arrival_date).format('YYYY-MM-DD')
+            : formData.departure_date
               ? dayjs(formData.departure_date).format('YYYY-MM-DD')
               : null
         };
-        
+
         // Add banner image to form data if selected
         if (bannerImage) {
           formattedData.banner_image = bannerImage;
         }
-        
+
         let response;
-        
+
         if (isEditMode) {
           response = await transportAPI.updateTransportation(transportId, formattedData, tripId);
           toast.success(t('transportation.updateSuccess', 'Transportation updated successfully'));
@@ -211,23 +213,24 @@ const TransportModal = ({
           response = await transportAPI.createTransportation(tripId, formattedData);
           toast.success(t('transportation.createSuccess', 'Transportation added successfully'));
         }
-        
+
         // Upload document if selected
         if (documentFile) {
           const documentData = new FormData();
           documentData.append('document', documentFile);
           documentData.append('reference_type', 'transportation');
           documentData.append('reference_id', isEditMode ? transportId : response.data.transportation.id);
-          
+          documentData.append('is_personal', isPersonalDocument ? 'true' : 'false');
+
           await documentAPI.uploadDocument(documentData);
           toast.success(t('documents.uploadSuccess'));
         }
-        
+
         // Callback to refresh parent component
         if (onSuccess) {
           onSuccess();
         }
-        
+
         onClose();
       } catch (error) {
         console.error('Error saving transportation:', error);
@@ -245,7 +248,7 @@ const TransportModal = ({
       }
     };
   }, [bannerImagePreview]);
-  
+
   const handleDeleteDocument = async (documentId) => {
     try {
       await documentAPI.deleteDocument(documentId, tripId);
@@ -256,14 +259,14 @@ const TransportModal = ({
       toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
     }
   };
-  
+
   const downloadDocument = async (documentId, fileName) => {
     try {
       const response = await documentAPI.downloadDocument(documentId);
-      
+
       // Create blob from response data
       const blob = new Blob([response.data]);
-      
+
       // Create download link and trigger click
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -272,7 +275,7 @@ const TransportModal = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up URL object
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
@@ -280,7 +283,7 @@ const TransportModal = ({
       toast.error(t('documents.downloadFailed'));
     }
   };
-  
+
   const getTransportIcon = (type) => {
     switch (type?.toLowerCase()) {
       case 'flight':
@@ -298,7 +301,7 @@ const TransportModal = ({
         return <Plane className="h-5 w-5" />;
     }
   };
-  
+
   if (fetchLoading) {
     return (
       <Modal
@@ -313,7 +316,7 @@ const TransportModal = ({
       </Modal>
     );
   }
-  
+
   return (
     <Modal
       isOpen={isOpen}
@@ -356,7 +359,7 @@ const TransportModal = ({
                 </p>
               )}
             </div>
-            
+
             <Input
               label={t('transportation.company')}
               id="company"
@@ -366,7 +369,7 @@ const TransportModal = ({
               placeholder={t('transportation.companyPlaceholder', 'e.g. United Airlines')}
             />
           </div>
-          
+
           {/* From & To Locations */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
@@ -380,7 +383,7 @@ const TransportModal = ({
               required
               icon={<MapPin className="h-5 w-5 text-gray-400" />}
             />
-            
+
             <Input
               label={t('transportation.toLocation')}
               id="to_location"
@@ -393,7 +396,7 @@ const TransportModal = ({
               icon={<MapPin className="h-5 w-5 text-gray-400" />}
             />
           </div>
-          
+
           {/* Departure Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -425,7 +428,7 @@ const TransportModal = ({
                 </p>
               )}
             </div>
-            
+
             <Input
               label={t('transportation.departureTime')}
               id="departure_time"
@@ -436,7 +439,7 @@ const TransportModal = ({
               icon={<Clock className="h-5 w-5 text-gray-400" />}
             />
           </div>
-          
+
           {/* Arrival Date & Time */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
@@ -463,7 +466,7 @@ const TransportModal = ({
                 />
               </div>
             </div>
-            
+
             <Input
               label={t('transportation.arrivalTime')}
               id="arrival_time"
@@ -474,7 +477,7 @@ const TransportModal = ({
               icon={<Clock className="h-5 w-5 text-gray-400" />}
             />
           </div>
-          
+
           {/* Confirmation Code */}
           <Input
             label={t('transportation.confirmationCode')}
@@ -484,7 +487,7 @@ const TransportModal = ({
             onChange={handleChange}
             placeholder={t('transportation.confirmationCodePlaceholder', 'e.g. ABC123')}
           />
-          
+
           {/* Notes */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -500,7 +503,7 @@ const TransportModal = ({
               rows={3}
             />
           </div>
-          
+
           {/* Existing Documents */}
           {documents.length > 0 && (
             <div className="space-y-3">
@@ -509,8 +512,8 @@ const TransportModal = ({
               </label>
               <div className="space-y-2">
                 {documents.map(doc => (
-                  <div 
-                    key={doc.id} 
+                  <div
+                    key={doc.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div className="flex items-center">
@@ -567,31 +570,66 @@ const TransportModal = ({
               </div>
             </div>
           )}
-          
+
           {/* Upload Document */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('documents.upload')}
             </label>
             {documentFileName ? (
-              <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                  <span className="text-sm font-medium truncate max-w-xs">{documentFileName}</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span className="text-sm font-medium truncate max-w-xs">{documentFileName}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentFile(null);
+                      setDocumentFileName('');
+                      setIsPersonalDocument(false);
+                    }}
+                    className="p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-800"
+                  >
+                    <X className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDocumentFile(null);
-                    setDocumentFileName('');
-                  }}
-                  className="p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-800"
-                >
-                  <X className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </button>
+
+                {/* Personal/Shared Toggle */}
+                <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setIsPersonalDocument(false)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${!isPersonalDocument
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>{t('budget.shared', 'Shared')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPersonalDocument(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${isPersonalDocument
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>{t('budget.personal', 'Personal')}</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {isPersonalDocument
+                    ? t('documents.personalDescription', 'Only visible to you')
+                    : t('documents.sharedDescription', 'Visible to all trip members')
+                  }
+                </p>
               </div>
             ) : (
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
@@ -622,7 +660,7 @@ const TransportModal = ({
             )}
           </div>
         </div>
-        
+
         <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
           <Button
             type="button"

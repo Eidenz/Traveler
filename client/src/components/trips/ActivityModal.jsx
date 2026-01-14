@@ -1,6 +1,6 @@
 // client/src/components/trips/ActivityModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, Coffee, Tag, Upload, X, Ticket, Image } from 'lucide-react';
+import { Calendar, Clock, MapPin, Coffee, Tag, Upload, X, Ticket, Image, Lock, Users } from 'lucide-react';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -39,6 +39,7 @@ const ActivityModal = ({
 
   const [documentFile, setDocumentFile] = useState(null);
   const [documentFileName, setDocumentFileName] = useState('');
+  const [isPersonalDocument, setIsPersonalDocument] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
@@ -74,6 +75,7 @@ const ActivityModal = ({
       setExistingBannerImage(null);
       setDocumentFile(null);
       setDocumentFileName('');
+      setIsPersonalDocument(false);
       setDocuments([]);
       setErrors({});
     }
@@ -163,11 +165,11 @@ const ActivityModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     if (validateForm()) {
       try {
         setLoading(true);
-  
+
         // Format dates for API
         const formattedData = {
           ...formData,
@@ -175,19 +177,19 @@ const ActivityModal = ({
             ? dayjs(formData.date).format('YYYY-MM-DD')
             : null
         };
-  
+
         // Add banner image to form data if selected
         if (bannerImage) {
           formattedData.banner_image = bannerImage;
         }
-        
+
         // Add flag to remove banner if requested
         if (removeBanner || (!bannerImage && !existingBannerImage)) {
           formattedData.remove_banner = 'true';
         }
-  
+
         let response;
-  
+
         if (isEditMode) {
           response = await activityAPI.updateActivity(activityId, formattedData, tripId);
           toast.success(t('activities.updateSuccess', 'Activity updated successfully'));
@@ -202,6 +204,7 @@ const ActivityModal = ({
           documentData.append('document', documentFile);
           documentData.append('reference_type', 'activity');
           documentData.append('reference_id', isEditMode ? activityId : response.data.activity.id);
+          documentData.append('is_personal', isPersonalDocument ? 'true' : 'false');
 
           await documentAPI.uploadDocument(documentData);
           toast.success(t('documents.uploadSuccess'));
@@ -294,11 +297,11 @@ const ActivityModal = ({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('activities.bannerImage')}
             </label>
-            
+
             {/* Current banner preview */}
             {(bannerImagePreview || (existingBannerImage && !removeBanner)) ? (
               <div className="relative w-full h-40 mb-4">
-                <img 
+                <img
                   src={bannerImagePreview || getImageUrl(existingBannerImage)}
                   alt="Activity Banner"
                   className="w-full h-full object-cover rounded-lg"
@@ -342,7 +345,7 @@ const ActivityModal = ({
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {t('common.imageTypes')}
                   </p>
-                  
+
                   {/* Show undo button if image was removed */}
                   {isEditMode && existingBannerImage && removeBanner && (
                     <button
@@ -351,7 +354,7 @@ const ActivityModal = ({
                       className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-800 dark:text-purple-300 dark:hover:bg-purple-700"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6"/>
+                        <path d="M3 10h10a8 8 0 0 1 8 8v2M3 10l6 6m-6-6l6-6" />
                       </svg>
                       {t('common.undoRemove', 'Undo remove')}
                     </button>
@@ -360,7 +363,7 @@ const ActivityModal = ({
               </div>
             )}
           </div>
-          
+
           {/* Activity Name */}
           <Input
             label={t('activities.name')}
@@ -463,8 +466,8 @@ const ActivityModal = ({
               </label>
               <div className="space-y-2">
                 {documents.map(doc => (
-                  <div 
-                    key={doc.id} 
+                  <div
+                    key={doc.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div className="flex items-center">
@@ -528,24 +531,59 @@ const ActivityModal = ({
               {t('activities.attachTicket')}
             </label>
             {documentFileName ? (
-              <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
-                  <span className="text-sm font-medium truncate max-w-xs">{documentFileName}</span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span className="text-sm font-medium truncate max-w-xs">{documentFileName}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDocumentFile(null);
+                      setDocumentFileName('');
+                      setIsPersonalDocument(false);
+                    }}
+                    className="p-1 rounded-full hover:bg-purple-100 dark:hover:bg-purple-800"
+                  >
+                    <X className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDocumentFile(null);
-                    setDocumentFileName('');
-                  }}
-                  className="p-1 rounded-full hover:bg-purple-100 dark:hover:bg-purple-800"
-                >
-                  <X className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </button>
+
+                {/* Personal/Shared Toggle */}
+                <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setIsPersonalDocument(false)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${!isPersonalDocument
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>{t('budget.shared', 'Shared')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPersonalDocument(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${isPersonalDocument
+                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>{t('budget.personal', 'Personal')}</span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {isPersonalDocument
+                    ? t('documents.personalDescription', 'Only visible to you')
+                    : t('documents.sharedDescription', 'Visible to all trip members')
+                  }
+                </p>
               </div>
             ) : (
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">

@@ -1,6 +1,6 @@
 // client/src/components/trips/DocumentsModal.jsx
-import React, { useState } from 'react';
-import { FileText, Download, Eye, Info, ExternalLink, X } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { FileText, Download, Eye, Info, ExternalLink, X, Lock, Users } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import PDFViewerModal from './PDFViewerModal';
@@ -23,6 +23,20 @@ const DocumentsModal = ({
   const [currentPdfName, setCurrentPdfName] = useState('');
   const [currentDocumentId, setCurrentDocumentId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Split documents into shared and personal
+  const { sharedDocs, personalDocs } = useMemo(() => {
+    const shared = [];
+    const personal = [];
+    documents.forEach(doc => {
+      if (doc.is_personal) {
+        personal.push(doc);
+      } else {
+        shared.push(doc);
+      }
+    });
+    return { sharedDocs: shared, personalDocs: personal };
+  }, [documents]);
 
   // Handle viewing a document
   const handleViewDocument = async (doc) => {
@@ -104,36 +118,37 @@ const DocumentsModal = ({
     }
   };
 
-  const getFileTypeIcon = (fileType) => {
-    if (fileType && fileType.includes('pdf')) {
-      return (
-        <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-          <FileText className="h-5 w-5 text-red-600 dark:text-red-400" />
-        </div>
-      );
-    } else if (fileType && (fileType.includes('doc') || fileType.includes('word'))) {
-      return (
-        <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-          <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-        </div>
-      );
-    } else if (fileType && fileType.includes('image')) {
-      return (
-        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-        </div>
-      );
-    } else {
-      return (
-        <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-          <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-        </div>
-      );
-    }
+  const getFileTypeIcon = (fileType, isPersonal = false) => {
+    const bgColor = isPersonal
+      ? 'bg-amber-100 dark:bg-amber-900/30'
+      : fileType && fileType.includes('pdf')
+        ? 'bg-red-100 dark:bg-red-900/30'
+        : fileType && (fileType.includes('doc') || fileType.includes('word'))
+          ? 'bg-blue-100 dark:bg-blue-900/30'
+          : fileType && fileType.includes('image')
+            ? 'bg-green-100 dark:bg-green-900/30'
+            : 'bg-purple-100 dark:bg-purple-900/30';
+
+    const iconColor = isPersonal
+      ? 'text-amber-600 dark:text-amber-400'
+      : fileType && fileType.includes('pdf')
+        ? 'text-red-600 dark:text-red-400'
+        : fileType && (fileType.includes('doc') || fileType.includes('word'))
+          ? 'text-blue-600 dark:text-blue-400'
+          : fileType && fileType.includes('image')
+            ? 'text-green-600 dark:text-green-400'
+            : 'text-purple-600 dark:text-purple-400';
+
+    return (
+      <div className={`p-2 rounded-lg ${bgColor} relative`}>
+        <FileText className={`h-5 w-5 ${iconColor}`} />
+        {isPersonal && (
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+            <Lock className="w-2.5 h-2.5 text-white" />
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Check if file can be previewed
@@ -141,6 +156,73 @@ const DocumentsModal = ({
     if (!fileType) return false;
     return fileType.includes('pdf') || fileType.includes('image');
   };
+
+  // Render a single document item
+  const renderDocumentItem = (doc, isPersonal = false) => (
+    <div
+      key={doc.id}
+      className={`flex items-center justify-between p-4 rounded-lg transition-all hover:shadow-md animate-fade-in ${isPersonal
+          ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800'
+          : 'bg-gray-50 dark:bg-gray-800'
+        }`}
+    >
+      <div className="flex items-center">
+        {getFileTypeIcon(doc.file_type, isPersonal)}
+        <div className="ml-3">
+          <div className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">
+            {doc.file_name}
+          </div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {new Date(doc.created_at).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+      <div className="flex space-x-2">
+        {canPreview(doc.file_type) && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isLoading}
+            onClick={() => handleViewDocument(doc)}
+            icon={<Eye size={16} />}
+          >
+            {t('documents.view')}
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={isLoading}
+          onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
+          icon={<Download size={16} />}
+        >
+          {t('documents.download')}
+        </Button>
+      </div>
+    </div>
+  );
+
+  // Render a section of documents
+  const renderSection = (title, description, docs, icon, isPersonal = false) => (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        {icon}
+        <div>
+          <h3 className="font-medium text-gray-900 dark:text-white text-sm">{title}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+        </div>
+      </div>
+      {docs.length > 0 ? (
+        <div className="space-y-2">
+          {docs.map(doc => renderDocumentItem(doc, isPersonal))}
+        </div>
+      ) : (
+        <div className="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
+          {isPersonal ? t('documents.noPersonalDocuments') : t('documents.noSharedDocuments')}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -159,47 +241,29 @@ const DocumentsModal = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-              {documents.map(doc => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all hover:shadow-md animate-fade-in"
-                >
-                  <div className="flex items-center">
-                    {getFileTypeIcon(doc.file_type)}
-                    <div className="ml-3">
-                      <div className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">
-                        {doc.file_name}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(doc.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    {canPreview(doc.file_type) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={isLoading}
-                        onClick={() => handleViewDocument(doc)}
-                        icon={<Eye size={16} />}
-                      >
-                        {t('documents.view')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      disabled={isLoading}
-                      onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
-                      icon={<Download size={16} />}
-                    >
-                      {t('documents.download')}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+              {/* Shared Documents Section */}
+              {renderSection(
+                t('documents.shared', 'Shared Documents'),
+                t('documents.sharedDescription', 'Visible to all trip members'),
+                sharedDocs,
+                <Users className="w-5 h-5 text-blue-500" />,
+                false
+              )}
+
+              {/* Personal Documents Section */}
+              {personalDocs.length > 0 && (
+                <>
+                  <div className="border-t border-gray-200 dark:border-gray-700" />
+                  {renderSection(
+                    t('documents.personal', 'Personal Documents'),
+                    t('documents.personalDescription', 'Only visible to you'),
+                    personalDocs,
+                    <Lock className="w-5 h-5 text-amber-500" />,
+                    true
+                  )}
+                </>
+              )}
             </div>
           )}
 

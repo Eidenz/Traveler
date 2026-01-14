@@ -34,6 +34,7 @@ import ActivityModal from '../../components/trips/ActivityModal';
 import DocumentsModal from '../../components/trips/DocumentsModal';
 import DocumentPanel from '../../components/trips/DocumentPanel';
 import ShareModal from '../../components/trips/ShareModal';
+import ItemWizard from '../../components/trips/ItemWizard';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -67,9 +68,15 @@ const TripDetail = () => {
   const [selectedActivityId, setSelectedActivityId] = useState(null);
   const [currentDocuments, setCurrentDocuments] = useState([]);
   const [currentReferenceType, setCurrentReferenceType] = useState('');
+  const [currentReferenceId, setCurrentReferenceId] = useState(null);
   const [currentDocumentItemName, setCurrentDocumentItemName] = useState('');
   const [showDocumentPanel, setShowDocumentPanel] = useState(false);
   const [activityDefaultDate, setActivityDefaultDate] = useState(null);
+
+  // Wizard state (replaces modals on desktop)
+  const [showWizard, setShowWizard] = useState(false);
+  const [wizardType, setWizardType] = useState(null); // 'activity' | 'lodging' | 'transport'
+  const [wizardItemId, setWizardItemId] = useState(null);
 
   // Panel resize state
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -237,31 +244,65 @@ const TripDetail = () => {
     return userMember && userMember.role === 'owner';
   };
 
-  // Modal handlers
+  // Modal handlers - use wizard on desktop when map is available, otherwise use modals
   const handleOpenTransportModal = (transportId = null) => {
-    setSelectedTransportId(transportId);
-    setIsTransportModalOpen(true);
+    // On desktop with map, use wizard; on mobile, use modal
+    if (window.innerWidth >= 768 && hasMapboxToken) {
+      setWizardType('transport');
+      setWizardItemId(transportId);
+      setShowWizard(true);
+      setShowDocumentPanel(false);
+    } else {
+      setSelectedTransportId(transportId);
+      setIsTransportModalOpen(true);
+    }
   };
 
   const handleOpenLodgingModal = (lodgingId = null) => {
-    setSelectedLodgingId(lodgingId);
-    setIsLodgingModalOpen(true);
+    // On desktop with map, use wizard; on mobile, use modal
+    if (window.innerWidth >= 768 && hasMapboxToken) {
+      setWizardType('lodging');
+      setWizardItemId(lodgingId);
+      setShowWizard(true);
+      setShowDocumentPanel(false);
+    } else {
+      setSelectedLodgingId(lodgingId);
+      setIsLodgingModalOpen(true);
+    }
   };
 
   const handleOpenActivityModal = (activityOrDate = null) => {
+    let itemId = null;
+    let defaultDate = null;
+
     // If it's a date, set as default date for new activity
     if (activityOrDate instanceof Date || typeof activityOrDate === 'string') {
-      setActivityDefaultDate(activityOrDate);
-      setSelectedActivityId(null);
+      defaultDate = activityOrDate;
     } else if (activityOrDate?.id) {
       // If it's an activity object, edit it
-      setSelectedActivityId(activityOrDate.id);
-      setActivityDefaultDate(null);
-    } else {
-      setSelectedActivityId(null);
-      setActivityDefaultDate(null);
+      itemId = activityOrDate.id;
     }
-    setIsActivityModalOpen(true);
+
+    // On desktop with map, use wizard; on mobile, use modal
+    if (window.innerWidth >= 768 && hasMapboxToken) {
+      setWizardType('activity');
+      setWizardItemId(itemId);
+      setActivityDefaultDate(defaultDate);
+      setShowWizard(true);
+      setShowDocumentPanel(false);
+    } else {
+      setSelectedActivityId(itemId);
+      setActivityDefaultDate(defaultDate);
+      setIsActivityModalOpen(true);
+    }
+  };
+
+  // Close wizard
+  const handleCloseWizard = () => {
+    setShowWizard(false);
+    setWizardType(null);
+    setWizardItemId(null);
+    setActivityDefaultDate(null);
   };
 
   // Document handling
@@ -291,14 +332,17 @@ const TripDetail = () => {
         const response = await transportAPI.getTransportation(item.id);
         documents = response.data.documents || [];
         setSelectedTransportId(item.id);
+        setCurrentReferenceId(item.id);
       } else if (referenceType === 'lodging') {
         const response = await lodgingAPI.getLodging(item.id);
         documents = response.data.documents || [];
         setSelectedLodgingId(item.id);
+        setCurrentReferenceId(item.id);
       } else if (referenceType === 'activity') {
         const response = await activityAPI.getActivity(item.id);
         documents = response.data.documents || [];
         setSelectedActivityId(item.id);
+        setCurrentReferenceId(item.id);
       }
 
       if (documents.length === 0) {
@@ -325,6 +369,29 @@ const TripDetail = () => {
     setShowDocumentPanel(false);
     setCurrentDocuments([]);
     setCurrentDocumentItemName('');
+    setCurrentReferenceId(null);
+  };
+
+  // Refresh documents after upload/delete
+  const refreshDocuments = async () => {
+    if (!currentReferenceType || !currentReferenceId) return;
+
+    try {
+      let documents = [];
+      if (currentReferenceType === 'transport' || currentReferenceType === 'transportation') {
+        const response = await transportAPI.getTransportation(currentReferenceId);
+        documents = response.data.documents || [];
+      } else if (currentReferenceType === 'lodging') {
+        const response = await lodgingAPI.getLodging(currentReferenceId);
+        documents = response.data.documents || [];
+      } else if (currentReferenceType === 'activity') {
+        const response = await activityAPI.getActivity(currentReferenceId);
+        documents = response.data.documents || [];
+      }
+      setCurrentDocuments(documents);
+    } catch (error) {
+      console.error('Error refreshing documents:', error);
+    }
   };
 
   // Offline handling
@@ -751,17 +818,32 @@ const TripDetail = () => {
           </div>
         )}
 
-        {/* Right Panel - Map or Documents */}
+        {/* Right Panel - Wizard, Documents, or Map */}
         {hasMapboxToken && (
           <div className="hidden md:flex flex-1 h-full relative min-w-0">
-            {showDocumentPanel ? (
+            {showWizard ? (
+              <ItemWizard
+                type={wizardType}
+                itemId={wizardItemId}
+                tripId={tripId}
+                defaultDate={activityDefaultDate}
+                onSuccess={() => {
+                  fetchTripData();
+                  handleCloseWizard();
+                }}
+                onClose={handleCloseWizard}
+              />
+            ) : showDocumentPanel ? (
               <DocumentPanel
                 documents={currentDocuments}
                 referenceType={currentReferenceType}
+                referenceId={currentReferenceId}
                 tripId={tripId}
                 itemName={currentDocumentItemName}
                 isOfflineMode={!navigator.onLine && isAvailableOffline}
                 onClose={handleCloseDocumentPanel}
+                onDocumentsChange={refreshDocuments}
+                canEdit={canEdit()}
               />
             ) : (
               <TripMap

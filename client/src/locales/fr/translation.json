@@ -39,7 +39,36 @@
     "traveler": "Voyageur",
     "viewAll": "Voir tout",
     "remove": "Supprimer",
-    "saveChanges": "Enregistrer les modifications"
+    "saveChanges": "Enregistrer les modifications",
+    "next": "Suivant",
+    "notes": "Notes",
+    "notesPlaceholder": "Informations supplémentaires..."
+  },
+  "wizard": {
+    "basics": "Essentiels",
+    "details": "Détails",
+    "extras": "Suppléments",
+    "place": "Lieu",
+    "dates": "Dates",
+    "type": "Type",
+    "route": "Itinéraire",
+    "schedule": "Horaires",
+    "whatActivity": "Quelle est l'activité ?",
+    "activityBasicsDesc": "Donnez-lui un nom et choisissez une date",
+    "whereWhen": "Où et Quand ?",
+    "activityDetailsDesc": "Ajoutez le lieu et l'heure",
+    "whereStaying": "Où logez-vous ?",
+    "lodgingPlaceDesc": "Entrez les détails de l'hôtel ou de l'hébergement",
+    "whenStaying": "Quand séjournez-vous ?",
+    "lodgingDatesDesc": "Définissez vos dates d'arrivée et de départ",
+    "howTraveling": "Comment voyagez-vous ?",
+    "selectTransportType": "Sélectionnez votre mode de transport",
+    "whereGoing": "Où allez-vous ?",
+    "routeDesc": "Entrez vos lieux de départ et d'arrivée",
+    "whenTraveling": "Quand voyagez-vous ?",
+    "scheduleDesc": "Définissez vos horaires de départ et d'arrivée",
+    "anythingElse": "Autre chose ?",
+    "extrasDesc": "Ajoutez des notes ou joignez des documents"
   },
   "navigation": {
     "main": "Principal",
@@ -267,7 +296,14 @@
     "noDocuments": "Aucun document joint",
     "close": "Fermer",
     "file": "fichier",
-    "files": "fichiers"
+    "files": "fichiers",
+    "shared": "Documents Partagés",
+    "personal": "Documents Personnels",
+    "sharedDescription": "Visible par tous les membres du voyage",
+    "personalDescription": "Visible uniquement par vous",
+    "makePersonal": "Rendre personnel",
+    "noSharedDocuments": "Aucun document partagé",
+    "noPersonalDocuments": "Aucun document personnel"
   },
   "offline": {
     "saveOffline": "Enreg. hors ligne",

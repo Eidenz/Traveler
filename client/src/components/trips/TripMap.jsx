@@ -143,6 +143,21 @@ const TripMap = ({
         }
       });
 
+      // Check lodging (uses 'address' instead of 'location')
+      lodging.forEach(l => {
+        // Use address or name for geocoding
+        const locationToGeocode = l.address || l.name;
+        if (locationToGeocode && !l.latitude && !l.longitude) {
+          itemsToGeocode.push({
+            id: `lodging-${l.id}`,
+            type: 'lodging',
+            location: locationToGeocode,
+            name: l.name,
+            data: l
+          });
+        }
+      });
+
       // Geocode all items
       if (itemsToGeocode.length > 0) {
         console.log('Geocoding locations:', itemsToGeocode.map(i => i.location));
@@ -166,7 +181,7 @@ const TripMap = ({
     };
 
     geocodeLocations();
-  }, [trip, activities, hasToken]);
+  }, [trip, activities, lodging, hasToken]);
 
   // Initialize map
   useEffect(() => {

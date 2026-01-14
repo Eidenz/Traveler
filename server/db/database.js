@@ -241,6 +241,7 @@ function initializeDatabase() {
       await runPasswordResetMigration();
       await runEmailPreferenceMigration(); // Add email preference migration
       await runPublicShareMigration(); // Add public share token migration
+      await runPersonalDocumentsMigration(); // Add personal documents migration
 
       console.log('Database initialized successfully');
       resolve();
@@ -302,6 +303,19 @@ async function runPublicShareMigration() {
     console.error('Error running public share token migration:', error);
   }
 }
+
+/**
+ * Migration for personal documents field
+ */
+async function runPersonalDocumentsMigration() {
+  try {
+    migrateField('documents', 'is_personal', 'INTEGER DEFAULT 0');
+    console.log('Personal documents field migration completed');
+  } catch (error) {
+    console.error('Error running personal documents migration:', error);
+  }
+}
+
 
 
 /**
