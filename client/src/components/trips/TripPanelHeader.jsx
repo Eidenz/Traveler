@@ -1,6 +1,6 @@
 // client/src/components/trips/TripPanelHeader.jsx
 import React from 'react';
-import { Share2, Settings, Edit, Wifi, WifiOff, Download } from 'lucide-react';
+import { Share2, Settings, Edit, Wifi, WifiOff, Download, Wallet } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -23,11 +23,11 @@ const TripPanelHeader = ({
   // Get trip status
   const getTripStatus = () => {
     if (!trip) return 'draft';
-    
+
     const now = dayjs();
     const start = dayjs(trip.start_date);
     const end = dayjs(trip.end_date);
-    
+
     if (now.isBefore(start)) return 'upcoming';
     if (now.isAfter(end)) return 'completed';
     return 'active';
@@ -95,7 +95,15 @@ const TripPanelHeader = ({
               <Share2 className="w-4 h-4" />
               <span className="hidden sm:inline">{t('sharing.share', 'Share')}</span>
             </button>
-            
+
+            <button
+              onClick={() => navigate(`/budgets/${trip?.id}`)}
+              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
+            >
+              <Wallet className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('budget.title', 'Budget')}</span>
+            </button>
+
             {canEdit && (
               <button
                 onClick={() => navigate(`/trips/${trip?.id}/edit`)}
@@ -110,7 +118,8 @@ const TripPanelHeader = ({
       </div>
 
       {/* Stats bar */}
-      <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/50">
+      <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/50 space-y-3">
+        {/* Row 1: Date range, status, and duration */}
         <div className="flex items-center justify-between">
           {/* Date range and status */}
           <div className="flex items-center gap-3">
@@ -120,49 +129,81 @@ const TripPanelHeader = ({
             <StatusBadge status={getTripStatus()} size="sm" />
           </div>
 
-          {/* Duration and offline */}
-          <div className="flex items-center gap-4 text-sm">
-            {duration && (
-              <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-                <span>
-                  <strong className="text-gray-900 dark:text-white">{duration.nights}</strong> {duration.label}
-                </span>
-              </div>
-            )}
-            
-            {/* Offline toggle */}
-            <button
-              onClick={onSaveOffline}
-              disabled={isSavingOffline}
-              className={`
-                flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium
-                transition-all duration-200
-                ${isAvailableOffline 
-                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }
-                ${isSavingOffline ? 'opacity-50 cursor-wait' : ''}
-              `}
-            >
-              {isSavingOffline ? (
-                <Download className="w-3.5 h-3.5 animate-bounce" />
-              ) : isAvailableOffline ? (
-                <WifiOff className="w-3.5 h-3.5" />
-              ) : (
-                <Wifi className="w-3.5 h-3.5" />
-              )}
-              <span className="hidden sm:inline">
-                {isAvailableOffline 
-                  ? t('offline.availableOffline', 'Offline') 
-                  : t('offline.saveOffline', 'Save offline')
-                }
+          {/* Duration - visible on all screens */}
+          {duration && (
+            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+              <span>
+                <strong className="text-gray-900 dark:text-white">{duration.nights}</strong> {duration.label}
               </span>
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
-        {/* Progress bar placeholder - could be based on bookings completion */}
-        {/* <div className="mt-3">
+        {/* Row 2: Offline button - full width on mobile, inline on desktop */}
+        <div className="sm:hidden">
+          <button
+            onClick={onSaveOffline}
+            disabled={isSavingOffline}
+            className={`
+              w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
+              transition-all duration-200
+              ${isAvailableOffline
+                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }
+              ${isSavingOffline ? 'opacity-50 cursor-wait' : ''}
+            `}
+          >
+            {isSavingOffline ? (
+              <Download className="w-4 h-4 animate-bounce" />
+            ) : isAvailableOffline ? (
+              <WifiOff className="w-4 h-4" />
+            ) : (
+              <Wifi className="w-4 h-4" />
+            )}
+            <span>
+              {isAvailableOffline
+                ? t('offline.availableOffline', 'Available offline')
+                : t('offline.saveOffline', 'Save for offline')
+              }
+            </span>
+          </button>
+        </div>
+
+        {/* Desktop: Offline toggle inline */}
+        <div className="hidden sm:flex sm:justify-end">
+          <button
+            onClick={onSaveOffline}
+            disabled={isSavingOffline}
+            className={`
+              flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium
+              transition-all duration-200
+              ${isAvailableOffline
+                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }
+              ${isSavingOffline ? 'opacity-50 cursor-wait' : ''}
+            `}
+          >
+            {isSavingOffline ? (
+              <Download className="w-3.5 h-3.5 animate-bounce" />
+            ) : isAvailableOffline ? (
+              <WifiOff className="w-3.5 h-3.5" />
+            ) : (
+              <Wifi className="w-3.5 h-3.5" />
+            )}
+            <span>
+              {isAvailableOffline
+                ? t('offline.availableOffline', 'Offline')
+                : t('offline.saveOffline', 'Save offline')
+              }
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Progress bar placeholder - could be based on bookings completion */}
+      {/* <div className="mt-3">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
             <span>Planning progress</span>
             <span className="font-medium text-gray-900">68%</span>
@@ -171,7 +212,6 @@ const TripPanelHeader = ({
             <div className="h-full bg-gradient-to-r from-accent to-rose-400 rounded-full" style={{ width: '68%' }} />
           </div>
         </div> */}
-      </div>
     </div>
   );
 };

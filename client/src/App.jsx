@@ -63,6 +63,7 @@ function App() {
           <Route path="trips/:tripId/edit" element={<EditTrip />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="budgets" element={<BudgetDashboard />} />
+          <Route path="budgets/:tripId" element={<BudgetDashboard />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

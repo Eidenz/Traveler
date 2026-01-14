@@ -24,6 +24,7 @@ import TripPanelHeader from '../../components/trips/TripPanelHeader';
 import TripMembers from '../../components/trips/TripMembers';
 import TabNav from '../../components/trips/TabNav';
 import TripChecklist from '../../components/trips/TripChecklist';
+import BudgetWidget from '../../components/budget/BudgetWidget';
 
 // Modals
 import TransportModal from '../../components/trips/TransportModal';
@@ -580,6 +581,9 @@ const TripDetail = () => {
               )}
             </div>
 
+            {/* Budget widget */}
+            <BudgetWidget tripId={tripId} canEdit={canEdit()} />
+
             {/* Members footer */}
             <TripMembers
               members={members}
@@ -767,6 +771,11 @@ const TripDetail = () => {
                 />
               </div>
             )}
+          </div>
+
+          {/* Budget widget */}
+          <div className="flex-shrink-0">
+            <BudgetWidget tripId={tripId} canEdit={canEdit()} />
           </div>
 
           {/* Members footer */}
