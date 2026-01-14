@@ -19,7 +19,7 @@ const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
   return (
     <div
       onClick={() => onClick?.(activity)}
-      className="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-accent/30 transition-all duration-200"
+      className="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-accent/30 transition-all duration-200 overflow-hidden"
     >
       <div className="flex gap-3">
         {/* Time badge */}
@@ -87,7 +87,7 @@ const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
 const TransportMini = ({ transport, onClick, onDocumentClick }) => (
   <div
     onClick={() => onClick?.(transport)}
-    className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+    className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors overflow-hidden"
   >
     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
       <Plane className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -124,7 +124,7 @@ const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
   return (
     <div
       onClick={() => onClick?.(lodging)}
-      className="flex items-center gap-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+      className="flex items-center gap-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors overflow-hidden"
     >
       <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center">
         <Bed className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -197,7 +197,7 @@ const DayGroup = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 pb-6">
+        <div className="flex-1 min-w-0 pb-6 overflow-hidden">
           {/* Date header */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -358,8 +358,8 @@ const TripTimeline = ({
         <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
           <MapPin className="w-5 h-5 text-white" />
         </div>
-        <div>
-          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white">
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display font-semibold text-lg text-gray-900 dark:text-white truncate">
             {trip.location || trip.name}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
