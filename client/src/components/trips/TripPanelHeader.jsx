@@ -57,16 +57,52 @@ const TripPanelHeader = ({
 
   return (
     <div className="border-b border-gray-100 dark:border-gray-700">
-      {/* Trip title section */}
-      <div className="p-6">
-        <div className="flex items-start justify-between">
+      {/* Compact header */}
+      <div className="p-4 sm:p-5">
+        {/* Row 1: Title + icon buttons */}
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-display font-semibold text-gray-900 dark:text-white truncate">
+            <h1 className="text-xl sm:text-2xl font-display font-semibold text-gray-900 dark:text-white truncate">
               {trip?.name || t('trips.untitled', 'Untitled Trip')}
             </h1>
+          </div>
+
+          {/* Action buttons - styled like buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={onShare}
+              className="p-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title={t('sharing.share', 'Share')}
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => navigate(`/budgets/${trip?.id}`)}
+              className="p-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title={t('budget.title', 'Budget')}
+            >
+              <Wallet className="w-4 h-4" />
+            </button>
+
+            {canEdit && (
+              <button
+                onClick={() => navigate(`/trips/${trip?.id}/edit`)}
+                className="p-2 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title={t('common.edit', 'Edit')}
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Owner + date + duration + offline (desktop) */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm">
             {owner && (
-              <div className="flex items-center gap-2 mt-1">
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center overflow-hidden">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center overflow-hidden">
                   {owner.profile_image ? (
                     <img
                       src={getImageUrl(owner.profile_image)}
@@ -74,78 +110,72 @@ const TripPanelHeader = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-white text-xs font-medium">
+                    <span className="text-white text-[10px] font-medium">
                       {owner.name?.charAt(0)?.toUpperCase()}
                     </span>
                   )}
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                <span className="text-gray-500 dark:text-gray-400">
                   {owner.name}
                 </span>
               </div>
             )}
-          </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-2 ml-4">
-            <button
-              onClick={onShare}
-              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
-            >
-              <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('sharing.share', 'Share')}</span>
-            </button>
+            <span className="text-gray-300 dark:text-gray-600">•</span>
 
-            <button
-              onClick={() => navigate(`/budgets/${trip?.id}`)}
-              className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
-            >
-              <Wallet className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('budget.title', 'Budget')}</span>
-            </button>
-
-            {canEdit && (
-              <button
-                onClick={() => navigate(`/trips/${trip?.id}/edit`)}
-                className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5"
-              >
-                <Edit className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('common.edit', 'Edit')}</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/50 space-y-3">
-        {/* Row 1: Date range, status, and duration */}
-        <div className="flex items-center justify-between">
-          {/* Date range and status */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-gray-600 dark:text-gray-300 font-medium">
               {formatDateRange()}
             </span>
-            <StatusBadge status={getTripStatus()} size="sm" />
+
+            {duration && (
+              <>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  {duration.nights} {duration.label}
+                </span>
+              </>
+            )}
           </div>
 
-          {/* Duration - visible on all screens */}
-          {duration && (
-            <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+          {/* Desktop: Offline button inline */}
+          <div className="hidden sm:block flex-shrink-0">
+            <button
+              onClick={onSaveOffline}
+              disabled={isSavingOffline}
+              className={`
+                inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                transition-all duration-200
+                ${isAvailableOffline
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }
+                ${isSavingOffline ? 'opacity-50 cursor-wait' : ''}
+              `}
+            >
+              {isSavingOffline ? (
+                <Download className="w-3.5 h-3.5 animate-bounce" />
+              ) : isAvailableOffline ? (
+                <WifiOff className="w-3.5 h-3.5" />
+              ) : (
+                <Wifi className="w-3.5 h-3.5" />
+              )}
               <span>
-                <strong className="text-gray-900 dark:text-white">{duration.nights}</strong> {duration.label}
+                {isAvailableOffline
+                  ? t('offline.availableOffline', 'Available offline')
+                  : t('offline.saveOffline', 'Save offline')
+                }
               </span>
-            </div>
-          )}
+            </button>
+          </div>
         </div>
 
-        {/* Row 2: Offline button - full width on mobile, inline on desktop */}
-        <div className="sm:hidden">
+        {/* Mobile: Offline button full width */}
+        <div className="sm:hidden mt-3">
           <button
             onClick={onSaveOffline}
             disabled={isSavingOffline}
             className={`
-              w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
+              w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium
               transition-all duration-200
               ${isAvailableOffline
                 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
@@ -169,49 +199,7 @@ const TripPanelHeader = ({
             </span>
           </button>
         </div>
-
-        {/* Desktop: Offline toggle inline */}
-        <div className="hidden sm:flex sm:justify-end">
-          <button
-            onClick={onSaveOffline}
-            disabled={isSavingOffline}
-            className={`
-              flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium
-              transition-all duration-200
-              ${isAvailableOffline
-                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }
-              ${isSavingOffline ? 'opacity-50 cursor-wait' : ''}
-            `}
-          >
-            {isSavingOffline ? (
-              <Download className="w-3.5 h-3.5 animate-bounce" />
-            ) : isAvailableOffline ? (
-              <WifiOff className="w-3.5 h-3.5" />
-            ) : (
-              <Wifi className="w-3.5 h-3.5" />
-            )}
-            <span>
-              {isAvailableOffline
-                ? t('offline.availableOffline', 'Offline')
-                : t('offline.saveOffline', 'Save offline')
-              }
-            </span>
-          </button>
-        </div>
       </div>
-
-      {/* Progress bar placeholder - could be based on bookings completion */}
-      {/* <div className="mt-3">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span>Planning progress</span>
-            <span className="font-medium text-gray-900">68%</span>
-          </div>
-          <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-accent to-rose-400 rounded-full" style={{ width: '68%' }} />
-          </div>
-        </div> */}
     </div>
   );
 };
