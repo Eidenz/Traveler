@@ -155,13 +155,121 @@ const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
   );
 };
 
+// Timeline icon button component for transport/lodging indicators
+const TimelineIcon = ({ type, items, onClick, tooltip }) => {
+  const isTransport = type === 'transport';
+  const isCheckout = type === 'checkout';
+  const isCheckin = type === 'lodging';
+  const count = Array.isArray(items) ? items.length : (items ? 1 : 0);
+
+  if (count === 0) return null;
+
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (Array.isArray(items)) {
+      // For multiple items, click the first one (or show a picker)
+      onClick?.(items[0]);
+    } else {
+      onClick?.(items);
+    }
+  };
+
+  // Determine colors based on type
+  const getStyles = () => {
+    if (isTransport) {
+      return 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-200 dark:hover:bg-blue-900/60';
+    }
+    if (isCheckout) {
+      return 'bg-orange-100 dark:bg-orange-900/40 hover:bg-orange-200 dark:hover:bg-orange-900/60';
+    }
+    // Check-in (lodging)
+    return 'bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-900/60';
+  };
+
+  const getIconColor = () => {
+    if (isTransport) return 'text-blue-600 dark:text-blue-400';
+    if (isCheckout) return 'text-orange-600 dark:text-orange-400';
+    return 'text-emerald-600 dark:text-emerald-400';
+  };
+
+  const getBadgeColor = () => {
+    if (isTransport) return 'bg-blue-500 text-white';
+    if (isCheckout) return 'bg-orange-500 text-white';
+    return 'bg-emerald-500 text-white';
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`
+        relative flex items-center justify-center w-7 h-7 rounded-full
+        transition-all duration-200 group
+        hover:scale-110 hover:shadow-md
+        ${getStyles()}
+      `}
+      title={tooltip}
+    >
+      {isTransport ? (
+        <Plane className={`w-3.5 h-3.5 ${getIconColor()}`} />
+      ) : (
+        <Bed className={`w-3.5 h-3.5 ${getIconColor()}`} />
+      )}
+      {/* Count badge for multiple items */}
+      {count > 1 && (
+        <span className={`
+          absolute -top-1 -right-1 w-4 h-4 text-[10px] font-bold rounded-full
+          flex items-center justify-center
+          ${getBadgeColor()}
+        `}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+};
+
+// Multiple transport picker dropdown
+const TransportPicker = ({ transports, onSelect, onClose }) => {
+  const { t } = useTranslation();
+
+  return (
+    <div className="absolute left-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[200px]">
+      <div className="px-3 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+        {t('transport.selectTransport', 'Select transport')}
+      </div>
+      {transports.map((transport, index) => (
+        <button
+          key={transport.id || index}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(transport);
+            onClose();
+          }}
+          className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
+        >
+          <Plane className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+              {transport.from_location} → {transport.to_location}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {transport.departure_time || transport.type || 'Transport'}
+            </p>
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 // Day group component
 const DayGroup = ({
   date,
   dayNumber,
   activities,
-  transport,
+  transports = [],
   lodging,
+  lodgingCheckout,
   isToday,
   isPast,
   onActivityClick,
@@ -174,7 +282,11 @@ const DayGroup = ({
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const hasContent = activities.length > 0 || transport || lodging;
+  const hasContent = activities.length > 0;
+  const hasTransports = transports.length > 0;
+  const hasLodging = !!lodging;
+  const hasLodgingCheckout = !!lodgingCheckout;
+  const hasAnyContent = hasContent || hasTransports || hasLodging || hasLodgingCheckout;
 
   return (
     <div className="relative">
@@ -185,12 +297,12 @@ const DayGroup = ({
         {/* Day circle */}
         <div className={`
           relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
-          transition-all duration-300
+          transition-all duration-300 border-2
           ${isToday
-            ? 'bg-accent text-white ring-4 ring-accent/20'
+            ? 'bg-accent text-white border-accent ring-4 ring-accent/20'
             : isPast
-              ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+              ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600'
           }
         `}>
           <span className="text-sm font-semibold">{dayNumber}</span>
@@ -217,7 +329,7 @@ const DayGroup = ({
                 {t('common.today', 'Today')}
               </span>
             )}
-            {hasContent && (
+            {hasAnyContent && (
               <span className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
                 {isExpanded ? (
                   <ChevronDown className="w-4 h-4" />
@@ -230,11 +342,39 @@ const DayGroup = ({
 
           {isExpanded && (
             <div className="space-y-2">
-              {/* Transport for this day */}
-              {transport && (
+              {/* Lodging checkout (orange) - show first */}
+              {hasLodgingCheckout && (
+                <div
+                  onClick={() => onLodgingClick?.(lodgingCheckout)}
+                  className="flex items-center gap-2 px-2 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                >
+                  <div className="w-6 h-6 rounded bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center flex-shrink-0">
+                    <Bed className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                    {t('lodging.checkOut', 'Check-out')}:
+                  </span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                    {lodgingCheckout.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Transports */}
+              {transports.map(transport => (
                 <TransportMini
+                  key={transport.id}
                   transport={transport}
                   onClick={onTransportClick}
+                  onDocumentClick={onDocumentClick}
+                />
+              ))}
+
+              {/* Lodging check-in (green) */}
+              {hasLodging && (
+                <LodgingMini
+                  lodging={lodging}
+                  onClick={onLodgingClick}
                   onDocumentClick={onDocumentClick}
                 />
               )}
@@ -250,15 +390,6 @@ const DayGroup = ({
                 />
               ))}
 
-              {/* Lodging check-in */}
-              {lodging && (
-                <LodgingMini
-                  lodging={lodging}
-                  onClick={onLodgingClick}
-                  onDocumentClick={onDocumentClick}
-                />
-              )}
-
               {/* Add activity button */}
               {canEdit && (
                 <button
@@ -273,13 +404,15 @@ const DayGroup = ({
           )}
 
           {/* Collapsed state */}
-          {!isExpanded && hasContent && (
+          {!isExpanded && hasAnyContent && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {activities.length > 0 && `${activities.length} ${activities.length === 1 ? 'activity' : 'activities'}`}
-              {activities.length > 0 && (transport || lodging) && ' • '}
-              {transport && 'Transport'}
-              {transport && lodging && ', '}
-              {lodging && 'Lodging'}
+              {activities.length > 0 && (hasTransports || hasLodging || hasLodgingCheckout) && ' • '}
+              {hasTransports && `${transports.length} transport${transports.length > 1 ? 's' : ''}`}
+              {hasTransports && (hasLodging || hasLodgingCheckout) && ', '}
+              {hasLodging && t('lodging.checkIn', 'Check-in')}
+              {hasLodging && hasLodgingCheckout && ', '}
+              {hasLodgingCheckout && t('lodging.checkOut', 'Check-out')}
             </p>
           )}
         </div>
@@ -322,8 +455,8 @@ const TripTimeline = ({
         dayjs(a.date).format('YYYY-MM-DD') === dateStr
       );
 
-      // Get transport departing this day
-      const dayTransport = transportation.find(t =>
+      // Get all transports departing this day (supports multiple)
+      const dayTransports = transportation.filter(t =>
         dayjs(t.departure_date).format('YYYY-MM-DD') === dateStr
       );
 
@@ -332,12 +465,18 @@ const TripTimeline = ({
         dayjs(l.check_in).format('YYYY-MM-DD') === dateStr
       );
 
+      // Get lodging checking out this day
+      const dayLodgingCheckout = lodging.find(l =>
+        dayjs(l.check_out).format('YYYY-MM-DD') === dateStr
+      );
+
       days.push({
         date: current.toDate(),
         dayNumber,
         activities: dayActivities,
-        transport: dayTransport,
+        transports: dayTransports,
         lodging: dayLodging,
+        lodgingCheckout: dayLodgingCheckout,
         isToday: current.isSame(today, 'day'),
         isPast: current.isBefore(today, 'day'),
       });

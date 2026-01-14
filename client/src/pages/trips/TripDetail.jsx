@@ -24,6 +24,7 @@ import TripPanelHeader from '../../components/trips/TripPanelHeader';
 import TripMembers from '../../components/trips/TripMembers';
 import TabNav from '../../components/trips/TabNav';
 import TripChecklist from '../../components/trips/TripChecklist';
+import DateGroupedList from '../../components/trips/DateGroupedList';
 import BudgetWidget from '../../components/budget/BudgetWidget';
 
 // Modals
@@ -516,30 +517,12 @@ const TripDetail = () => {
                       )}
                     </div>
                   ) : (
-                    transportation.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                        onClick={() => handleOpenTransportModal(item.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                              <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
-                              </p>
-                            </div>
-                          </div>
-                          {item.has_documents > 0 && (
-                            <FileText className="w-4 h-4 text-gray-400" />
-                          )}
-                        </div>
-                      </div>
-                    ))
+                    <DateGroupedList
+                      items={transportation}
+                      type="transport"
+                      tripStartDate={trip?.start_date}
+                      onItemClick={handleOpenTransportModal}
+                    />
                   )}
                 </div>
               )}
@@ -565,30 +548,12 @@ const TripDetail = () => {
                       )}
                     </div>
                   ) : (
-                    lodging.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                        onClick={() => handleOpenLodgingModal(item.id)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                              <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
-                              </p>
-                            </div>
-                          </div>
-                          {item.has_documents > 0 && (
-                            <FileText className="w-4 h-4 text-gray-400" />
-                          )}
-                        </div>
-                      </div>
-                    ))
+                    <DateGroupedList
+                      items={lodging}
+                      type="lodging"
+                      tripStartDate={trip?.start_date}
+                      onItemClick={handleOpenLodgingModal}
+                    />
                   )}
                 </div>
               )}
@@ -707,30 +672,12 @@ const TripDetail = () => {
                     )}
                   </div>
                 ) : (
-                  transportation.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                      onClick={() => handleOpenTransportModal(item.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                            <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
-                            </p>
-                          </div>
-                        </div>
-                        {item.has_documents > 0 && (
-                          <FileText className="w-4 h-4 text-gray-400" />
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  <DateGroupedList
+                    items={transportation}
+                    type="transport"
+                    tripStartDate={trip?.start_date}
+                    onItemClick={handleOpenTransportModal}
+                  />
                 )}
               </div>
             )}
@@ -757,30 +704,12 @@ const TripDetail = () => {
                     )}
                   </div>
                 ) : (
-                  lodging.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
-                      onClick={() => handleOpenLodgingModal(item.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                            <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
-                            </p>
-                          </div>
-                        </div>
-                        {item.has_documents > 0 && (
-                          <FileText className="w-4 h-4 text-gray-400" />
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  <DateGroupedList
+                    items={lodging}
+                    type="lodging"
+                    tripStartDate={trip?.start_date}
+                    onItemClick={handleOpenLodgingModal}
+                  />
                 )}
               </div>
             )}
