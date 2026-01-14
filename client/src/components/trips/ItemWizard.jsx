@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
-    FileText, Lock, Users, Tag, Building, Trash2
+    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -729,6 +729,7 @@ const ItemWizard = ({
             { value: 'Bus', icon: <Bus className="w-6 h-6" />, label: t('transportation.bus', 'Bus') },
             { value: 'Car', icon: <Car className="w-6 h-6" />, label: t('transportation.car', 'Car') },
             { value: 'Ship', icon: <Ship className="w-6 h-6" />, label: t('transportation.ship', 'Ship') },
+            { value: 'Other', icon: <MoreHorizontal className="w-6 h-6" />, label: t('transportation.other', 'Other') },
         ];
 
         switch (currentStep) {
@@ -1005,8 +1006,8 @@ const ItemWizard = ({
                                             type="button"
                                             onClick={() => updateDocumentPrivacy(index, !doc.isPersonal)}
                                             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${doc.isPersonal
-                                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                                                 }`}
                                             title={doc.isPersonal ? t('budget.personal', 'Personal') : t('budget.shared', 'Shared')}
                                         >
@@ -1062,9 +1063,9 @@ const ItemWizard = ({
     }
 
     return (
-        <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="w-full h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-y-auto">
+            {/* Header - simplified */}
+            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={onClose}
@@ -1077,106 +1078,87 @@ const ItemWizard = ({
                     </h2>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {/* Delete button (edit mode only) */}
-                    {isEditMode && (
-                        <button
-                            onClick={handleDelete}
-                            disabled={isDeleting}
-                            className="flex items-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
-                        >
-                            {isDeleting ? (
-                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                                <Trash2 className="w-4 h-4" />
-                            )}
-                            <span className="hidden sm:inline">{t('common.delete', 'Delete')}</span>
-                        </button>
-                    )}
+                {/* Delete button (edit mode only) */}
+                {isEditMode && (
+                    <button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="flex items-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
+                    >
+                        {isDeleting ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <Trash2 className="w-4 h-4" />
+                        )}
+                        <span className="hidden sm:inline">{t('common.delete', 'Delete')}</span>
+                    </button>
+                )}
+            </div>
 
-                    {/* Step indicator */}
-                    <div className="flex items-center gap-2">
+            {/* Centered Content Area */}
+            <div className="flex-1 flex flex-col items-center justify-start overflow-y-auto px-4 sm:px-6 py-6 pb-12">
+                <div className="w-full max-w-lg">
+                    {/* Step Progress - above content */}
+                    <div className="flex items-center justify-center gap-1 mb-8">
                         {steps.map((step, index) => (
                             <button
                                 key={step.id}
                                 onClick={() => goToStep(index)}
-                                className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer hover:scale-150 ${index === currentStep
-                                    ? `${colorScheme.dotActive} scale-125`
-                                    : isEditMode || index < currentStep
-                                        ? `${colorScheme.dotComplete} hover:${colorScheme.dotActive}`
-                                        : 'bg-gray-300 dark:bg-gray-600'
-                                    }`}
                                 disabled={!isEditMode && index > currentStep}
-                                title={step.title}
-                            />
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap ${index === currentStep
+                                    ? `${colorScheme.stepActiveBg} ${colorScheme.stepActiveText}`
+                                    : isEditMode || index < currentStep
+                                        ? 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'
+                                        : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                    }`}
+                            >
+                                {!isEditMode && index < currentStep ? (
+                                    <Check className="w-4 h-4" />
+                                ) : (
+                                    step.icon
+                                )}
+                                <span className="hidden sm:inline">{step.title}</span>
+                            </button>
                         ))}
                     </div>
-                </div>
-            </div>
 
-            {/* Step tabs */}
-            <div className="flex items-center gap-1 px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-                {steps.map((step, index) => (
-                    <button
-                        key={step.id}
-                        onClick={() => goToStep(index)}
-                        disabled={!isEditMode && index > currentStep}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${index === currentStep
-                            ? `${colorScheme.stepActiveBg} ${colorScheme.stepActiveText}`
-                            : isEditMode || index < currentStep
-                                ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer'
-                                : 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                            }`}
-                    >
-                        {!isEditMode && index < currentStep ? (
-                            <Check className="w-4 h-4" />
-                        ) : (
-                            step.icon
-                        )}
-                        {step.title}
-                    </button>
-                ))}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-                <div className="max-w-lg mx-auto">
+                    {/* Form Content */}
                     {renderStepContent()}
-                </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <button
-                    onClick={currentStep === 0 ? onClose : goToPrevStep}
-                    className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                    <ChevronLeft className="w-5 h-5" />
-                    {currentStep === 0 ? t('common.cancel', 'Cancel') : t('common.back', 'Back')}
-                </button>
+                    {/* Navigation Buttons - inline below content */}
+                    <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                            onClick={currentStep === 0 ? onClose : goToPrevStep}
+                            className="flex items-center gap-2 px-4 py-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                            {currentStep === 0 ? t('common.cancel', 'Cancel') : t('common.back', 'Back')}
+                        </button>
 
-                {currentStep < steps.length - 1 ? (
-                    <button
-                        onClick={goToNextStep}
-                        className={`flex items-center gap-2 px-6 py-2 ${colorScheme.btnBg} text-white rounded-lg font-medium transition-colors`}
-                    >
-                        {t('common.next', 'Next')}
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                        className={`flex items-center gap-2 px-6 py-2 ${colorScheme.btnBg} text-white rounded-lg font-medium transition-colors disabled:opacity-50`}
-                    >
-                        {isLoading ? (
-                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        {currentStep < steps.length - 1 ? (
+                            <button
+                                onClick={goToNextStep}
+                                className={`flex items-center gap-2 px-6 py-2.5 ${colorScheme.btnBg} text-white rounded-xl font-medium transition-colors`}
+                            >
+                                {t('common.next', 'Next')}
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
                         ) : (
-                            <Check className="w-5 h-5" />
+                            <button
+                                onClick={handleSubmit}
+                                disabled={isLoading}
+                                className={`flex items-center gap-2 px-6 py-2.5 ${colorScheme.btnBg} text-white rounded-xl font-medium transition-colors disabled:opacity-50`}
+                            >
+                                {isLoading ? (
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Check className="w-5 h-5" />
+                                )}
+                                {isEditMode ? t('common.save', 'Save') : t('common.create', 'Create')}
+                            </button>
                         )}
-                        {isEditMode ? t('common.save', 'Save') : t('common.create', 'Create')}
-                    </button>
-                )}
+                    </div>
+                </div>
             </div>
         </div>
     );

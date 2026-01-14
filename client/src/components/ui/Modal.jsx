@@ -11,10 +11,11 @@ const Modal = ({
   size = 'md',
   closeOnOutsideClick = true,
   showCloseButton = true,
+  noPadding = false,
   className = '',
 }) => {
   const modalRef = useRef(null);
-  
+
   // Handle ESC key press
   useEffect(() => {
     const handleEsc = (e) => {
@@ -35,14 +36,14 @@ const Modal = ({
       document.body.style.overflow = 'auto';
     };
   }, [isOpen, onClose]);
-  
+
   // Handle outside click
   const handleOutsideClick = (e) => {
     if (closeOnOutsideClick && modalRef.current && !modalRef.current.contains(e.target)) {
       onClose();
     }
   };
-  
+
   // Modal sizes
   const sizes = {
     sm: 'max-w-md',
@@ -55,11 +56,11 @@ const Modal = ({
   if (!isOpen) return null;
 
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 animate-fade-in"
       onClick={handleOutsideClick}
     >
-      <div 
+      <div
         ref={modalRef}
         className={`
           w-full ${sizes[size]} bg-white dark:bg-gray-800 rounded-xl shadow-lg 
@@ -80,7 +81,7 @@ const Modal = ({
             )}
           </div>
         )}
-        <div className="overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className={noPadding ? '' : 'overflow-y-auto max-h-[calc(100vh-200px)]'}>
           {children}
         </div>
       </div>
