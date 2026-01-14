@@ -265,7 +265,9 @@
     "deleteSuccess": "Document deleted successfully",
     "viewFailed": "Failed to view document",
     "noDocuments": "No documents attached",
-    "close": "Close"
+    "close": "Close",
+    "file": "file",
+    "files": "files"
   },
   "offline": {
     "saveOffline": "Save Offline",

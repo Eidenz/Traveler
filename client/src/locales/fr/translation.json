@@ -265,7 +265,9 @@
     "deleteSuccess": "Document supprimé avec succès",
     "viewFailed": "Échec de l'affichage du document",
     "noDocuments": "Aucun document joint",
-    "close": "Fermer"
+    "close": "Fermer",
+    "file": "fichier",
+    "files": "fichiers"
   },
   "offline": {
     "saveOffline": "Enreg. hors ligne",

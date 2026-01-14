@@ -1,7 +1,7 @@
 // client/src/components/trips/TripTimeline.jsx
 import React, { useState } from 'react';
-import { 
-  Plus, MapPin, Clock, Calendar, Ticket, FileText, 
+import {
+  Plus, MapPin, Clock, Calendar, Ticket, FileText,
   ChevronDown, ChevronRight, Plane, Bed, Coffee
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,9 +15,9 @@ dayjs.extend(isSameOrBefore);
 // Activity card component
 const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
   const { t } = useTranslation();
-  
+
   return (
-    <div 
+    <div
       onClick={() => onClick?.(activity)}
       className="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl p-3 cursor-pointer hover:shadow-md hover:border-accent/30 transition-all duration-200"
     >
@@ -30,20 +30,20 @@ const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
             </span>
           </div>
         )}
-        
+
         {/* Content */}
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-gray-900 dark:text-white truncate group-hover:text-accent transition-colors">
             {activity.name}
           </h4>
-          
+
           {activity.location && (
             <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
               <MapPin className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">{activity.location}</span>
             </p>
           )}
-          
+
           {activity.confirmation_code && (
             <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-1">
               <Ticket className="w-3 h-3" />
@@ -51,26 +51,29 @@ const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
             </p>
           )}
         </div>
-        
+
         {/* Document indicator */}
         {activity.has_documents > 0 && (
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onDocumentClick?.('activity', activity);
             }}
-            className="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="flex-shrink-0 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1.5 border border-amber-200 dark:border-amber-800"
           >
-            <FileText className="w-4 h-4 text-gray-400" />
+            <FileText className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+              {activity.has_documents}
+            </span>
           </button>
         )}
       </div>
-      
+
       {/* Banner image if exists */}
       {activity.banner_image && (
         <div className="mt-2 rounded-lg overflow-hidden h-20">
-          <img 
-            src={activity.banner_image} 
+          <img
+            src={activity.banner_image}
             alt={activity.name}
             className="w-full h-full object-cover"
           />
@@ -82,7 +85,7 @@ const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
 
 // Transport mini card
 const TransportMini = ({ transport, onClick, onDocumentClick }) => (
-  <div 
+  <div
     onClick={() => onClick?.(transport)}
     className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
   >
@@ -98,7 +101,18 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
       </p>
     </div>
     {transport.has_documents > 0 && (
-      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDocumentClick?.('transport', transport);
+        }}
+        className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1 border border-amber-200 dark:border-amber-800"
+      >
+        <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+        <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+          {transport.has_documents}
+        </span>
+      </button>
     )}
   </div>
 );
@@ -106,9 +120,9 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
 // Lodging mini card
 const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
   const nights = dayjs(lodging.check_out).diff(dayjs(lodging.check_in), 'day');
-  
+
   return (
-    <div 
+    <div
       onClick={() => onClick?.(lodging)}
       className="flex items-center gap-3 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
     >
@@ -124,17 +138,28 @@ const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
         </p>
       </div>
       {lodging.has_documents > 0 && (
-        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDocumentClick?.('lodging', lodging);
+          }}
+          className="flex-shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors flex items-center gap-1 border border-amber-200 dark:border-amber-800"
+        >
+          <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+            {lodging.has_documents}
+          </span>
+        </button>
       )}
     </div>
   );
 };
 
 // Day group component
-const DayGroup = ({ 
-  date, 
-  dayNumber, 
-  activities, 
+const DayGroup = ({
+  date,
+  dayNumber,
+  activities,
   transport,
   lodging,
   isToday,
@@ -144,25 +169,25 @@ const DayGroup = ({
   onLodgingClick,
   onAddActivity,
   onDocumentClick,
-  canEdit 
+  canEdit
 }) => {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
-  
+
   const hasContent = activities.length > 0 || transport || lodging;
-  
+
   return (
     <div className="relative">
       {/* Connector line */}
       <div className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
-      
+
       <div className="flex gap-4">
         {/* Day circle */}
         <div className={`
           relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
           transition-all duration-300
-          ${isToday 
-            ? 'bg-accent text-white ring-4 ring-accent/20' 
+          ${isToday
+            ? 'bg-accent text-white ring-4 ring-accent/20'
             : isPast
               ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -170,18 +195,18 @@ const DayGroup = ({
         `}>
           <span className="text-sm font-semibold">{dayNumber}</span>
         </div>
-        
+
         {/* Content */}
         <div className="flex-1 pb-6">
           {/* Date header */}
-          <button 
+          <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex items-center gap-2 mb-3 group"
           >
             <h3 className={`
               font-medium
-              ${isToday 
-                ? 'text-accent' 
+              ${isToday
+                ? 'text-accent'
                 : 'text-gray-900 dark:text-white'
               }
             `}>
@@ -202,18 +227,18 @@ const DayGroup = ({
               </span>
             )}
           </button>
-          
+
           {isExpanded && (
             <div className="space-y-2">
               {/* Transport for this day */}
               {transport && (
-                <TransportMini 
-                  transport={transport} 
+                <TransportMini
+                  transport={transport}
                   onClick={onTransportClick}
                   onDocumentClick={onDocumentClick}
                 />
               )}
-              
+
               {/* Activities */}
               {activities.map(activity => (
                 <ActivityCard
@@ -224,16 +249,16 @@ const DayGroup = ({
                   canEdit={canEdit}
                 />
               ))}
-              
+
               {/* Lodging check-in */}
               {lodging && (
-                <LodgingMini 
+                <LodgingMini
                   lodging={lodging}
                   onClick={onLodgingClick}
                   onDocumentClick={onDocumentClick}
                 />
               )}
-              
+
               {/* Add activity button */}
               {canEdit && (
                 <button
@@ -246,7 +271,7 @@ const DayGroup = ({
               )}
             </div>
           )}
-          
+
           {/* Collapsed state */}
           {!isExpanded && hasContent && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -285,28 +310,28 @@ const TripTimeline = ({
     const start = dayjs(trip.start_date);
     const end = dayjs(trip.end_date);
     const today = dayjs();
-    
+
     let current = start;
     let dayNumber = 1;
-    
+
     while (current.isSameOrBefore(end, 'day')) {
       const dateStr = current.format('YYYY-MM-DD');
-      
+
       // Get activities for this day
-      const dayActivities = activities.filter(a => 
+      const dayActivities = activities.filter(a =>
         dayjs(a.date).format('YYYY-MM-DD') === dateStr
       );
-      
+
       // Get transport departing this day
-      const dayTransport = transportation.find(t => 
+      const dayTransport = transportation.find(t =>
         dayjs(t.departure_date).format('YYYY-MM-DD') === dateStr
       );
-      
+
       // Get lodging checking in this day
-      const dayLodging = lodging.find(l => 
+      const dayLodging = lodging.find(l =>
         dayjs(l.check_in).format('YYYY-MM-DD') === dateStr
       );
-      
+
       days.push({
         date: current.toDate(),
         dayNumber,
@@ -316,11 +341,11 @@ const TripTimeline = ({
         isToday: current.isSame(today, 'day'),
         isPast: current.isBefore(today, 'day'),
       });
-      
+
       current = current.add(1, 'day');
       dayNumber++;
     }
-    
+
     return days;
   };
 
@@ -360,7 +385,7 @@ const TripTimeline = ({
             canEdit={canEdit}
           />
         ))}
-        
+
         {/* End marker */}
         <div className="flex gap-4">
           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">

@@ -28,7 +28,7 @@ const DocumentsModal = ({
   const handleViewDocument = async (doc) => {
     try {
       setIsLoading(true);
-      
+
       // Only PDF files can be viewed in the viewer
       if (doc.file_type && doc.file_type.includes('pdf')) {
         // If document already has a blob (from offline storage), use it
@@ -61,7 +61,7 @@ const DocumentsModal = ({
   const handleDownloadDocument = async (documentId, fileName) => {
     try {
       setIsLoading(true);
-      
+
       // For offline mode with blob already available
       if (isOfflineMode) {
         const offlineDoc = documents.find(doc => doc.id === documentId);
@@ -78,13 +78,13 @@ const DocumentsModal = ({
           return;
         }
       }
-      
+
       // Online mode - fetch from server
       const response = await documentAPI.downloadDocument(documentId);
-      
+
       // Create blob from response data
       const blob = new Blob([response.data]);
-      
+
       // Create download link and trigger click
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -93,7 +93,7 @@ const DocumentsModal = ({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Clean up URL object
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
@@ -136,12 +136,18 @@ const DocumentsModal = ({
     }
   };
 
+  // Check if file can be previewed
+  const canPreview = (fileType) => {
+    if (!fileType) return false;
+    return fileType.includes('pdf') || fileType.includes('image');
+  };
+
   return (
     <>
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title={t('documents.attachedDocuments') }
+        title={t('documents.attachedDocuments')}
         size="md"
       >
         <div className="p-6">
@@ -155,7 +161,7 @@ const DocumentsModal = ({
           ) : (
             <div className="space-y-3 max-h-[60vh] overflow-y-auto">
               {documents.map(doc => (
-                <div 
+                <div
                   key={doc.id}
                   className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg transition-all hover:shadow-md animate-fade-in"
                 >
@@ -171,15 +177,17 @@ const DocumentsModal = ({
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoading}
-                      onClick={() => handleViewDocument(doc)}
-                      icon={doc.file_type && doc.file_type.includes('pdf') ? <Eye size={16} /> : <ExternalLink size={16} />}
-                    >
-                      {t('documents.view')}
-                    </Button>
+                    {canPreview(doc.file_type) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isLoading}
+                        onClick={() => handleViewDocument(doc)}
+                        icon={<Eye size={16} />}
+                      >
+                        {t('documents.view')}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
@@ -194,7 +202,7 @@ const DocumentsModal = ({
               ))}
             </div>
           )}
-          
+
           <div className="mt-6 flex justify-end">
             <Button
               variant="primary"
@@ -205,7 +213,7 @@ const DocumentsModal = ({
           </div>
         </div>
       </Modal>
-      
+
       {/* PDF Viewer Modal */}
       <PDFViewerModal
         isOpen={isPdfViewerOpen}

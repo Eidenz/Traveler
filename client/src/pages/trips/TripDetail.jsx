@@ -31,6 +31,7 @@ import TransportModal from '../../components/trips/TransportModal';
 import LodgingModal from '../../components/trips/LodgingModal';
 import ActivityModal from '../../components/trips/ActivityModal';
 import DocumentsModal from '../../components/trips/DocumentsModal';
+import DocumentPanel from '../../components/trips/DocumentPanel';
 import ShareModal from '../../components/trips/ShareModal';
 
 const TripDetail = () => {
@@ -65,6 +66,8 @@ const TripDetail = () => {
   const [selectedActivityId, setSelectedActivityId] = useState(null);
   const [currentDocuments, setCurrentDocuments] = useState([]);
   const [currentReferenceType, setCurrentReferenceType] = useState('');
+  const [currentDocumentItemName, setCurrentDocumentItemName] = useState('');
+  const [showDocumentPanel, setShowDocumentPanel] = useState(false);
   const [activityDefaultDate, setActivityDefaultDate] = useState(null);
 
   // Panel resize state
@@ -264,12 +267,18 @@ const TripDetail = () => {
   const handleViewDocument = async (referenceType, item) => {
     try {
       setCurrentReferenceType(referenceType);
+      setCurrentDocumentItemName(item.name || item.from_location || '');
 
       if (!navigator.onLine && isAvailableOffline) {
         const offlineDocs = await getDocumentsForReference(referenceType, item.id);
         if (offlineDocs?.length > 0) {
           setCurrentDocuments(offlineDocs);
-          setIsDocumentsModalOpen(true);
+          // On mobile use modal, on desktop use panel
+          if (window.innerWidth >= 768 && hasMapboxToken) {
+            setShowDocumentPanel(true);
+          } else {
+            setIsDocumentsModalOpen(true);
+          }
           return;
         }
         toast.error(t('documents.notAvailableOffline', 'Documents not available offline'));
@@ -297,11 +306,24 @@ const TripDetail = () => {
       }
 
       setCurrentDocuments(documents);
-      setIsDocumentsModalOpen(true);
+
+      // On desktop with map, show document panel; on mobile, show modal
+      if (window.innerWidth >= 768 && hasMapboxToken) {
+        setShowDocumentPanel(true);
+      } else {
+        setIsDocumentsModalOpen(true);
+      }
     } catch (error) {
       console.error('Error viewing documents:', error);
       toast.error(t('documents.viewFailed', 'Failed to load documents'));
     }
+  };
+
+  // Close document panel
+  const handleCloseDocumentPanel = () => {
+    setShowDocumentPanel(false);
+    setCurrentDocuments([]);
+    setCurrentDocumentItemName('');
   };
 
   // Offline handling
@@ -800,17 +822,28 @@ const TripDetail = () => {
           </div>
         )}
 
-        {/* Right Panel - Map */}
+        {/* Right Panel - Map or Documents */}
         {hasMapboxToken && (
-          <div className="hidden md:flex flex-1 relative min-w-0">
-            <TripMap
-              trip={trip}
-              activities={activities}
-              transportation={transportation}
-              lodging={lodging}
-              onActivityClick={handleOpenActivityModal}
-              selectedActivityId={selectedActivityId}
-            />
+          <div className="hidden md:flex flex-1 h-full relative min-w-0">
+            {showDocumentPanel ? (
+              <DocumentPanel
+                documents={currentDocuments}
+                referenceType={currentReferenceType}
+                tripId={tripId}
+                itemName={currentDocumentItemName}
+                isOfflineMode={!navigator.onLine && isAvailableOffline}
+                onClose={handleCloseDocumentPanel}
+              />
+            ) : (
+              <TripMap
+                trip={trip}
+                activities={activities}
+                transportation={transportation}
+                lodging={lodging}
+                onActivityClick={handleOpenActivityModal}
+                selectedActivityId={selectedActivityId}
+              />
+            )}
           </div>
         )}
       </div>
