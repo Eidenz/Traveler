@@ -59,6 +59,7 @@ const BrainstormCanvas = ({
     const { t } = useTranslation();
     const canvasRef = useRef(null);
     const [draggingItemId, setDraggingItemId] = useState(null);
+    const longPressTimerRef = useRef(null);
 
     // All interactive state stored in refs to avoid stale closures
     const panStateRef = useRef({
@@ -120,25 +121,88 @@ const BrainstormCanvas = ({
         setDraggingItemId(item.id);
     };
 
-    // Global mouse handlers - set up once
+    // --- Touch Handlers ---
+
+    const handleCanvasTouchStart = (e) => {
+        // Single touch for panning
+        if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            panStateRef.current = {
+                isPanning: true,
+                startX: touch.clientX,
+                startY: touch.clientY,
+                startOffsetX: offset.x,
+                startOffsetY: offset.y,
+            };
+        }
+    };
+
+    const handleItemTouchStart = (e, item) => {
+        if (!canEdit) return;
+        // Don't stop propagation immediately, let the canvas listeners potentially see it, 
+        // but we manage our own state.
+
+        const touch = e.touches[0];
+        const startX = touch.clientX;
+        const startY = touch.clientY;
+
+        // Clear existing timer if any
+        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+
+        // Start Long Press Timer
+        longPressTimerRef.current = setTimeout(() => {
+            // Long Press Triggered
+            const itemEl = document.getElementById(`brainstorm-item-${item.id}`);
+            if (!itemEl) return;
+
+            // Haptic feedback
+            if (navigator.vibrate) navigator.vibrate(50);
+
+            dragStateRef.current = {
+                isDragging: true,
+                itemId: item.id,
+                itemEl: itemEl,
+                startMouseX: startX, // Use captured start position
+                startMouseY: startY,
+                startItemX: item.position_x,
+                startItemY: item.position_y,
+                zoom: zoom,
+            };
+            setDraggingItemId(item.id);
+
+            // Disable panning when item drag starts
+            panStateRef.current.isPanning = false;
+
+        }, 500); // 500ms long press
+    };
+
+    // Global Event Handlers (Mouse & Touch)
     useEffect(() => {
-        const handleMouseMove = (e) => {
+        const handleMove = (clientX, clientY) => {
             // Handle panning
             const panState = panStateRef.current;
             if (panState.isPanning) {
-                const deltaX = e.clientX - panState.startX;
-                const deltaY = e.clientY - panState.startY;
+                const deltaX = clientX - panState.startX;
+                const deltaY = clientY - panState.startY;
                 onOffsetChange({
                     x: panState.startOffsetX + deltaX,
                     y: panState.startOffsetY + deltaY,
                 });
+
+                // If moved significantly, cancel any long press timers
+                if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                    if (longPressTimerRef.current) {
+                        clearTimeout(longPressTimerRef.current);
+                        longPressTimerRef.current = null;
+                    }
+                }
             }
 
             // Handle item dragging with live visual feedback
             const dragState = dragStateRef.current;
             if (dragState.isDragging && dragState.itemEl) {
-                const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
-                const deltaY = (e.clientY - dragState.startMouseY) / dragState.zoom;
+                const deltaX = (clientX - dragState.startMouseX) / dragState.zoom;
+                const deltaY = (clientY - dragState.startMouseY) / dragState.zoom;
 
                 const newX = dragState.startItemX + deltaX;
                 const newY = dragState.startItemY + deltaY;
@@ -149,48 +213,93 @@ const BrainstormCanvas = ({
             }
         };
 
-        const handleMouseUp = (e) => {
+        const handleEnd = () => {
+            // Clear long press timer
+            if (longPressTimerRef.current) {
+                clearTimeout(longPressTimerRef.current);
+                longPressTimerRef.current = null;
+            }
+
             // Handle panning end
-            const panState = panStateRef.current;
-            if (panState.isPanning) {
+            if (panStateRef.current.isPanning) {
                 panStateRef.current.isPanning = false;
             }
 
             // Handle item drag end
             const dragState = dragStateRef.current;
             if (dragState.isDragging && canEdit) {
-                const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
-                const deltaY = (e.clientY - dragState.startMouseY) / dragState.zoom;
+                // Finalize position
+                // (Using the last known visual position which is tracked in DOM, 
+                // but we need to calculate it relative to start)
+                // Or we could track last known X/Y in handleMove. 
+                // Simple way: read style or re-calc from last event? 
+                // React's event pooling and closing over vars makes "e" hard to use here.
+                // HOWEVER, we don't have "e" here easily for finalize.
+                // But wait, the original logic did re-calculate in mouseup using `e`.
+                // My extracted `handleMove` doesn't expose `e`.
 
-                const newX = Math.max(0, dragState.startItemX + deltaX);
-                const newY = Math.max(0, dragState.startItemY + deltaY);
-
-                // Save the new position to backend
-                onPositionUpdate(dragState.itemId, newX, newY);
-
-                // Reset drag state
-                dragStateRef.current = {
-                    isDragging: false,
-                    itemId: null,
-                    itemEl: null,
-                    startMouseX: 0,
-                    startMouseY: 0,
-                    startItemX: 0,
-                    startItemY: 0,
-                    zoom: 1,
-                };
-                setDraggingItemId(null);
+                // Let's rely on the fact that if we are dragging, the element style matches expectation.
             }
         };
 
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        // Standard Mouse Events
+        const onMouseMove = (e) => handleMove(e.clientX, e.clientY);
+        const onMouseUp = (e) => {
+            // Replicate original logic for update
+            const dragState = dragStateRef.current;
+            if (dragState.isDragging && canEdit) {
+                const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
+                const deltaY = (e.clientY - dragState.startMouseY) / dragState.zoom;
+                const newX = Math.max(0, dragState.startItemX + deltaX);
+                const newY = Math.max(0, dragState.startItemY + deltaY);
+                onPositionUpdate(dragState.itemId, newX, newY);
+
+                dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
+                setDraggingItemId(null);
+            }
+            handleEnd();
+        };
+
+        // Touch Events
+        const onTouchMove = (e) => {
+            if (e.touches.length > 0) {
+                // Prevent default scroll if panning or dragging item
+                if (panStateRef.current.isPanning || dragStateRef.current.isDragging) {
+                    e.preventDefault();
+                }
+                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        };
+        const onTouchEnd = (e) => {
+            // For touch end, we need the last position. `changedTouches` has it.
+            if (dragStateRef.current.isDragging && canEdit && e.changedTouches.length > 0) {
+                const touch = e.changedTouches[0];
+                const dragState = dragStateRef.current;
+                const deltaX = (touch.clientX - dragState.startMouseX) / dragState.zoom;
+                const deltaY = (touch.clientY - dragState.startMouseY) / dragState.zoom;
+                const newX = Math.max(0, dragState.startItemX + deltaX);
+                const newY = Math.max(0, dragState.startItemY + deltaY);
+                onPositionUpdate(dragState.itemId, newX, newY);
+
+                dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
+                setDraggingItemId(null);
+            }
+            handleEnd();
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+        // Passive: false is crucial for preventing scrolling
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd);
 
         return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
         };
-    }, [onOffsetChange, onPositionUpdate, canEdit]);
+    }, [onOffsetChange, onPositionUpdate, canEdit, zoom]);
 
     // Handle zoom with mouse wheel
     const handleWheel = useCallback((e) => {
@@ -223,7 +332,7 @@ const BrainstormCanvas = ({
     return (
         <div
             ref={canvasRef}
-            className="w-full h-full overflow-hidden relative cursor-grab active:cursor-grabbing"
+            className="w-full h-full overflow-hidden relative cursor-grab active:cursor-grabbing touch-none" // touch-none prevents browser default pan/zoom
             style={{
                 backgroundImage: `
           radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px)
@@ -232,10 +341,11 @@ const BrainstormCanvas = ({
                 backgroundPosition: `${offset.x}px ${offset.y}px`,
             }}
             onMouseDown={handleCanvasMouseDown}
+            onTouchStart={handleCanvasTouchStart}
         >
             {/* Items container with transform */}
             <div
-                className="absolute inset-0 canvas-transform-container"
+                className="absolute inset-0 canvas-transform-containerPointer Events None unless children"
                 style={{
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     transformOrigin: '0 0',
@@ -251,7 +361,7 @@ const BrainstormCanvas = ({
                             key={item.id}
                             id={`brainstorm-item-${item.id}`}
                             data-brainstorm-item
-                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${isDragging ? 'cursor-grabbing' : 'cursor-default'}`}
+                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${isDragging ? 'cursor-grabbing z-50 scale-105' : 'cursor-default transition-all duration-300'}`}
                             style={{
                                 left: `${item.position_x}px`,
                                 top: `${item.position_y}px`,
@@ -260,11 +370,12 @@ const BrainstormCanvas = ({
                                 zIndex: isDragging ? 1000 : 1,
                                 opacity: isDragging ? 0.9 : 1,
                             }}
+                            onTouchStart={(e) => handleItemTouchStart(e, item)}
                         >
-                            {/* Drag handle */}
+                            {/* Drag handle (Desktop) */}
                             {canEdit && (
                                 <div
-                                    className="absolute -top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-move"
+                                    className="absolute -top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-move hidden md:block"
                                     onMouseDown={(e) => handleItemDragStart(e, item)}
                                 >
                                     <div className="bg-white dark:bg-gray-800 rounded-full p-1 shadow-md border border-gray-200 dark:border-gray-600">
@@ -284,14 +395,14 @@ const BrainstormCanvas = ({
                             )}
 
                             {/* Card content */}
-                            <div className="p-3">
+                            <div className="p-3 select-none"> {/* select-none helps with touch dragging */}
                                 {/* Image type - show image */}
                                 {item.type === 'image' && item.image_path && (
                                     <div className="mb-2 -mx-1.5 -mt-1.5 rounded-t-xl overflow-hidden">
                                         <img
                                             src={item.image_path}
                                             alt={item.title || 'Brainstorm image'}
-                                            className="w-full h-32 object-cover"
+                                            className="w-full h-32 object-cover pointer-events-none" // prevent image drag on mobile
                                         />
                                     </div>
                                 )}
@@ -331,6 +442,7 @@ const BrainstormCanvas = ({
                                         rel="noopener noreferrer"
                                         className="mt-2 flex items-center gap-2 p-2 bg-white/50 dark:bg-gray-800/50 rounded-lg text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
                                         onClick={(e) => e.stopPropagation()}
+                                        onTouchStart={(e) => e.stopPropagation()} // Allow clicking links without triggering drag
                                     >
                                         <ExternalLink className="w-3 h-3 flex-shrink-0" />
                                         <span className="truncate">{getLinkDomain(item.url)}</span>
@@ -364,6 +476,10 @@ const BrainstormCanvas = ({
                                             e.stopPropagation();
                                             onEditItem(item);
                                         }}
+                                        onTouchEnd={(e) => { // Better mobile touch support for buttons
+                                            e.stopPropagation();
+                                            onEditItem(item);
+                                        }}
                                         className="p-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         title={t('common.edit', 'Edit')}
                                     >
@@ -371,6 +487,12 @@ const BrainstormCanvas = ({
                                     </button>
                                     <button
                                         onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm(t('brainstorm.confirmDelete', 'Delete this item?'))) {
+                                                onDeleteItem(item.id);
+                                            }
+                                        }}
+                                        onTouchEnd={(e) => {
                                             e.stopPropagation();
                                             if (confirm(t('brainstorm.confirmDelete', 'Delete this item?'))) {
                                                 onDeleteItem(item.id);

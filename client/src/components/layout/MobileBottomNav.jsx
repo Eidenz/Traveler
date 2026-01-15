@@ -1,7 +1,7 @@
 // client/src/components/layout/MobileBottomNav.jsx
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut, Lightbulb } from 'lucide-react';
+import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut, Lightbulb, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -22,6 +22,7 @@ const MobileBottomNav = () => {
   // More menu items
   const menuItems = [
     { to: '/calendar', icon: Calendar, label: t('navigation.calendar', 'Calendar') },
+    { to: '/documents', icon: FileText, label: t('navigation.documents', 'Documents') },
     { to: '/brainstorm', icon: Lightbulb, label: t('navigation.brainstorm', 'Brainstorm') },
     { to: '/profile', icon: User, label: t('navigation.profile', 'Profile') },
   ];
@@ -104,21 +105,31 @@ const MobileBottomNav = () => {
           </NavLink>
         ))}
 
-        {/* Center add button */}
-        <NavLink
-          to="/trips/new"
-          className="
-            w-12 h-12 -mt-4
-            bg-accent hover:bg-accent-hover
-            rounded-full shadow-lg
-            flex items-center justify-center
-            text-white
-            transition-all duration-200
-            active:scale-95
-          "
-        >
-          <PlusCircle className="w-6 h-6" />
-        </NavLink>
+        {/* Center add button - only show on dashboard */}
+        {location.pathname === '/' || location.pathname === '/trips' ? (
+          <NavLink
+            to="/trips/new"
+            className="
+              w-12 h-12 -mt-4
+              bg-accent hover:bg-accent-hover
+              rounded-full shadow-lg
+              flex items-center justify-center
+              text-white
+              transition-all duration-200
+              active:scale-95
+            "
+          >
+            <PlusCircle className="w-6 h-6" />
+          </NavLink>
+        ) : (
+          <NavLink
+            to="/brainstorm"
+            className={`bottom-nav-item ${isActive('/brainstorm') ? 'active' : ''}`}
+          >
+            <Lightbulb className="w-5 h-5" />
+            <span>{t('navigation.brainstorm', 'Brainstorm')}</span>
+          </NavLink>
+        )}
 
         {/* Calendar */}
         <NavLink
