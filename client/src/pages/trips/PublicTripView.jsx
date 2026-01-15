@@ -1,7 +1,6 @@
-// client/src/pages/trips/PublicTripView.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Globe, Plane, Bed, Calendar, MapPin, Users, AlertCircle, Map } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Globe, Plane, Bed, Calendar, MapPin, Users, AlertCircle, Map, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
@@ -11,6 +10,7 @@ import TripMap from '../../components/trips/TripMap';
 import TripTimeline from '../../components/trips/TripTimeline';
 import TabNav from '../../components/trips/TabNav';
 import { getImageUrl } from '../../utils/imageUtils';
+import { useSocket } from '../../contexts/SocketContext';
 
 const PublicTripView = () => {
   const { token } = useParams();
@@ -24,6 +24,24 @@ const PublicTripView = () => {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('timeline');
+  const [isResizing, setIsResizing] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('publicTripPanelWidth');
+    return saved ? parseInt(saved, 10) : 520;
+  });
+
+  const layoutContainerRef = useRef(null);
+  const MIN_PANEL_WIDTH = 400;
+  const MAX_PANEL_WIDTH = 800;
+
+  const { connectWithPublicToken } = useSocket();
+
+  // Connect socket with public token
+  useEffect(() => {
+    if (token) {
+      connectWithPublicToken(token);
+    }
+  }, [token, connectWithPublicToken]);
 
   // Mobile map scroll state
   const [mobileMapVisible, setMobileMapVisible] = useState(true);
@@ -56,6 +74,42 @@ const PublicTripView = () => {
     fetchPublicTrip();
   }, [token, navigate, t]);
 
+  // Panel resize handlers
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleResizeMove = useCallback((e) => {
+    if (!isResizing || !layoutContainerRef.current) return;
+    const containerRect = layoutContainerRef.current.getBoundingClientRect();
+    const newWidth = e.clientX - containerRect.left;
+    const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
+    setPanelWidth(clampedWidth);
+  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]);
+
+  const handleResizeEnd = useCallback(() => {
+    if (isResizing) {
+      setIsResizing(false);
+      localStorage.setItem('publicTripPanelWidth', panelWidth.toString());
+    }
+  }, [isResizing, panelWidth]);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, handleResizeMove, handleResizeEnd]);
+
   // Mobile map scroll handling
   const handleMobileScroll = useCallback((e) => {
     const scrollTop = e.target.scrollTop;
@@ -82,6 +136,8 @@ const PublicTripView = () => {
     { id: 'transport', label: t('transportation.title', 'Transport'), count: transportation.length },
     { id: 'lodging', label: t('lodging.title', 'Lodging'), count: lodging.length },
   ];
+
+
 
   if (loading) {
     return (
@@ -137,6 +193,19 @@ const PublicTripView = () => {
             </span>
           </div>
         </div>
+
+        {/* Brainstorm Button */}
+        {trip.is_brainstorm_public ? (
+          <div className="mt-6">
+            <Link
+              to={`/trip/public/${token}/brainstorm`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors font-medium text-sm"
+            >
+              <Lightbulb className="w-4 h-4" />
+              {t('brainstorm.viewBoard', 'View Brainstorming Board')}
+            </Link>
+          </div>
+        ) : <></>}
       </div>
 
       {/* Privacy notice */}
@@ -151,98 +220,9 @@ const PublicTripView = () => {
     </div>
   );
 
-  const TabContent = () => (
-    <>
-      {activeTab === 'timeline' && (
-        <TripTimeline
-          trip={trip}
-          transportation={transportation}
-          lodging={lodging}
-          activities={activities}
-          canEdit={false}
-          isPublicView={true}
-        />
-      )}
 
-      {activeTab === 'transport' && (
-        <div className="p-4 space-y-3">
-          {transportation.length === 0 ? (
-            <div className="text-center py-12">
-              <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">
-                {t('transportation.noTransportation', 'No transportation added')}
-              </p>
-            </div>
-          ) : (
-            transportation.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {item.from_location} → {item.to_location}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
-                    </p>
-                  </div>
-                </div>
-                {item.notes && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
 
-      {activeTab === 'lodging' && (
-        <div className="p-4 space-y-3">
-          {lodging.length === 0 ? (
-            <div className="text-center py-12">
-              <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-              <p className="text-gray-500 dark:text-gray-400">
-                {t('lodging.noLodging', 'No lodging added')}
-              </p>
-            </div>
-          ) : (
-            lodging.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                    <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
-                    </p>
-                  </div>
-                </div>
-                {item.address && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    {item.address}
-                  </p>
-                )}
-                {item.notes && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      )}
-    </>
-  );
+
 
   const MembersFooter = () => (
     <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
@@ -378,7 +358,96 @@ const PublicTripView = () => {
             />
 
             <div className="min-h-[50vh]">
-              <TabContent />
+              {activeTab === 'timeline' && (
+                <TripTimeline
+                  trip={trip}
+                  transportation={transportation}
+                  lodging={lodging}
+                  activities={activities}
+                  canEdit={false}
+                  isPublicView={true}
+                />
+              )}
+
+              {activeTab === 'transport' && (
+                <div className="p-4 space-y-3">
+                  {transportation.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {t('transportation.noTransportation', 'No transportation added')}
+                      </p>
+                    </div>
+                  ) : (
+                    transportation.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              {item.from_location} → {item.to_location}
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
+                            </p>
+                          </div>
+                        </div>
+                        {item.notes && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'lodging' && (
+                <div className="p-4 space-y-3">
+                  {lodging.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {t('lodging.noLodging', 'No lodging added')}
+                      </p>
+                    </div>
+                  ) : (
+                    lodging.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                            <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
+                            </p>
+                          </div>
+                        </div>
+                        {item.address && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {item.address}
+                          </p>
+                        )}
+                        {item.notes && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+
             </div>
 
             <MembersFooter />
@@ -387,11 +456,12 @@ const PublicTripView = () => {
       </div>
 
       {/* Desktop layout */}
-      <div className="hidden md:flex flex-1 overflow-hidden">
+      <div ref={layoutContainerRef} className="hidden md:flex flex-1 overflow-hidden">
         {/* Left Panel */}
-        <div className={`${hasMapboxToken ? 'w-[480px] lg:w-[520px]' : 'w-full'
-          } bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0`}>
-
+        <div
+          className="bg-white dark:bg-gray-800 border-r border-gray-100 dark:border-gray-700 flex flex-col min-h-0 flex-shrink-0"
+          style={{ width: hasMapboxToken ? `${panelWidth}px` : '100%' }}
+        >
           <TripHeader />
 
           {/* Tab navigation */}
@@ -405,11 +475,110 @@ const PublicTripView = () => {
 
           {/* Tab content */}
           <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-            <TabContent />
+            {activeTab === 'timeline' && (
+              <TripTimeline
+                trip={trip}
+                transportation={transportation}
+                lodging={lodging}
+                activities={activities}
+                canEdit={false}
+                isPublicView={true}
+              />
+            )}
+
+            {activeTab === 'transport' && (
+              <div className="p-4 space-y-3">
+                {transportation.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {t('transportation.noTransportation', 'No transportation added')}
+                    </p>
+                  </div>
+                ) : (
+                  transportation.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                          <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {item.from_location} → {item.to_location}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {dayjs(item.departure_date).format('MMM D')} • {item.company || item.type}
+                          </p>
+                        </div>
+                      </div>
+                      {item.notes && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'lodging' && (
+              <div className="p-4 space-y-3">
+                {lodging.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {t('lodging.noLodging', 'No lodging added')}
+                    </p>
+                  </div>
+                ) : (
+                  lodging.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                          <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
+                          </p>
+                        </div>
+                      </div>
+                      {item.address && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {item.address}
+                        </p>
+                      )}
+                      {item.notes && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{item.notes}</p>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+
           </div>
 
           <MembersFooter />
         </div>
+
+        {/* Resize Handle */}
+        {hasMapboxToken && (
+          <div
+            className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-accent hover:w-1.5 cursor-col-resize transition-all duration-150 flex-shrink-0 group relative z-50"
+            onMouseDown={handleResizeStart}
+          >
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-12 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        )}
 
         {/* Right Panel - Map */}
         {hasMapboxToken && (

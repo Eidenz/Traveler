@@ -12,7 +12,8 @@ const {
   updateMemberRole,
   generatePublicShareToken,
   revokePublicShareToken,
-  getTripByPublicToken
+  getTripByPublicToken,
+  toggleBrainstormPublic
 } = require('../controllers/tripController');
 const { getAllTripDocuments } = require('../controllers/documentController');
 const { authenticate, checkTripAccess, requireEditAccess, requireOwnerAccess } = require('../middleware/auth');
@@ -92,5 +93,8 @@ router.post('/:tripId/public-share', requireOwnerAccess, generatePublicShareToke
 
 // Revoke public share token (owner only)
 router.delete('/:tripId/public-share', requireOwnerAccess, revokePublicShareToken);
+
+// Toggle public brainstorming access (owner only)
+router.put('/:tripId/brainstorm-visibility', requireOwnerAccess, toggleBrainstormPublic);
 
 module.exports = router;

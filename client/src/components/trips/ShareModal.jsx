@@ -1,11 +1,12 @@
 // client/src/components/trips/ShareModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Globe, Link2, X, UserMinus, Crown, ChevronDown, Copy, Trash2, ExternalLink } from 'lucide-react';
+import { Globe, Link2, X, UserMinus, Crown, ChevronDown, Copy, Trash2, ExternalLink, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
+import ToggleSwitch from '../ui/ToggleSwitch';
 import { tripAPI } from '../../services/api';
 import { getImageUrl } from '../../utils/imageUtils';
 
@@ -17,17 +18,22 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
     const [shareRole, setShareRole] = useState('viewer');
     const [isSharing, setIsSharing] = useState(false);
     const [publicShareToken, setPublicShareToken] = useState(trip?.public_share_token || null);
+    const [isBrainstormPublic, setIsBrainstormPublic] = useState(false);
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const [isRevokingLink, setIsRevokingLink] = useState(false);
     const [updatingMemberId, setUpdatingMemberId] = useState(null);
     const [removingMemberId, setRemovingMemberId] = useState(null);
 
-    // Update public share token when trip changes
     useEffect(() => {
-        if (trip?.public_share_token !== undefined) {
-            setPublicShareToken(trip.public_share_token);
+        if (trip) {
+            if (trip.public_share_token !== undefined) {
+                setPublicShareToken(trip.public_share_token);
+            }
+            if (trip.is_brainstorm_public !== undefined) {
+                setIsBrainstormPublic(!!trip.is_brainstorm_public);
+            }
         }
-    }, [trip?.public_share_token]);
+    }, [trip]);
 
     // Check if current user is owner
     const isOwner = members.find(m => m.id === currentUserId)?.role === 'owner';
@@ -102,12 +108,30 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
             setIsRevokingLink(true);
             await tripAPI.revokePublicShareToken(tripId);
             setPublicShareToken(null);
+            setIsBrainstormPublic(false); // Reset brainstorming visibility
             toast.success(t('sharing.publicLinkRevoked', 'Public link revoked'));
             onUpdate?.();
         } catch (error) {
             toast.error(error.response?.data?.message || t('errors.deleteFailed'));
         } finally {
             setIsRevokingLink(false);
+        }
+    };
+
+    // Handle toggling brainstorm visibility
+    const handleToggleBrainstormPublic = async (checked) => {
+        const previousValue = isBrainstormPublic;
+        setIsBrainstormPublic(checked);
+        try {
+            await tripAPI.toggleBrainstormPublic(tripId, checked);
+            toast.success(checked
+                ? t('sharing.brainstormVisible', 'Brainstorming is now visible in public link')
+                : t('sharing.brainstormHidden', 'Brainstorming is now hidden from public link')
+            );
+            onUpdate?.();
+        } catch (error) {
+            setIsBrainstormPublic(previousValue);
+            toast.error(t('errors.updateFailed', 'Failed to update settings'));
         }
     };
 
@@ -219,6 +243,27 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
                                         {t('sharing.revoke', 'Revoke')}
                                     </Button>
                                 )}
+                            </div>
+
+                            {/* Brainstorm Toggle */}
+                            <div className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-700 rounded-xl">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-lg">
+                                        <Lightbulb className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                            {t('sharing.shareBrainstorm', 'Share Brainstorming Page')}
+                                        </p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {t('sharing.shareBrainstormDesc', 'Allow public users to view brainstorming ideas')}
+                                        </p>
+                                    </div>
+                                </div>
+                                <ToggleSwitch
+                                    checked={isBrainstormPublic}
+                                    onChange={handleToggleBrainstormPublic}
+                                />
                             </div>
 
                             <p className="text-xs text-gray-500 dark:text-gray-400">

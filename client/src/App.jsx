@@ -51,7 +51,16 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-        <Route path="/trip/public/:token" element={<PublicTripView />} />
+        <Route path="/trip/public/:token" element={
+          <SocketProvider>
+            <PublicTripView />
+          </SocketProvider>
+        } />
+        <Route path="/trip/public/:token/brainstorm" element={
+          <SocketProvider>
+            <Brainstorm />
+          </SocketProvider>
+        } />
 
         {/* App Routes */}
         <Route path="/" element={

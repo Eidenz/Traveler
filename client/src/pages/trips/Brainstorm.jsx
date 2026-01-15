@@ -26,7 +26,7 @@ const ITEM_TYPES = {
 
 const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const { t } = useTranslation();
-    const { tripId: urlTripId } = useParams();
+    const { tripId: urlTripId, token } = useParams();
     const tripId = propTripId || urlTripId;
     const navigate = useNavigate();
     const containerRef = useRef(null);
@@ -63,7 +63,14 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const hasMapboxToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
 
     // Get socket for room members display
-    const { isConnected, roomMembers } = useSocket();
+    const { isConnected, roomMembers, connectWithPublicToken } = useSocket();
+
+    // Connect with public token if present
+    useEffect(() => {
+        if (token) {
+            connectWithPublicToken(token);
+        }
+    }, [token, connectWithPublicToken]);
 
     // Real-time update handlers
     const realtimeHandlers = useMemo(() => ({
@@ -89,28 +96,48 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         emitBrainstormUpdate,
         emitBrainstormDelete,
         emitBrainstormMove
-    } = useRealtimeUpdates(tripId, realtimeHandlers);
+    } = useRealtimeUpdates(tripId || trip?.id, realtimeHandlers);
 
     // Fetch trip and brainstorm data
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const [tripResponse, brainstormResponse] = await Promise.all([
-                tripAPI.getTripById(tripId),
-                brainstormAPI.getBrainstormItems(tripId),
-            ]);
+            if (token) {
+                // Public view fetch
+                const response = await tripAPI.getTripByPublicToken(token);
+                setTrip(response.data.trip);
+                setMembers(response.data.members || []);
+                // Ensure brainstorm items are included in the response or handle empty
+                setItems(response.data.brainstorm_items || []);
 
-            setTrip(tripResponse.data.trip);
-            setMembers(tripResponse.data.members);
-            setItems(brainstormResponse.data.items || []);
+                // Verify public access is allowed
+                if (!response.data.trip.is_brainstorm_public) {
+                    toast.error(t('brainstorm.notPublic', 'Brainstorming is not public for this trip'));
+                    navigate(`/trip/public/${token}`);
+                }
+            } else if (tripId) {
+                // Private view fetch
+                const [tripResponse, brainstormResponse] = await Promise.all([
+                    tripAPI.getTripById(tripId),
+                    brainstormAPI.getBrainstormItems(tripId),
+                ]);
+
+                setTrip(tripResponse.data.trip);
+                setMembers(tripResponse.data.members);
+                setItems(brainstormResponse.data.items || []);
+            }
         } catch (error) {
             console.error('Error fetching data:', error);
             toast.error(t('errors.failedFetch', 'Failed to load data'));
-            navigate('/trips');
+            if (token) {
+                navigate(`/trip/public/${token}`);
+            } else {
+                navigate('/trips');
+            }
         } finally {
             setLoading(false);
         }
-    }, [tripId, navigate, t]);
+    }, [tripId, token, navigate, t]);
 
     useEffect(() => {
         fetchData();
@@ -119,6 +146,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     // Permission helpers
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const canEdit = () => {
+        if (token) return false; // Always read-only for public view
         if (!trip || !members || !user) return false;
         const userMember = members.find(m => m.id === user.id);
         return userMember && (userMember.role === 'owner' || userMember.role === 'editor');
@@ -306,11 +334,11 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     return (
         <>
             {/* Mobile layout */}
-            <div className="md:hidden h-full flex flex-col overflow-hidden">
+            <div className="md:hidden h-screen flex flex-col overflow-hidden">
                 {/* Mobile header */}
                 <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <Link
-                        to={fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
+                        to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
                         className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
                     >
                         <ArrowLeft className="mr-1 h-4 w-4" />
@@ -346,7 +374,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             </div>
 
             {/* Desktop layout */}
-            <div ref={containerRef} className="hidden md:flex h-full overflow-hidden">
+            <div ref={containerRef} className="hidden md:flex h-screen overflow-hidden">
                 {/* Left Panel - Canvas */}
                 <div
                     className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-0 flex-shrink-0 relative"
@@ -356,7 +384,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                     <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                         <div className="flex items-center gap-3">
                             <Link
-                                to={fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
+                                to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
                                 className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                             >
                                 <ArrowLeft className="mr-1 h-4 w-4" />

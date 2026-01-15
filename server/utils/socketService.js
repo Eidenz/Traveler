@@ -27,23 +27,45 @@ function initializeSocket(httpServer) {
     // Authentication middleware
     io.use(async (socket, next) => {
         const token = socket.handshake.auth?.token;
+        const publicToken = socket.handshake.auth?.publicToken;
 
-        if (!token) {
-            return next(new Error('Authentication required'));
-        }
+        if (token) {
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                socket.userId = decoded.userId; // JWT stores userId, not id
 
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-            socket.userId = decoded.userId; // JWT stores userId, not id
+                // Look up user name from database
+                const user = db.prepare('SELECT name FROM users WHERE id = ?').get(decoded.userId);
+                socket.userName = user?.name || 'Anonymous';
 
-            // Look up user name from database
-            const user = db.prepare('SELECT name FROM users WHERE id = ?').get(decoded.userId);
-            socket.userName = user?.name || 'Anonymous';
+                next();
+            } catch (err) {
+                console.error('[Socket] Auth error:', err.message);
+                next(new Error('Invalid token'));
+            }
+        } else if (publicToken) {
+            try {
+                // Validate public token
+                const trip = db.prepare('SELECT id, is_brainstorm_public FROM trips WHERE public_share_token = ?').get(publicToken);
 
-            next();
-        } catch (err) {
-            console.error('[Socket] Auth error:', err.message);
-            next(new Error('Invalid token'));
+                if (trip) {
+                    socket.userId = `public-${socket.id.substring(0, 5)}`; // Temp ID
+                    socket.userName = 'Guest'; // Or 'Public Viewer'
+                    socket.isPublic = true;
+                    socket.publicTripId = trip.id;
+                    // Public users are only allowed to see brainstorming if enabled
+                    socket.publicBrainstormAllowed = !!trip.is_brainstorm_public;
+
+                    next();
+                } else {
+                    next(new Error('Invalid public token'));
+                }
+            } catch (err) {
+                console.error('[Socket] Public auth error:', err.message);
+                next(new Error('Invalid public token'));
+            }
+        } else {
+            next(new Error('Authentication required'));
         }
     });
 
@@ -53,10 +75,22 @@ function initializeSocket(httpServer) {
         socket.on('trip:join', async (tripId) => {
             try {
                 // Verify user has access to this trip
-                const member = db.prepare(`
-          SELECT role FROM trip_members 
-          WHERE trip_id = ? AND user_id = ?
-        `).get(tripId, socket.userId);
+                let member = null;
+
+                if (socket.isPublic) {
+                    // Public user: check if trip ID matches the token's trip
+                    // And check if they are trying to join the trip room 
+                    if (socket.publicTripId === tripId) {
+                        // Mock member object for public users (read-only viewer)
+                        member = { role: 'viewer' };
+                    }
+                } else {
+                    // Authenticated user: check DB
+                    member = db.prepare(`
+                      SELECT role FROM trip_members 
+                      WHERE trip_id = ? AND user_id = ?
+                    `).get(tripId, socket.userId);
+                }
 
                 if (!member) {
                     socket.emit('error', { message: 'Access denied to this trip' });

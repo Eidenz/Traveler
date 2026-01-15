@@ -553,7 +553,8 @@ const getTripByPublicToken = (req, res) => {
       location: trip.location,
       start_date: trip.start_date,
       end_date: trip.end_date,
-      cover_image: trip.cover_image
+      cover_image: trip.cover_image,
+      is_brainstorm_public: trip.is_brainstorm_public
     };
 
     // Get trip members (without email for privacy)
@@ -597,10 +598,38 @@ const getTripByPublicToken = (req, res) => {
       members,
       transportation,
       lodging,
-      activities
+      activities,
+      brainstorm_items: trip.is_brainstorm_public ? db.prepare('SELECT * FROM brainstorm_items WHERE trip_id = ?').all(trip.id) : []
     });
   } catch (error) {
     console.error('Get trip by public token error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+
+/**
+ * Toggle public access to brainstorming page
+ */
+const toggleBrainstormPublic = (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { isPublic } = req.body;
+
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    db.prepare('UPDATE trips SET is_brainstorm_public = ? WHERE id = ?')
+      .run(isPublic ? 1 : 0, tripId);
+
+    return res.status(200).json({
+      message: `Brainstorming page is now ${isPublic ? 'public' : 'private'}`
+    });
+  } catch (error) {
+    console.error('Toggle brainstorm public error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -617,5 +646,6 @@ module.exports = {
   generatePublicShareToken,
   revokePublicShareToken,
   getTripByPublicToken,
+  toggleBrainstormPublic,
   getUserById
 };

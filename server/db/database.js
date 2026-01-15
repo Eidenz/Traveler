@@ -269,6 +269,7 @@ function initializeDatabase() {
       await runPersonalDocumentsMigration(); // Add personal documents migration
       await runDocumentsTripIdMigration(); // Add trip_id to documents
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
+      await runBrainstormPublicShareMigration(); // Add public brainstorm share setting
 
       console.log('Database initialized successfully');
       resolve();
@@ -449,6 +450,24 @@ async function runBrainstormPriorityMigration() {
     if (!error.message.includes('no such table')) {
       console.error('Error in brainstorm priority migration:', error);
     }
+  }
+}
+
+
+/**
+ * Migration for public brainstorm share setting
+ */
+async function runBrainstormPublicShareMigration() {
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(trips)").all();
+    const hasField = tableInfo.some(col => col.name === 'is_brainstorm_public');
+
+    if (!hasField) {
+      db.exec(`ALTER TABLE trips ADD COLUMN is_brainstorm_public INTEGER DEFAULT 0`);
+      console.log('Public brainstorm share field migration completed');
+    }
+  } catch (error) {
+    console.error('Error running public brainstorm share migration:', error);
   }
 }
 

@@ -28,6 +28,7 @@ export const SocketProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [roomMembers, setRoomMembers] = useState([]);
     const [currentTripId, setCurrentTripId] = useState(null);
+    const [publicToken, setPublicToken] = useState(null);
     const reconnectAttempts = useRef(0);
     const maxReconnectAttempts = 5;
 
@@ -44,8 +45,13 @@ export const SocketProvider = ({ children }) => {
 
         const socketUrl = getSocketUrl();
 
+        // Prioritize publicToken if set (e.g. explicitly requested by a public view component)
+        const authOptions = publicToken ? { publicToken } : (token ? { token } : null);
+
+        if (!authOptions) return;
+
         const newSocket = io(socketUrl, {
-            auth: { token },
+            auth: authOptions,
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: maxReconnectAttempts,
@@ -127,7 +133,7 @@ export const SocketProvider = ({ children }) => {
             }
             newSocket.close();
         };
-    }, []);
+    }, [publicToken]); // Re-run if publicToken changes (or initial mount checks local token)
 
     // Join a trip room
     const joinTrip = useCallback((tripId) => {
@@ -171,6 +177,10 @@ export const SocketProvider = ({ children }) => {
         return () => { };
     }, [socket]);
 
+    const connectWithPublicToken = useCallback((token) => {
+        setPublicToken(token);
+    }, []);
+
     const value = {
         socket,
         isConnected,
@@ -179,7 +189,8 @@ export const SocketProvider = ({ children }) => {
         joinTrip,
         leaveTrip,
         emit,
-        subscribe
+        subscribe,
+        connectWithPublicToken
     };
 
     return (

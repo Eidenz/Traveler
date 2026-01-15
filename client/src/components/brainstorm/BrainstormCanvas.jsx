@@ -82,12 +82,15 @@ const BrainstormCanvas = ({
     });
 
     // Handle canvas pan start
-    const handleCanvasMouseDown = (e) => {
+    const handleCanvasMouseDown = useCallback((e) => {
         // Only start panning if clicking on the canvas background (not on items)
         const isCanvasBackground = e.target === canvasRef.current ||
             e.target.classList.contains('canvas-transform-container');
 
         if (e.button === 0 && isCanvasBackground) {
+            e.preventDefault();
+            e.stopPropagation();
+
             panStateRef.current = {
                 isPanning: true,
                 startX: e.clientX,
@@ -95,9 +98,8 @@ const BrainstormCanvas = ({
                 startOffsetX: offset.x,
                 startOffsetY: offset.y,
             };
-            e.preventDefault();
         }
-    };
+    }, [offset.x, offset.y]);
 
     // Start dragging an item
     const handleItemDragStart = (e, item) => {
@@ -332,7 +334,7 @@ const BrainstormCanvas = ({
     return (
         <div
             ref={canvasRef}
-            className="w-full h-full overflow-hidden relative cursor-grab active:cursor-grabbing touch-none" // touch-none prevents browser default pan/zoom
+            className="w-full h-full overflow-hidden relative cursor-grab active:cursor-grabbing touch-none select-none" // touch-none prevents browser default pan/zoom
             style={{
                 backgroundImage: `
           radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px)
@@ -345,7 +347,7 @@ const BrainstormCanvas = ({
         >
             {/* Items container with transform */}
             <div
-                className="absolute inset-0 canvas-transform-containerPointer Events None unless children"
+                className="absolute inset-0 canvas-transform-container pointer-events-none"
                 style={{
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     transformOrigin: '0 0',
@@ -361,7 +363,7 @@ const BrainstormCanvas = ({
                             key={item.id}
                             id={`brainstorm-item-${item.id}`}
                             data-brainstorm-item
-                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${isDragging ? 'cursor-grabbing z-50 scale-105' : 'cursor-default transition-all duration-300'}`}
+                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow pointer-events-auto ${isDragging ? 'cursor-grabbing z-50 scale-105' : 'cursor-default transition-all duration-300'}`}
                             style={{
                                 left: `${item.position_x}px`,
                                 top: `${item.position_y}px`,
