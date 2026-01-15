@@ -1,229 +1,91 @@
-# Travel Companion App
+# Travel Companion
 
-A full-featured travel planning application built with React, Node.js, and SQLite.
+![App Screenshot](https://github.com/user-attachments/assets/7e8bd62c-914e-4f4d-bc5e-8d7c55a5b440)
 
-![image](https://github.com/user-attachments/assets/7e8bd62c-914e-4f4d-bc5e-8d7c55a5b440)
+## Overview
 
-![image](https://github.com/user-attachments/assets/3687e797-69bf-45fc-a03b-561a3e775bfb)
+Travel Companion allows you to manage every aspect of your travel, from transportation and lodging to daily activities and checklists. It features real-time collaboration, budget tracking, and offline support, making it the perfect tool for solo travelers and groups alike.
 
-![image](https://github.com/user-attachments/assets/95e1ecd8-4dd4-478e-b87f-010387f195d9)
+## Key Features
 
-## ⚠️ Disclaimer / AI-Generated Project Warning
+*   **Trip Management**: Create detailed itineraries with drag-and-drop organization using the timeline view.
+*   **Collaborative Planning**: Share trips with friends and family with granular permission controls (View/Edit).
+*   **Budget & Expenses**: Track spending in real-time with multi-currency support and categorical breakdowns.
+*   **Documents**: Store and link PDF tickets, reservations, and files directly to trip items.
+*   **Offline Mode**: Access your full itinerary and saved documents without an internet connection.
+*   **Brainstorming**: A collaborative canvas for ideas, notes, and locations before the plan is finalized.
+*   **Calendar**: Visual overview of all your upcoming trips.
+*   **Mobile Friendly**: Fully responsive design with a dedicated mobile experience, including map integration.
 
-**This project was mostly coded using AI (Claude 3.7 Sonnet Thinking).**
+## Technical Stack
 
-This code is provided as-is. While effort has been made to ensure functionality, it comes with no warranty or guarantee of support.
-
-**Please note:**
-
-- Use of this code is at your own risk.
-- No official support will be provided for setup, usage, customization, or troubleshooting.
-- Community contributions and improvements via pull requests are welcome, but please do not expect personalized assistance.
-
-For any issues or questions, consider consulting online resources, community forums, or attempting to resolve problems independently.
-
-## Features
-
-- **Trip Management**: Create, edit, and delete trips with details
-- **Transportation Tracking**: Log flights, trains, buses, and other transportation
-- **Accommodation Management**: Keep track of hotels and other lodging
-- **Activity Planning**: Plan activities and excursions
-- **Document Storage**: Store tickets, reservations, and other important documents
-- **Trip Sharing**: Share trips with others and manage permissions
-- **Trip Checklists**: Create trip checklists to ensure everyone is ready for the journey
-- **Calendar View**: See all your travel plans in a calendar view
-- **Offline Support**: Access your trips and documents even when offline
-- **Multilingual Support**: Available in multiple languages (English, French)
-- **Dark Mode**: Full dark theme support for comfortable night-time usage
-- **Mobile Responsive**: Fully responsive design for all device sizes
-- **PDF Viewer**: Built-in viewer for PDF documents and tickets
-- **User Profiles**: Edit profile, update password, and manage account
-- **Real-time Permission Management**: Control sharing access levels (view/edit)
-- **Smart Email Notifications**: Batched email notifications to prevent spam when multiple changes are made quickly (configurable delay, default 1 hour)
-
-## Tech Stack
-
-- **Frontend**: React 19, Tailwind CSS, Zustand for state management
-- **Backend**: Node.js, Express
-- **Database**: SQLite (with better-sqlite3)
-- **Authentication**: JWT
-- **File Storage**: Local filesystem
-- **Containerization**: Docker
-- **Internationalization**: i18next for multilingual support
-- **Offline Storage**: IndexedDB for offline data persistence
-- **Documents**: PDF support with built-in viewer
+*   **Frontend**: React, Tailwind CSS, Zustand
+*   **Backend**: Node.js, Express
+*   **Database**: SQLite
+*   **Infrastructure**: Docker
 
 ## Getting Started
 
-### Prerequisites
+### Using Docker (Recommended)
 
-- Docker and Docker Compose
+1.  Clone the repository.
+2.  Configure your environment variables in `docker-compose.yml` or create an `.env` file.
+3.  Run the start script:
+    ```bash
+    ./start.sh
+    ```
+    The application will be accessible at `http://localhost:5000`.
 
-### Production Setup
+### Local Development
 
-This application is configured for production use with:
+1.  Install dependencies:
+    ```bash
+    npm run install-all
+    ```
+2.  Create a `.env` file in the **server** directory (or root, depending on setup) with the required variables.
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+    *   Frontend: `http://localhost:3000`
+    *   Backend: `http://localhost:5000`
 
-- React frontend built as static files and served by Express
-- Node.js backend running in production mode
-- Data persistence through host system folder mapping
-- All services run through a single port (5000)
-- Security headers enabled
+## Configuration
 
-All data (uploads and database) is persisted in the `./data` directory, making backups and migration simpler.
+To run the application, you must configure the following environment variables.
 
-### Running with Docker
+### General
 
-This application can run in both development and production modes with data persistence through host system folders.
+| Variable | Description | Default | Required |
+| :--- | :--- | :--- | :--- |
+| `NODE_ENV` | Environment mode (`production` or `development`) | `development` | No |
+| `PORT` | Port for the backend server | `5000` | No |
+| `JWT_SECRET` | Secret key for session signing | - | **Yes** |
+| `FRONTEND_URL` | Public URL of the app (used in emails) | - | **Yes** |
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/Eidenz/travel-companion.git
-   cd travel-companion
-   ```
+### Email Service (SMTP)
 
-2. Make the start script executable:
-   ```
-   chmod +x start.sh
-   ```
+Required for sending invitations and trip updates.
 
-3. Start the application:
-   
-   **Development Mode** (with hot reloading):
-   ```
-   ./start.sh --development
-   ```
-   
-   The application will be available at:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `EMAIL_HOST` | SMTP server hostname | `smtp.gmail.com` |
+| `EMAIL_PORT` | SMTP port | `587` or `465` |
+| `EMAIL_USER` | SMTP username | `user@gmail.com` |
+| `EMAIL_PASS` | SMTP password or App Password | `secret` |
+| `EMAIL_FROM` | Sender address | `Traveler <noreply@app.com>` |
+| `EMAIL_QUEUE_DURATION_MS` | Batch email notification delay (ms) | `3600000` (1hr) |
+| `EMAIL_PROCESS_INTERVAL_MS` | Notification processing interval (ms) | `300000` (5min) |
 
-   **Production Mode**:
-   ```
-   ./start.sh
-   ```
-   or
-   ```
-   ./start.sh --production
-   ```
-   
-   The application will be available at:
-   - http://localhost:5000 (Server handles both frontend and API)
+### Client / Frontend
 
-#### Please note that production mode requires HTTPS.
+These variables must be available at build time (or runtime for Docker).
 
-### Running without Docker
-
-1. Install dependencies:
-   ```
-   npm run install-all
-   ```
-
-2. Start the development server:
-   ```
-   npm run dev
-   ```
-
-## Environment Variables
-
-The application supports the following optional environment variables for email notification configuration:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `EMAIL_QUEUE_DURATION_MS` | Time to wait before sending batched notifications (in milliseconds) | `3600000` (1 hour) |
-| `EMAIL_PROCESS_INTERVAL_MS` | How often to check for pending notifications (in milliseconds) | `300000` (5 minutes) |
-
-**Example:** To send batched emails after 30 minutes of inactivity:
-```
-EMAIL_QUEUE_DURATION_MS=1800000
-```
-
-## Project Structure
-
-```
-traveler/
-├── client/               # React frontend
-│   ├── public/           # Static assets
-│   └── src/              # Source code
-│       ├── components/   # UI components
-│       ├── layouts/      # Layout components
-│       ├── pages/        # Page components
-│       ├── services/     # API services
-│       └── stores/       # Zustand state stores
-├── server/               # Node.js backend
-│   ├── controllers/      # Route controllers
-│   ├── db/               # Database setup
-│   ├── middleware/       # Express middleware
-│   ├── routes/           # API routes
-│   ├── uploads/          # File uploads storage
-│   └── utils/            # Utility functions
-└── docker-compose.yml    # Docker configuration
-```
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login a user
-- `GET /api/auth/me` - Get current user information
-
-### User Management
-- `GET /api/users/profile` - Get user profile
-- `PUT /api/users/profile` - Update user profile
-- `PUT /api/users/password` - Change user password
-- `DELETE /api/users/account` - Delete user account
-
-### Trips
-- `GET /api/trips` - Get all user trips
-- `GET /api/trips/:tripId` - Get a single trip
-- `POST /api/trips` - Create a new trip
-- `PUT /api/trips/:tripId` - Update a trip
-- `DELETE /api/trips/:tripId` - Delete a trip
-- `POST /api/trips/:tripId/share` - Share a trip with another user
-- `DELETE /api/trips/:tripId/members/:userId` - Remove a user from a trip
-
-### Transportation
-- `GET /api/transportation/trip/:tripId` - Get all transportation for a trip
-- `POST /api/transportation/trip/:tripId` - Add transportation to a trip
-- `PUT /api/transportation/:transportId` - Update transportation
-- `DELETE /api/transportation/:transportId` - Delete transportation
-
-### Lodging
-- `GET /api/lodging/trip/:tripId` - Get all lodging for a trip
-- `POST /api/lodging/trip/:tripId` - Add lodging to a trip
-- `PUT /api/lodging/:lodgingId` - Update lodging
-- `DELETE /api/lodging/:lodgingId` - Delete lodging
-
-### Activities
-- `GET /api/activities/trip/:tripId` - Get all activities for a trip
-- `POST /api/activities/trip/:tripId` - Add activity to a trip
-- `PUT /api/activities/:activityId` - Update activity
-- `DELETE /api/activities/:activityId` - Delete activity
-
-### Documents
-- `POST /api/documents` - Upload a document
-- `GET /api/documents/:documentId` - Get document metadata
-- `GET /api/documents/:documentId/download` - Download a document
-- `GET /api/documents/:documentId/view` - View a document
-- `DELETE /api/documents/:documentId` - Delete a document
-- `GET /api/documents/reference/:reference_type/:reference_id` - Get documents for a reference
-
-## Offline Features
-
-The application supports full offline functionality:
-- Save trips for offline access
-- View all trip details including transportation, lodging, and activities
-- Access saved documents when offline
-- Automatic offline mode detection
-- Visual indicators for offline content
-
-## Multilingual Support
-
-The application includes multilingual support:
-- English (default)
-- French
-- Language switcher in the user interface
-- Automatic language detection based on browser settings
+| Variable | Description | Required |
+| :--- | :--- | :--- |
+| `VITE_MAPBOX_TOKEN` | Mapbox public token for map views | **Yes** (if using maps) |
+| `VITE_API_URL` | Backend API URL (for local dev) | No (defaults to `/api`) |
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License.
