@@ -49,8 +49,6 @@ function initializeSocket(httpServer) {
 
     // Connection handler
     io.on('connection', (socket) => {
-        console.log(`[Socket] User ${socket.userName} (${socket.userId}) connected`);
-
         // Join a trip room
         socket.on('trip:join', async (tripId) => {
             try {
@@ -99,7 +97,6 @@ function initializeSocket(httpServer) {
                         role: member.role
                     });
 
-                    console.log(`[Socket] User ${socket.userName} joined trip:${tripId}`);
                 } else {
                     // Just join the room (for this socket) without broadcasting
                     socket.join(roomName);
@@ -131,8 +128,6 @@ function initializeSocket(httpServer) {
                 userId: socket.userId,
                 userName: socket.userName
             });
-
-            console.log(`[Socket] User ${socket.userName} left trip:${tripId}`);
         });
 
         // Brainstorm events
@@ -268,8 +263,6 @@ function initializeSocket(httpServer) {
 
         // Handle disconnect
         socket.on('disconnect', () => {
-            console.log(`[Socket] User ${socket.userName} (${socket.userId}) disconnected`);
-
             // Remove from all trip rooms
             socket.rooms.forEach(room => {
                 if (room.startsWith('trip:')) {

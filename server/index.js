@@ -201,7 +201,6 @@ app.use((err, req, res, next) => {
 // --- Trip Reminder Cron Job ---
 // Schedule to run every day at 8:00 AM server time
 cron.schedule('0 8 * * *', async () => {
-  console.log('Running daily trip reminder check...');
   try {
     const today = new Date();
     const tomorrow = new Date(today);
@@ -210,8 +209,6 @@ cron.schedule('0 8 * * *', async () => {
 
     // Find trips starting tomorrow
     const tripsStartingTomorrow = db.prepare('SELECT * FROM trips WHERE start_date = ?').all(tomorrowDateString);
-
-    console.log(`Found ${tripsStartingTomorrow.length} trips starting tomorrow.`);
 
     for (const trip of tripsStartingTomorrow) {
       // Get all members of the trip
@@ -223,8 +220,6 @@ cron.schedule('0 8 * * *', async () => {
             `).all(trip.id);
 
       if (members.length === 0) continue;
-
-      console.log(`Processing reminders for trip: ${trip.name} (ID: ${trip.id}) for ${members.length} members.`);
 
       // --- Prepare common email data ---
       const firstLodging = db.prepare('SELECT name, address, confirmation_code FROM lodging WHERE trip_id = ? ORDER BY check_in ASC LIMIT 1').get(trip.id);
@@ -291,7 +286,6 @@ cron.schedule('0 8 * * *', async () => {
         );
       }
     }
-    console.log('Finished daily trip reminder check.');
   } catch (error) {
     console.error('Error running trip reminder job:', error);
   }

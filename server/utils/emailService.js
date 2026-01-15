@@ -52,8 +52,6 @@ const sendEmail = (to, subject, templateName, replacements) => {
     transporter.sendMail(mailOptions, (error, response) => {
       if (error) {
         console.error('Error sending email:', error);
-      } else {
-        console.log('Email sent successfully to:', to);
       }
     });
   });

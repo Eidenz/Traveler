@@ -160,12 +160,10 @@ const TripMap = ({
 
       // Geocode all items
       if (itemsToGeocode.length > 0) {
-        console.log('Geocoding locations:', itemsToGeocode.map(i => i.location));
         const results = [];
         for (const item of itemsToGeocode) {
           const coords = await geocodeLocation(item.location);
           if (coords) {
-            console.log(`Geocoded "${item.location}" to:`, coords);
             results.push({
               ...item,
               lat: coords.lat,
@@ -173,7 +171,6 @@ const TripMap = ({
             });
           }
         }
-        console.log('Geocoded points:', results);
         setGeocodedPoints(results);
       } else {
         setGeocodedPoints([]);

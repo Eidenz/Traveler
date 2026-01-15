@@ -55,7 +55,6 @@ const queueEmailNotification = (tripId, userId, updaterId, updateType, updateDat
     `);
 
         insert.run(tripId, userId, updaterId, updateType, JSON.stringify(updateData));
-        console.log(`Queued ${updateType} notification for user ${userId} on trip ${tripId}`);
     } catch (error) {
         console.error('Error queuing email notification:', error);
     }
@@ -172,7 +171,6 @@ const deleteProcessedNotifications = (notificationIds) => {
 
         const placeholders = notificationIds.map(() => '?').join(',');
         db.prepare(`DELETE FROM email_queue WHERE id IN (${placeholders})`).run(...notificationIds);
-        console.log(`Deleted ${notificationIds.length} processed notifications from queue`);
     } catch (error) {
         console.error('Error deleting processed notifications:', error);
     }
@@ -186,11 +184,8 @@ const processEmailQueue = () => {
         const groupedNotifications = getPendingNotifications();
 
         if (groupedNotifications.length === 0) {
-            console.log('No pending notifications to process');
             return;
         }
-
-        console.log(`Processing ${groupedNotifications.length} batched notifications`);
 
         for (const group of groupedNotifications) {
             const { recipientName, recipientEmail, notifications } = group;
@@ -307,8 +302,6 @@ let processingInterval = null;
  * Start the email queue processor
  */
 const startEmailQueueProcessor = () => {
-    console.log(`Starting email queue processor (queue duration: ${QUEUE_DURATION_MS / 1000 / 60} minutes, check interval: ${PROCESS_INTERVAL_MS / 1000 / 60} minutes)`);
-
     // Process immediately on startup in case there are old notifications
     setTimeout(() => {
         processEmailQueue();
@@ -327,7 +320,6 @@ const stopEmailQueueProcessor = () => {
     if (processingInterval) {
         clearInterval(processingInterval);
         processingInterval = null;
-        console.log('Email queue processor stopped');
     }
 };
 

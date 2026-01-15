@@ -24,8 +24,6 @@ const storage = multer.diskStorage({
     // Create type-specific directories based on field name and mimetype
     let typeDir;
 
-    console.log("type:", file.fieldname);
-    
     // Check if this is a profile image upload
     if (file.fieldname === 'profile_image') {
       typeDir = path.join(uploadsDir, 'profiles');
@@ -47,8 +45,8 @@ const storage = multer.diskStorage({
       typeDir = path.join(uploadsDir, 'activities');
     }
     // Document uploads
-    else if (file.fieldname === 'document' || 
-             ['.pdf','.doc','.docx','.txt'].includes(path.extname(file.originalname))) {
+    else if (file.fieldname === 'document' ||
+      ['.pdf', '.doc', '.docx', '.txt'].includes(path.extname(file.originalname))) {
       typeDir = path.join(uploadsDir, 'documents');
     }
     // Any other image goes to its appropriate folder based on mimetype
@@ -72,12 +70,12 @@ const storage = multer.diskStorage({
     else {
       typeDir = uploadsDir;
     }
-    
+
     // Create directory if it doesn't exist
     if (!fs.existsSync(typeDir)) {
       fs.mkdirSync(typeDir, { recursive: true });
     }
-    
+
     cb(null, typeDir);
   },
   filename: function (req, file, cb) {
@@ -93,11 +91,11 @@ const fileFilter = (req, file, cb) => {
   // Define allowed file types
   const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
   const allowedDocumentTypes = /pdf|doc|docx|txt/;
-  
+
   // Check file type
   const extname = path.extname(file.originalname).toLowerCase();
   const mimetype = file.mimetype;
-  
+
   // Check field name for profile images
   if (file.fieldname === 'profile_image') {
     if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
@@ -118,17 +116,17 @@ const fileFilter = (req, file, cb) => {
   }
   // Check field name and mimetype for documents
   else if (file.fieldname === 'document' || req.originalUrl.includes('/documents')) {
-    if (allowedDocumentTypes.test(extname) || mimetype.includes('pdf') || 
-        mimetype.includes('word') || mimetype.includes('text')) {
+    if (allowedDocumentTypes.test(extname) || mimetype.includes('pdf') ||
+      mimetype.includes('word') || mimetype.includes('text')) {
       return cb(null, true);
     }
   }
   // Default case - accept images and PDFs
   else if ((allowedImageTypes.test(extname) || mimetype.startsWith('image/')) ||
-      (allowedDocumentTypes.test(extname) || mimetype.includes('pdf'))) {
+    (allowedDocumentTypes.test(extname) || mimetype.includes('pdf'))) {
     return cb(null, true);
   }
-  
+
   cb(new Error('Invalid file type. Only allowed file types are accepted.'), false);
 };
 

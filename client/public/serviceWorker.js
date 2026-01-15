@@ -30,7 +30,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(async (cache) => {
-        console.log('[SW] Pre-caching app shell');
         // Cache each file individually so one failure doesn't break everything
         const cachePromises = PRECACHE_URLS.map(async (url) => {
           try {
@@ -56,7 +55,6 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME) {
-              console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
           })

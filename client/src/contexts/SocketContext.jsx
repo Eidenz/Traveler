@@ -43,7 +43,6 @@ export const SocketProvider = ({ children }) => {
         }
 
         const socketUrl = getSocketUrl();
-        console.log('[Socket] Connecting to:', socketUrl);
 
         const newSocket = io(socketUrl, {
             auth: { token },
@@ -56,7 +55,6 @@ export const SocketProvider = ({ children }) => {
         });
 
         newSocket.on('connect', () => {
-            console.log('[Socket] Connected');
             setIsConnected(true);
             reconnectAttempts.current = 0;
 
@@ -67,7 +65,6 @@ export const SocketProvider = ({ children }) => {
         });
 
         newSocket.on('disconnect', (reason) => {
-            console.log('[Socket] Disconnected:', reason);
             setIsConnected(false);
             setRoomMembers([]);
         });
@@ -75,10 +72,6 @@ export const SocketProvider = ({ children }) => {
         newSocket.on('connect_error', (error) => {
             console.error('[Socket] Connection error:', error.message);
             reconnectAttempts.current++;
-
-            if (reconnectAttempts.current >= maxReconnectAttempts) {
-                console.log('[Socket] Max reconnection attempts reached');
-            }
         });
 
         newSocket.on('error', (error) => {
@@ -141,10 +134,8 @@ export const SocketProvider = ({ children }) => {
         if (socket && isConnected && tripId) {
             // Only join if not already in this room
             if (currentTripId === tripId) {
-                console.log('[Socket] Already in trip:', tripId);
                 return;
             }
-            console.log('[Socket] Joining trip:', tripId);
             socket.emit('trip:join', tripId);
             setCurrentTripId(tripId);
             currentTripIdRef.current = tripId; // Keep ref in sync
@@ -155,7 +146,6 @@ export const SocketProvider = ({ children }) => {
     const leaveTrip = useCallback((forceTripId = null) => {
         const tripIdToLeave = forceTripId || currentTripId;
         if (socket && tripIdToLeave) {
-            console.log('[Socket] Leaving trip:', tripIdToLeave);
             socket.emit('trip:leave', tripIdToLeave);
             if (!forceTripId || forceTripId === currentTripId) {
                 setCurrentTripId(null);
@@ -249,7 +239,6 @@ export const useSocketRouteWatcher = (pathname) => {
 
         // If we were on a trip page and now we're not, leave the room
         if (wasTripPage && !isTripPage && currentTripId) {
-            console.log('[Socket] Navigating away from trip pages, leaving room');
             leaveTrip();
         }
 
