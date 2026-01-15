@@ -1,5 +1,5 @@
 // client/src/pages/trips/Brainstorm.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -12,6 +12,8 @@ import BrainstormCanvas from '../../components/brainstorm/BrainstormCanvas';
 import BrainstormMap from '../../components/brainstorm/BrainstormMap';
 import BrainstormItemModal from '../../components/brainstorm/BrainstormItemModal';
 import Button from '../../components/ui/Button';
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
+import { useSocket } from '../../contexts/SocketContext';
 
 // Item type configuration
 const ITEM_TYPES = {
@@ -59,6 +61,35 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
     // Check for Mapbox token
     const hasMapboxToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
+
+    // Get socket for room members display
+    const { isConnected, roomMembers } = useSocket();
+
+    // Real-time update handlers
+    const realtimeHandlers = useMemo(() => ({
+        onBrainstormCreate: (item) => {
+            setItems(prev => [item, ...prev]);
+        },
+        onBrainstormUpdate: (item) => {
+            setItems(prev => prev.map(i => i.id === item.id ? item : i));
+        },
+        onBrainstormDelete: (itemId) => {
+            setItems(prev => prev.filter(i => i.id !== itemId));
+        },
+        onBrainstormMove: ({ itemId, position_x, position_y }) => {
+            setItems(prev => prev.map(i =>
+                i.id === itemId ? { ...i, position_x, position_y } : i
+            ));
+        }
+    }), []);
+
+    // Initialize real-time updates
+    const {
+        emitBrainstormCreate,
+        emitBrainstormUpdate,
+        emitBrainstormDelete,
+        emitBrainstormMove
+    } = useRealtimeUpdates(tripId, realtimeHandlers);
 
     // Fetch trip and brainstorm data
     const fetchData = useCallback(async () => {
@@ -173,6 +204,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         try {
             await brainstormAPI.deleteBrainstormItem(itemId, tripId);
             setItems(prev => prev.filter(item => item.id !== itemId));
+            emitBrainstormDelete(itemId); // Broadcast to other users
             toast.success(t('brainstorm.deleted', 'Item deleted'));
         } catch (error) {
             console.error('Error deleting item:', error);
@@ -187,6 +219,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             setItems(prev => prev.map(item =>
                 item.id === itemId ? { ...item, position_x, position_y } : item
             ));
+            emitBrainstormMove(itemId, position_x, position_y); // Broadcast to other users
         } catch (error) {
             console.error('Error updating position:', error);
         }
@@ -197,13 +230,17 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         try {
             if (editingItem) {
                 const response = await brainstormAPI.updateBrainstormItem(editingItem.id, itemData, tripId);
+                const updatedItem = response.data.item;
                 setItems(prev => prev.map(item =>
-                    item.id === editingItem.id ? response.data.item : item
+                    item.id === editingItem.id ? updatedItem : item
                 ));
+                emitBrainstormUpdate(updatedItem); // Broadcast to other users
                 toast.success(t('brainstorm.updated', 'Item updated'));
             } else {
                 const response = await brainstormAPI.createBrainstormItem(tripId, itemData);
-                setItems(prev => [response.data.item, ...prev]);
+                const newItem = response.data.item;
+                setItems(prev => [newItem, ...prev]);
+                emitBrainstormCreate(newItem); // Broadcast to other users
                 toast.success(t('brainstorm.created', 'Item created'));
             }
             setIsModalOpen(false);

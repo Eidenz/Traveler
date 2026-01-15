@@ -537,5 +537,15 @@
     "serverError": "Erreur du serveur",
     "failedFetch": "Échec du chargement des voyages",
     "invalidLink": "Lien de partage invalide ou expiré"
+  },
+  "realtime": {
+    "live": "En direct",
+    "userJoined": "{{name}} a rejoint",
+    "userLeft": "{{name}} est parti",
+    "editing": "{{count}} en édition",
+    "moreUsers": "{{count}} autres utilisateurs",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "reconnecting": "Reconnexion..."
   }
 }

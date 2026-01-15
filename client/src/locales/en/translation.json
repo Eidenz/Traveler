@@ -537,5 +537,15 @@
     "serverError": "Server error",
     "failedFetch": "Failed to load trips",
     "invalidLink": "Invalid or expired share link"
+  },
+  "realtime": {
+    "live": "Live",
+    "userJoined": "{{name}} joined",
+    "userLeft": "{{name}} left",
+    "editing": "{{count}} editing",
+    "moreUsers": "{{count}} more users",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "reconnecting": "Reconnecting..."
   }
 }

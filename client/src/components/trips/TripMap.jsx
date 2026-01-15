@@ -228,6 +228,15 @@ const TripMap = ({
       return () => {
         clearTimeout(resizeTimeout);
         resizeObserver.disconnect();
+        // Clean up markers
+        markersRef.current.forEach(item => {
+          if (item && item.marker && typeof item.marker.remove === 'function') {
+            item.marker.remove();
+          } else if (item && typeof item.remove === 'function') {
+            item.remove();
+          }
+        });
+        markersRef.current = [];
         if (map.current) {
           map.current.remove();
           map.current = null;
@@ -237,164 +246,246 @@ const TripMap = ({
       console.error('Map initialization error:', error);
       setHasToken(false);
     }
-  }, [hasToken, getMapPoints, getCenter, mapStyle]);
+    // Note: We intentionally exclude getMapPoints and getCenter from dependencies
+    // because we only want to initialize the map once. Marker updates are handled
+    // by the separate marker update effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasToken, mapStyle]);
 
-  // Update markers when data changes
+  // Helper to create a marker element
+  const createMarkerElement = useCallback((point, isSelected) => {
+    const el = document.createElement('div');
+    el.className = 'map-marker-wrapper';
+    el.dataset.pointId = point.id;
+
+    const isMain = point.isMain;
+
+    // Different styles based on type
+    let bgColor = '#0f1419';
+    let content = '📍';
+
+    if (point.type === 'trip' && isMain) {
+      bgColor = '#e63946';
+      content = '🎯';
+    } else if (point.type === 'activity') {
+      bgColor = isSelected ? '#e63946' : '#8b5cf6';
+      content = `<span style="color: white; font-weight: 600; font-size: 14px;">${point.stepNumber}</span>`;
+    } else if (point.type === 'lodging') {
+      bgColor = '#10b981';
+      content = '🏨';
+    }
+
+    el.innerHTML = `
+      <div class="map-marker" style="
+        width: ${isMain ? '40px' : '36px'};
+        height: ${isMain ? '40px' : '36px'};
+        background: ${bgColor};
+        border: 3px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${isMain ? '16px' : '12px'};
+        transition: all 0.2s ease;
+        ${isSelected ? 'transform: scale(1.2);' : ''}
+      ">
+        ${content}
+      </div>
+      <div class="marker-tooltip" style="
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        margin-bottom: 8px;
+        color: #1f2937;
+      ">
+        ${point.stepNumber ? `Step ${point.stepNumber}: ` : ''}${point.name}
+      </div>
+    `;
+
+    // Hover effects
+    el.addEventListener('mouseenter', () => {
+      const markerEl = el.querySelector('.map-marker');
+      const tooltipEl = el.querySelector('.marker-tooltip');
+      if (markerEl) markerEl.style.transform = 'scale(1.2)';
+      if (tooltipEl) tooltipEl.style.opacity = '1';
+    });
+
+    el.addEventListener('mouseleave', () => {
+      const markerEl = el.querySelector('.map-marker');
+      const tooltipEl = el.querySelector('.marker-tooltip');
+      if (!isSelected && markerEl) {
+        markerEl.style.transform = 'scale(1)';
+      }
+      if (tooltipEl) tooltipEl.style.opacity = '0';
+    });
+
+    return el;
+  }, []);
+
+  // Update markers when data changes - optimized to avoid full refresh
   useEffect(() => {
     if (!map.current || !isLoaded) return;
 
-    // Remove existing markers
-    markersRef.current.forEach(marker => marker.remove());
-    markersRef.current = [];
-
     const points = getMapPoints();
 
-    // Add connecting lines between activity points
-    if (points.length > 1 && map.current.getSource('route')) {
-      map.current.removeLayer('route');
-      map.current.removeSource('route');
+    // Check if map style is fully loaded before modifying sources
+    if (!map.current.isStyleLoaded()) {
+      map.current.once('style.load', () => {
+        setIsLoaded(true);
+      });
+      return;
     }
 
-    // Get activity points in order for route line
+    // Track which marker IDs we've seen
+    const existingMarkerIds = new Set();
+
+    // Get activity points for route line
     const activityPoints = points.filter(p => p.type === 'activity');
-    if (activityPoints.length > 1) {
-      const lineCoordinates = activityPoints.map(p => [p.lng, p.lat]);
+    const lineCoordinates = activityPoints.length > 1
+      ? activityPoints.map(p => [p.lng, p.lat])
+      : [];
 
-      map.current.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: lineCoordinates
-          }
+    // Update or create route source/layer
+    const routeSource = map.current.getSource('route');
+    if (lineCoordinates.length > 1) {
+      const routeData = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: lineCoordinates
         }
-      });
+      };
 
-      map.current.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#8b5cf6',
-          'line-width': 3,
-          'line-opacity': 0.6,
-          'line-dasharray': [2, 2]
+      if (routeSource) {
+        // Update existing source data in-place
+        routeSource.setData(routeData);
+      } else {
+        // Create new source and layer
+        try {
+          map.current.addSource('route', {
+            type: 'geojson',
+            data: routeData
+          });
+          map.current.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#8b5cf6',
+              'line-width': 3,
+              'line-opacity': 0.6,
+              'line-dasharray': [2, 2]
+            }
+          });
+        } catch (e) {
+          console.warn('Error adding route layer:', e);
         }
-      });
+      }
+    } else if (routeSource) {
+      // Remove route if no longer needed
+      try {
+        if (map.current.getLayer('route')) {
+          map.current.removeLayer('route');
+        }
+        map.current.removeSource('route');
+      } catch (e) {
+        // Ignore errors
+      }
     }
 
-    // Add markers for each point
-    points.forEach((point, index) => {
-      // Create custom marker element
-      const el = document.createElement('div');
-      el.className = 'map-marker-wrapper';
-
-      const isSelected = point.data?.id === selectedActivityId;
-      const isMain = point.isMain;
-
-      // Different styles based on type
-      let bgColor = '#0f1419';
-      let content = '📍';
-
-      if (point.type === 'trip' && isMain) {
-        bgColor = '#e63946';
-        content = '🎯';
-      } else if (point.type === 'activity') {
-        bgColor = isSelected ? '#e63946' : '#8b5cf6';
-        // Show step number instead of emoji
-        content = `<span style="color: white; font-weight: 600; font-size: 14px;">${point.stepNumber}</span>`;
-      } else if (point.type === 'lodging') {
-        bgColor = '#10b981';
-        content = '🏨';
+    // Update existing markers or add new ones
+    const existingMarkersMap = new Map();
+    markersRef.current.forEach((item) => {
+      // Handle both old format (just marker) and new format ({id, marker, element})
+      if (item && item.id && item.marker) {
+        existingMarkersMap.set(item.id, { marker: item.marker, element: item.element });
+      } else if (item && typeof item.remove === 'function') {
+        // Old format marker without ID - remove it
+        item.remove();
       }
-
-      el.innerHTML = `
-        <div class="map-marker" style="
-          width: ${isMain ? '40px' : '36px'};
-          height: ${isMain ? '40px' : '36px'};
-          background: ${bgColor};
-          border: 3px solid white;
-          border-radius: 50%;
-          cursor: pointer;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: ${isMain ? '16px' : '12px'};
-          transition: all 0.2s ease;
-          ${isSelected ? 'transform: scale(1.2);' : ''}
-        ">
-          ${content}
-        </div>
-        <div class="marker-tooltip" style="
-          position: absolute;
-          bottom: 100%;
-          left: 50%;
-          transform: translateX(-50%);
-          background: white;
-          padding: 6px 10px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 500;
-          white-space: nowrap;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.2s;
-          margin-bottom: 8px;
-          color: #1f2937;
-        ">
-          ${point.stepNumber ? `Step ${point.stepNumber}: ` : ''}${point.name}
-        </div>
-      `;
-
-      // Click handler for activities
-      if (point.type === 'activity' && point.data) {
-        el.addEventListener('click', () => {
-          if (onActivityClick) onActivityClick(point.data);
-        });
-      }
-
-      // Hover effects
-      el.addEventListener('mouseenter', () => {
-        el.querySelector('.map-marker').style.transform = 'scale(1.2)';
-        el.querySelector('.marker-tooltip').style.opacity = '1';
-      });
-
-      el.addEventListener('mouseleave', () => {
-        if (!isSelected) {
-          el.querySelector('.map-marker').style.transform = 'scale(1)';
-        }
-        el.querySelector('.marker-tooltip').style.opacity = '0';
-      });
-
-      const marker = new mapboxgl.Marker(el)
-        .setLngLat([point.lng, point.lat])
-        .addTo(map.current);
-
-      markersRef.current.push(marker);
     });
 
+    const newMarkers = [];
+
+    points.forEach((point) => {
+      const isSelected = point.data?.id === selectedActivityId;
+      existingMarkerIds.add(point.id);
+
+      const existing = existingMarkersMap.get(point.id);
+
+      if (existing) {
+        // Update existing marker position if changed
+        const currentPos = existing.marker.getLngLat();
+        if (currentPos.lng !== point.lng || currentPos.lat !== point.lat) {
+          existing.marker.setLngLat([point.lng, point.lat]);
+        }
+
+        // Update marker styling if selection changed
+        const markerEl = existing.element.querySelector('.map-marker');
+        if (markerEl && point.type === 'activity') {
+          const newBg = isSelected ? '#e63946' : '#8b5cf6';
+          markerEl.style.background = newBg;
+          markerEl.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)';
+        }
+
+        newMarkers.push({ id: point.id, marker: existing.marker, element: existing.element });
+      } else {
+        // Create new marker
+        const el = createMarkerElement(point, isSelected);
+
+        // Add click handler for activities
+        if (point.type === 'activity' && point.data) {
+          el.addEventListener('click', () => {
+            if (onActivityClick) onActivityClick(point.data);
+          });
+        }
+
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat([point.lng, point.lat])
+          .addTo(map.current);
+
+        newMarkers.push({ id: point.id, marker, element: el });
+      }
+    });
+
+    // Remove markers that no longer exist in points
+    existingMarkersMap.forEach(({ marker }, id) => {
+      if (!existingMarkerIds.has(id)) {
+        marker.remove();
+      }
+    });
+
+    markersRef.current = newMarkers;
+
     // Fit bounds to show all markers - ONLY on initial load
-    // After that, preserve user's pan/zoom position
     if (points.length > 0 && !initialFitDoneRef.current) {
       const coordinates = points.map(p => [p.lng, p.lat]);
 
       if (coordinates.length === 1) {
-        // Single point - just center on it
         map.current.flyTo({
           center: coordinates[0],
           zoom: 13,
           duration: 1000,
         });
       } else {
-        // Multiple points - fit bounds
         const bounds = coordinates.reduce((bounds, coord) => {
           return bounds.extend(coord);
         }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
@@ -406,10 +497,9 @@ const TripMap = ({
         });
       }
 
-      // Mark initial fit as done
       initialFitDoneRef.current = true;
     }
-  }, [getMapPoints, isLoaded, selectedActivityId, onActivityClick]);
+  }, [getMapPoints, isLoaded, selectedActivityId, onActivityClick, createMarkerElement]);
 
   // Handle style change
   const toggleMapStyle = () => {

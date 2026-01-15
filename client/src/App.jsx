@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
+import { SocketProvider } from './contexts/SocketContext';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -54,7 +55,9 @@ function App() {
         {/* App Routes */}
         <Route path="/" element={
           <ProtectedRoute>
-            <AppLayout />
+            <SocketProvider>
+              <AppLayout />
+            </SocketProvider>
           </ProtectedRoute>
         }>
           <Route index element={<Navigate to="/dashboard" replace />} />

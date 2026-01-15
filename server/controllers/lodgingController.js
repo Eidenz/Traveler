@@ -2,6 +2,7 @@
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
+const { emitToTrip } = require('../utils/socketService');
 const path = require('path'); // Import path
 const fs = require('fs'); // Import fs
 
@@ -127,6 +128,9 @@ const createLodging = (req, res) => {
       location: trip.location
     });
 
+    // Broadcast to other users viewing this trip
+    emitToTrip(tripId, 'lodging:created', lodging);
+
     return res.status(201).json({
       message: 'Lodging added successfully',
       lodging
@@ -212,6 +216,9 @@ const updateLodging = (req, res) => {
     // Get updated lodging
     const updatedLodging = db.prepare('SELECT * FROM lodging WHERE id = ?').get(lodgingId);
 
+    // Broadcast to other users viewing this trip
+    emitToTrip(updatedLodging.trip_id, 'lodging:updated', updatedLodging);
+
     return res.status(200).json({
       message: 'Lodging updated successfully',
       lodging: updatedLodging
@@ -281,6 +288,9 @@ const deleteLodging = (req, res) => {
 
       // Commit transaction
       db.prepare('COMMIT').run();
+
+      // Broadcast to other users viewing this trip
+      emitToTrip(lodging.trip_id, 'lodging:deleted', lodgingId);
 
       return res.status(200).json({
         message: 'Lodging deleted successfully'

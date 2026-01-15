@@ -2,6 +2,9 @@
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
+const { emitToTrip } = require('../utils/socketService');
+const path = require('path');
+const fs = require('fs');
 
 // Helper to get trip members who should receive notifications
 const getTripMembersForNotification = (tripId, excludeUserId) => {
@@ -146,6 +149,9 @@ const createTransportation = (req, res) => {
       location: trip.location
     });
 
+    // Broadcast to other users viewing this trip
+    emitToTrip(tripId, 'transport:created', transportation);
+
     return res.status(201).json({
       message: 'Transportation added successfully',
       transportation
@@ -238,7 +244,8 @@ const updateTransportation = (req, res) => {
     // Get updated transportation
     const updatedTransportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(transportId);
 
-    // Note: Could add email notification for updates too, but sticking to creation for now per request.
+    // Broadcast to other users viewing this trip
+    emitToTrip(updatedTransportation.trip_id, 'transport:updated', updatedTransportation);
 
     return res.status(200).json({
       message: 'Transportation updated successfully',
@@ -310,6 +317,9 @@ const deleteTransportation = (req, res) => {
 
       // Commit transaction
       db.prepare('COMMIT').run();
+
+      // Broadcast to other users viewing this trip
+      emitToTrip(transportation.trip_id, 'transport:deleted', transportId);
 
       return res.status(200).json({
         message: 'Transportation deleted successfully'

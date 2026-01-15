@@ -2,6 +2,7 @@
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
+const { emitToTrip } = require('../utils/socketService');
 const path = require('path'); // Import path
 const fs = require('fs'); // Import fs
 
@@ -127,6 +128,9 @@ const createActivity = (req, res) => {
       location: trip.location
     });
 
+    // Broadcast to other users viewing this trip
+    emitToTrip(tripId, 'activity:created', activity);
+
     return res.status(201).json({
       message: 'Activity added successfully',
       activity
@@ -212,6 +216,9 @@ const updateActivity = (req, res) => {
     // Get updated activity
     const updatedActivity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
 
+    // Broadcast to other users viewing this trip
+    emitToTrip(updatedActivity.trip_id, 'activity:updated', updatedActivity);
+
     return res.status(200).json({
       message: 'Activity updated successfully',
       activity: updatedActivity
@@ -281,6 +288,9 @@ const deleteActivity = (req, res) => {
 
       // Commit transaction
       db.prepare('COMMIT').run();
+
+      // Broadcast to other users viewing this trip
+      emitToTrip(activity.trip_id, 'activity:deleted', activityId);
 
       return res.status(200).json({
         message: 'Activity deleted successfully'

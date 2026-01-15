@@ -1,5 +1,5 @@
 // client/src/pages/trips/TripDetail.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown
@@ -15,6 +15,10 @@ import {
   isTripAvailableOffline, saveTripOffline, removeTripOffline,
   getDocumentsForReference, getTripOffline
 } from '../../utils/offlineStorage';
+
+// Real-time collaboration
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
+import CollaboratorsIndicator from '../../components/realtime/CollaboratorsIndicator';
 
 // Components
 import Button from '../../components/ui/Button';
@@ -100,6 +104,67 @@ const TripDetail = () => {
 
   // Check if Mapbox token is available
   const hasMapboxToken = import.meta.env.VITE_MAPBOX_TOKEN && import.meta.env.VITE_MAPBOX_TOKEN !== '';
+
+  // Real-time update handlers
+  const realtimeHandlers = useMemo(() => ({
+    onActivityCreate: (activity) => {
+      setActivities(prev => [...prev, activity]);
+    },
+    onActivityUpdate: (activity) => {
+      setActivities(prev => prev.map(a => a.id === activity.id ? activity : a));
+    },
+    onActivityDelete: (activityId) => {
+      setActivities(prev => prev.filter(a => a.id !== activityId));
+    },
+    onLodgingCreate: (lodging) => {
+      setLodging(prev => [...prev, lodging]);
+    },
+    onLodgingUpdate: (updatedLodging) => {
+      setLodging(prev => prev.map(l => l.id === updatedLodging.id ? updatedLodging : l));
+    },
+    onLodgingDelete: (lodgingId) => {
+      setLodging(prev => prev.filter(l => l.id !== lodgingId));
+    },
+    onTransportCreate: (transport) => {
+      setTransportation(prev => [...prev, transport]);
+    },
+    onTransportUpdate: (updatedTransport) => {
+      setTransportation(prev => prev.map(t => t.id === updatedTransport.id ? updatedTransport : t));
+    },
+    onTransportDelete: (transportId) => {
+      setTransportation(prev => prev.filter(t => t.id !== transportId));
+    },
+    onTripUpdate: (updatedTrip) => {
+      setTrip(prev => ({ ...prev, ...updatedTrip }));
+    },
+    onMemberAdd: (member) => {
+      setMembers(prev => [...prev, member]);
+    },
+    onMemberRemove: (userId) => {
+      setMembers(prev => prev.filter(m => m.id !== userId));
+    },
+    onMemberRoleChange: ({ userId, role }) => {
+      setMembers(prev => prev.map(m => m.id === userId ? { ...m, role } : m));
+    }
+  }), []);
+
+  // Initialize real-time updates
+  const {
+    isConnected: isRealtimeConnected,
+    emitActivityCreate,
+    emitActivityUpdate,
+    emitActivityDelete,
+    emitLodgingCreate,
+    emitLodgingUpdate,
+    emitLodgingDelete,
+    emitTransportCreate,
+    emitTransportUpdate,
+    emitTransportDelete,
+    emitTripUpdate,
+    emitMemberAdd,
+    emitMemberRemove,
+    emitMemberRoleChange
+  } = useRealtimeUpdates(tripId, realtimeHandlers);
 
   // Fetch trip data
   useEffect(() => {

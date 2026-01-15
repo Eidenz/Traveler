@@ -1,13 +1,17 @@
 // server/index.js
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const helmet = require('helmet');
 const multer = require('multer');
 const fs = require('fs');
-const cron = require('node-cron'); // Added
+const cron = require('node-cron');
 require('dotenv').config();
+
+// Socket.IO
+const { initializeSocket } = require('./utils/socketService');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -306,9 +310,14 @@ initializeDatabase()
     // Start the email queue processor
     startEmailQueueProcessor();
 
+    // Create HTTP server and attach Socket.IO
+    const httpServer = http.createServer(app);
+    initializeSocket(httpServer);
+
     // Listen on all network interfaces (0.0.0.0) instead of just localhost
-    app.listen(PORT, '0.0.0.0', () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
+      console.log(`Real-time collaboration enabled via Socket.IO`);
       console.log(`Access the app at http://localhost:${PORT} or http://<your-ip-address>:${PORT}`);
     });
   })
