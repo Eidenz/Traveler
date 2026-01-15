@@ -95,9 +95,12 @@ const TripDetail = () => {
   // Mobile map scroll state
   const [mobileMapVisible, setMobileMapVisible] = useState(true);
   const [mobileMapHeight] = useState(280); // Height of mobile map in pixels
+  const [isSheetMinimized, setIsSheetMinimized] = useState(false);
   const mobileScrollRef = useRef(null);
   const lastScrollY = useRef(0);
   const scrollThreshold = 50; // Pixels before map starts hiding
+  const latchDragStartY = useRef(0);
+  const isDraggingLatch = useRef(false);
 
   // Note: Share state is now managed in ShareModal component
 
@@ -271,6 +274,9 @@ const TripDetail = () => {
 
   // Mobile map scroll handling
   const handleMobileScroll = useCallback((e) => {
+    // If minimized or dragging, don't auto-hide/show map based on scroll
+    if (isSheetMinimized || isDraggingLatch.current) return;
+
     const scrollTop = e.target.scrollTop;
     const scrollDelta = scrollTop - lastScrollY.current;
 
@@ -284,7 +290,41 @@ const TripDetail = () => {
     }
 
     lastScrollY.current = scrollTop;
-  }, [scrollThreshold]);
+  }, [scrollThreshold, isSheetMinimized]);
+
+  // Latch Drag Handlers
+  const handleLatchTouchStart = (e) => {
+    latchDragStartY.current = e.touches[0].clientY;
+    isDraggingLatch.current = true;
+    e.stopPropagation(); // Prevent scroll
+  };
+
+  const handleLatchTouchMove = (e) => {
+    if (!isDraggingLatch.current || !mobileScrollRef.current) return;
+    e.preventDefault(); // Prevent scroll while dragging latch
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - latchDragStartY.current;
+
+    // Optional: Add visual feedback via transform during drag if desired
+    // For now, simple snap logic on release
+  };
+
+  const handleLatchTouchEnd = (e) => {
+    if (!isDraggingLatch.current) return;
+    const endY = e.changedTouches[0].clientY;
+    const deltaY = endY - latchDragStartY.current;
+    isDraggingLatch.current = false;
+
+    // Dragged DOWN (positive delta) -> Minimize Sheet (Show Full Map)
+    if (deltaY > 50 && !isSheetMinimized) {
+      setIsSheetMinimized(true);
+      setMobileMapVisible(true); // Ensure map is visible behind
+    }
+    // Dragged UP (negative delta) -> Restore Sheet (Partial Map)
+    else if (deltaY < -50 && isSheetMinimized) {
+      setIsSheetMinimized(false);
+    }
+  };
 
   // Function to toggle mobile map visibility
   const toggleMobileMap = () => {
@@ -522,9 +562,10 @@ const TripDetail = () => {
           <div
             className="absolute top-0 left-0 right-0 z-0 transition-all duration-300 ease-out"
             style={{
-              height: `${mobileMapHeight}px`,
+              height: isSheetMinimized ? '100%' : `${mobileMapHeight}px`, // Full height when minimized
               transform: mobileMapVisible ? 'translateY(0)' : `translateY(-${mobileMapHeight - 60}px)`,
               opacity: mobileMapVisible ? 1 : 0.5,
+              zIndex: isSheetMinimized ? 0 : 0
             }}
           >
             <TripMap
@@ -534,11 +575,11 @@ const TripDetail = () => {
               lodging={lodging}
               onActivityClick={handleOpenActivityModal}
               selectedActivityId={selectedActivityId}
-              compact={true}
+              compact={!isSheetMinimized} // Full controls when minimized
             />
 
-            {/* Map toggle button when hidden */}
-            {!mobileMapVisible && (
+            {/* Map toggle button when hidden - only show if NOT minimized */}
+            {!mobileMapVisible && !isSheetMinimized && (
               <button
                 onClick={toggleMobileMap}
                 className="absolute bottom-2 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 z-20"
@@ -554,18 +595,26 @@ const TripDetail = () => {
         <div
           ref={mobileScrollRef}
           onScroll={handleMobileScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar z-10 transition-all duration-300 ease-out"
+          className="flex-1 overflow-y-auto custom-scrollbar z-10 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)]"
           style={{
-            marginTop: hasMapboxToken && mobileMapVisible ? `${mobileMapHeight - 20}px` : '0',
-            borderTopLeftRadius: hasMapboxToken && mobileMapVisible ? '24px' : '0',
-            borderTopRightRadius: hasMapboxToken && mobileMapVisible ? '24px' : '0',
-            boxShadow: hasMapboxToken && mobileMapVisible ? '0 -4px 20px rgba(0,0,0,0.15)' : 'none',
+            marginTop: isSheetMinimized
+              ? 'calc(100vh - 160px)' // Use vh for height-relative positioning. 160px allows space for bottom nav + latch visibility
+              : (hasMapboxToken && mobileMapVisible ? `${mobileMapHeight - 20}px` : '0'),
+            borderTopLeftRadius: (hasMapboxToken && (mobileMapVisible || isSheetMinimized)) ? '24px' : '0',
+            borderTopRightRadius: (hasMapboxToken && (mobileMapVisible || isSheetMinimized)) ? '24px' : '0',
+            overflow: isSheetMinimized ? 'hidden' : 'auto', // Disable scroll when minimized
+            zIndex: 10
           }}
         >
           <div className="bg-white dark:bg-gray-800 min-h-full">
             {/* Pull indicator when map is visible */}
-            {hasMapboxToken && mobileMapVisible && (
-              <div className="flex justify-center pt-2 pb-1">
+            {hasMapboxToken && (mobileMapVisible || isSheetMinimized) && (
+              <div
+                className="flex justify-center pt-2 pb-1 touch-none"
+                onTouchStart={handleLatchTouchStart}
+                onTouchMove={handleLatchTouchMove}
+                onTouchEnd={handleLatchTouchEnd}
+              >
                 <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
               </div>
             )}

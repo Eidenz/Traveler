@@ -286,6 +286,66 @@ const Calendar = () => {
     );
   };
 
+  const renderMobileCalendar = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+
+    const days = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dateString = dayjs(date).format('YYYY-MM-DD');
+      const isToday = dayjs().format('YYYY-MM-DD') === dateString;
+      const dayEvents = events.filter(event => event.date === dateString);
+
+      days.push(
+        <div
+          key={day}
+          className={`flex gap-3 py-3 px-1 border-b border-gray-100 dark:border-gray-800 ${isToday ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+          onClick={() => {
+            const tripEvent = dayEvents.find(e => e.trip);
+            if (tripEvent) navigate(`/trips/${tripEvent.trip.id}`);
+          }}
+        >
+          <div className="flex flex-col items-center w-12 flex-shrink-0">
+            <span className="text-xs text-gray-500 uppercase">{dayjs(date).format('ddd')}</span>
+            <span className={`text-xl font-bold ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>{day}</span>
+          </div>
+
+          <div className="flex-1 min-w-0 space-y-1.5 pt-0.5">
+            {dayEvents.length > 0 ? (
+              dayEvents.map((event, index) => (
+                <div
+                  key={index}
+                  className={`
+                           text-sm px-2 py-1.5 rounded-lg flex items-center gap-2
+                           ${event.type === 'trip-start' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' : ''}
+                           ${event.type === 'trip-end' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200' : ''}
+                           ${event.type === 'trip-day' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' : ''}
+                         `}
+                >
+                  {event.type === 'trip-start' && <Plane className="w-3 h-3" />}
+                  {event.type === 'trip-end' && <Info className="w-3 h-3" />}
+                  {event.type === 'trip-day' && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                  <span className="truncate">{event.title}</span>
+                  {isOfflineMode && <WifiOff className="w-3 h-3 ml-auto opacity-70" />}
+                </div>
+              ))
+            ) : (
+              <div className="h-6" /> // Empty space placeholder
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col">
+        {days}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6">
       <div className="max-w-6xl mx-auto">
@@ -332,7 +392,7 @@ const Calendar = () => {
         )}
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between border-b border-gray-200 dark:border-gray-700">
+          <CardHeader className="flex flex-col md:flex-row items-center justify-between border-b border-gray-200 dark:border-gray-700 gap-4 md:gap-0">
             <div className="flex items-center">
               <button
                 onClick={handlePrevMonth}
@@ -341,7 +401,7 @@ const Calendar = () => {
                 <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
               </button>
               <h2 className="text-lg font-semibold mx-4 transition-all">
-                {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                {dayjs(currentDate).format('MMMM YYYY')}
               </h2>
               <button
                 onClick={handleNextMonth}
@@ -351,12 +411,12 @@ const Calendar = () => {
               </button>
             </div>
 
-            <div className="flex items-center">
-              <div className="flex items-center mr-4">
+            <div className="flex items-center justify-center flex-wrap gap-3">
+              <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
                 <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.tripStart')}</span>
               </div>
-              <div className="flex items-center mr-4">
+              <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
                 <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.duringTrip')}</span>
               </div>
@@ -365,7 +425,7 @@ const Calendar = () => {
                 <span className="text-xs text-gray-600 dark:text-gray-400">{t('calendar.tripEnd')}</span>
               </div>
               {isOfflineMode && (
-                <div className="flex items-center ml-4">
+                <div className="flex items-center">
                   <div className="flex items-center px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-900/30">
                     <WifiOff className="h-3 w-3 text-yellow-600 dark:text-yellow-400 mr-1" />
                     <span className="text-xs text-yellow-600 dark:text-yellow-400">Offline</span>
@@ -388,7 +448,14 @@ const Calendar = () => {
                 </div>
               </div>
             ) : trips.length > 0 ? (
-              renderCalendar()
+              <>
+                <div className="hidden md:block">
+                  {renderCalendar()}
+                </div>
+                <div className="md:hidden">
+                  {renderMobileCalendar()}
+                </div>
+              </>
             ) : (
               <div className="h-96 flex flex-col items-center justify-center p-6">
                 <CalendarIcon className="h-16 w-16 text-gray-400 mb-4" />
