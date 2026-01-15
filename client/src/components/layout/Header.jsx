@@ -1,23 +1,57 @@
 // client/src/components/layout/Header.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, User, LogOut, Sun, Moon, ChevronDown } from 'lucide-react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Search, User, LogOut, Sun, Moon, ChevronDown, Users } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import useThemeStore from '../../stores/themeStore';
 import { getImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../LanguageSwitcher';
 import toast from 'react-hot-toast';
+import { useSocket } from '../../contexts/SocketContext';
 
 const Header = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const { user, logout, isOfflineMode } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { isConnected, roomMembers } = useSocket();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation();
   const dropdownRef = useRef(null);
+
+  // Check if we're on a trip or brainstorm page
+  const isOnTripPage = location.pathname.includes('/trips/') || location.pathname.includes('/brainstorm');
+
+  // Filter out current user from room members for display
+  const otherCollaborators = roomMembers.filter(m => m.userId !== user?.id).slice(0, 4);
+
+  // Generate initials from name for avatars
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Generate consistent color from name
+  const getAvatarColor = (name) => {
+    const colors = [
+      'from-rose-500 to-pink-500',
+      'from-amber-500 to-orange-500',
+      'from-emerald-500 to-teal-500',
+      'from-sky-500 to-blue-500',
+      'from-violet-500 to-purple-500',
+      'from-pink-500 to-rose-500',
+    ];
+    const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
+    return colors[hash % colors.length];
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -62,7 +96,7 @@ const Header = () => {
 
         {/* Search bar - hidden on mobile */}
         <form onSubmit={handleSearch} className="hidden md:block">
-          <div 
+          <div
             className={`
               flex items-center gap-2 bg-white/10 rounded-full px-4 py-2
               transition-all duration-300
@@ -85,6 +119,38 @@ const Header = () => {
 
       {/* Right side - Theme, User */}
       <div className="flex items-center gap-2 md:gap-3">
+        {/* Live collaborators indicator - show when on trip page with other users */}
+        {isOnTripPage && isConnected && otherCollaborators.length > 0 && (
+          <div className="hidden sm:flex items-center gap-2 mr-1">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/20 rounded-full">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-medium text-emerald-400">
+                {t('realtime.live', 'Live')}
+              </span>
+            </div>
+            <div className="flex -space-x-2">
+              {otherCollaborators.map((collaborator, idx) => (
+                <div
+                  key={collaborator.userId}
+                  className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(collaborator.userName)} flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-nav`}
+                  style={{ zIndex: otherCollaborators.length - idx }}
+                  title={collaborator.userName}
+                >
+                  {getInitials(collaborator.userName)}
+                </div>
+              ))}
+              {roomMembers.length > 5 && (
+                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-nav">
+                  +{roomMembers.length - 5}
+                </div>
+              )}
+            </div>
+            <span className="text-xs text-gray-400 hidden lg:inline">
+              {t('realtime.editing', '{{count}} editing', { count: roomMembers.length })}
+            </span>
+          </div>
+        )}
+
         {/* Language switcher */}
         <div className="hidden md:block">
           <LanguageSwitcher />

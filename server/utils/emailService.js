@@ -5,6 +5,11 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Register custom Handlebars helpers
+handlebars.registerHelper('eq', function (a, b) {
+  return a === b;
+});
+
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: process.env.EMAIL_PORT,

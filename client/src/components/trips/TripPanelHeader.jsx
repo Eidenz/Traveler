@@ -1,12 +1,10 @@
 // client/src/components/trips/TripPanelHeader.jsx
 import React from 'react';
-import { Share2, Settings, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb } from 'lucide-react';
+import { Share2, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '../../utils/imageUtils';
-import StatusBadge from '../ui/StatusBadge';
 import dayjs from 'dayjs';
-import { useSocket } from '../../contexts/SocketContext';
 
 const TripPanelHeader = ({
   trip,
@@ -14,13 +12,11 @@ const TripPanelHeader = ({
   isAvailableOffline = false,
   isSavingOffline = false,
   onShare,
-  onSettings,
   onSaveOffline,
   canEdit = true,
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isConnected, roomMembers } = useSocket();
 
   // Get trip status
   const getTripStatus = () => {
@@ -57,35 +53,6 @@ const TripPanelHeader = ({
   const owner = members.find(m => m.role === 'owner');
   const duration = getDuration();
 
-  // Generate initials from name for avatars
-  const getInitials = (name) => {
-    if (!name) return '?';
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  // Generate consistent color from name
-  const getAvatarColor = (name) => {
-    const colors = [
-      'from-rose-500 to-pink-500',
-      'from-amber-500 to-orange-500',
-      'from-emerald-500 to-teal-500',
-      'from-sky-500 to-blue-500',
-      'from-violet-500 to-purple-500',
-      'from-pink-500 to-rose-500',
-    ];
-    const hash = name?.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) || 0;
-    return colors[hash % colors.length];
-  };
-
-  // Filter out current user from room members for display
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  const otherCollaborators = roomMembers.filter(m => m.userId !== currentUser?.id).slice(0, 4);
-
   return (
     <div className="border-b border-gray-100 dark:border-gray-700">
       {/* Compact header */}
@@ -100,34 +67,6 @@ const TripPanelHeader = ({
 
           {/* Action buttons - styled like buttons */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Live collaborators indicator */}
-            {isConnected && otherCollaborators.length > 0 && (
-              <div className="flex items-center gap-2 mr-2">
-                <div className="flex items-center gap-1 px-2 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                    {t('realtime.live', 'Live')}
-                  </span>
-                </div>
-                <div className="flex -space-x-2">
-                  {otherCollaborators.map((collaborator, idx) => (
-                    <div
-                      key={collaborator.userId}
-                      className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(collaborator.userName)} flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-white dark:ring-gray-800`}
-                      style={{ zIndex: otherCollaborators.length - idx }}
-                      title={collaborator.userName}
-                    >
-                      {getInitials(collaborator.userName)}
-                    </div>
-                  ))}
-                  {roomMembers.length > 5 && (
-                    <div className="w-6 h-6 rounded-full bg-gray-400 dark:bg-gray-600 flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-white dark:ring-gray-800">
-                      +{roomMembers.length - 5}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             <button
               onClick={onShare}

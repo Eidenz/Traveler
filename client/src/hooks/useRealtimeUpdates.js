@@ -1,7 +1,7 @@
 // client/src/hooks/useRealtimeUpdates.js
 // Hook for subscribing to real-time updates in trip components
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '../contexts/SocketContext';
 
 /**
@@ -11,16 +11,30 @@ import { useSocket } from '../contexts/SocketContext';
  */
 export const useRealtimeUpdates = (tripId, handlers = {}) => {
     const { subscribe, emit, isConnected, joinTrip, leaveTrip } = useSocket();
+    const previousTripIdRef = useRef(null);
 
     // Join trip room on mount or when connection is established
+    // Only leave when tripId actually changes to a DIFFERENT value
     useEffect(() => {
         if (tripId && isConnected) {
             joinTrip(tripId);
+            previousTripIdRef.current = tripId;
         }
+
         return () => {
-            leaveTrip();
+            // Only leave the room if we're changing to a different trip
+            // The next component mounting with the same tripId will just rejoin silently
+            // This prevents the double notification when switching between TripDetail and Brainstorm
         };
-    }, [tripId, isConnected, joinTrip, leaveTrip]);
+    }, [tripId, isConnected, joinTrip]);
+
+    // Handle tripId changes - leave old room when switching trips
+    useEffect(() => {
+        if (previousTripIdRef.current && tripId && previousTripIdRef.current !== tripId) {
+            leaveTrip(previousTripIdRef.current);
+            previousTripIdRef.current = tripId;
+        }
+    }, [tripId, leaveTrip]);
 
     // Subscribe to all events
     useEffect(() => {

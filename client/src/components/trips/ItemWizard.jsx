@@ -23,6 +23,7 @@ const ItemWizard = ({
     defaultDate = null,
     onSuccess,
     onClose,
+    onDelete, // Callback for deletion with (type, itemId) - allows parent to emit socket events
 }) => {
     const { t } = useTranslation();
     const isEditMode = !!itemId;
@@ -292,6 +293,8 @@ const ItemWizard = ({
                 toast.success(t('transportation.deleteSuccess', 'Transportation deleted successfully'));
             }
 
+            // Call onDelete callback so parent can emit socket events
+            if (onDelete) onDelete(type, itemId);
             if (onSuccess) onSuccess();
             onClose();
         } catch (error) {

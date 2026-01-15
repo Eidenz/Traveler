@@ -13,6 +13,7 @@ const TransportModal = ({
   tripId,
   transportId = null,
   onSuccess,
+  onDelete,
   defaultDate = null
 }) => {
   if (!isOpen) return null;
@@ -26,6 +27,7 @@ const TransportModal = ({
           tripId={tripId}
           defaultDate={defaultDate}
           onSuccess={onSuccess}
+          onDelete={onDelete}
           onClose={onClose}
         />
       </div>

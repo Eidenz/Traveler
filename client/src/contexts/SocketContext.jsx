@@ -120,19 +120,27 @@ export const SocketProvider = ({ children }) => {
     // Join a trip room
     const joinTrip = useCallback((tripId) => {
         if (socket && isConnected && tripId) {
+            // Only join if not already in this room
+            if (currentTripId === tripId) {
+                console.log('[Socket] Already in trip:', tripId);
+                return;
+            }
             console.log('[Socket] Joining trip:', tripId);
             socket.emit('trip:join', tripId);
             setCurrentTripId(tripId);
         }
-    }, [socket, isConnected]);
+    }, [socket, isConnected, currentTripId]);
 
-    // Leave current trip room
-    const leaveTrip = useCallback(() => {
-        if (socket && currentTripId) {
-            console.log('[Socket] Leaving trip:', currentTripId);
-            socket.emit('trip:leave', currentTripId);
-            setCurrentTripId(null);
-            setRoomMembers([]);
+    // Leave current trip room - only call when actually navigating away from all trip pages
+    const leaveTrip = useCallback((forceTripId = null) => {
+        const tripIdToLeave = forceTripId || currentTripId;
+        if (socket && tripIdToLeave) {
+            console.log('[Socket] Leaving trip:', tripIdToLeave);
+            socket.emit('trip:leave', tripIdToLeave);
+            if (!forceTripId || forceTripId === currentTripId) {
+                setCurrentTripId(null);
+                setRoomMembers([]);
+            }
         }
     }, [socket, currentTripId]);
 
@@ -183,15 +191,14 @@ export const useSocket = () => {
 export const useTripSocket = (tripId) => {
     const { joinTrip, leaveTrip, emit, subscribe, isConnected, roomMembers } = useSocket();
 
-    // Join/leave trip room on mount/unmount
+    // Join/leave trip room - only join, don't leave on unmount
+    // This prevents double notifications when switching between trip pages
     useEffect(() => {
         if (tripId) {
             joinTrip(tripId);
         }
-        return () => {
-            leaveTrip();
-        };
-    }, [tripId, joinTrip, leaveTrip]);
+        // Don't call leaveTrip on unmount - handled by useRealtimeUpdates or when navigating away
+    }, [tripId, joinTrip]);
 
     return {
         isConnected,

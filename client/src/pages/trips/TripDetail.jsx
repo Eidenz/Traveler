@@ -18,7 +18,6 @@ import {
 
 // Real-time collaboration
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
-import CollaboratorsIndicator from '../../components/realtime/CollaboratorsIndicator';
 
 // Components
 import Button from '../../components/ui/Button';
@@ -896,6 +895,12 @@ const TripDetail = () => {
                   fetchTripData();
                   handleCloseWizard();
                 }}
+                onDelete={(itemType, deletedItemId) => {
+                  // Emit socket event for real-time deletion updates
+                  if (itemType === 'activity') emitActivityDelete(deletedItemId);
+                  else if (itemType === 'lodging') emitLodgingDelete(deletedItemId);
+                  else if (itemType === 'transport') emitTransportDelete(deletedItemId);
+                }}
                 onClose={handleCloseWizard}
               />
             ) : showDocumentPanel ? (
@@ -931,6 +936,7 @@ const TripDetail = () => {
         tripId={tripId}
         transportId={selectedTransportId}
         onSuccess={fetchTripData}
+        onDelete={(itemType, deletedItemId) => emitTransportDelete(deletedItemId)}
       />
 
       <LodgingModal
@@ -939,6 +945,7 @@ const TripDetail = () => {
         tripId={tripId}
         lodgingId={selectedLodgingId}
         onSuccess={fetchTripData}
+        onDelete={(itemType, deletedItemId) => emitLodgingDelete(deletedItemId)}
       />
 
       <ActivityModal
@@ -951,6 +958,7 @@ const TripDetail = () => {
         activityId={selectedActivityId}
         defaultDate={activityDefaultDate}
         onSuccess={fetchTripData}
+        onDelete={(itemType, deletedItemId) => emitActivityDelete(deletedItemId)}
       />
 
       <DocumentsModal
