@@ -1,7 +1,7 @@
 // client/src/components/layout/IconSidebar.jsx
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Calendar, DollarSign, Map, PlusCircle, User } from 'lucide-react';
+import { Calendar, DollarSign, Map, PlusCircle, User, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
@@ -13,7 +13,7 @@ const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
     `}
   >
     <Icon className="w-5 h-5" />
-    
+
     {/* Tooltip */}
     <div className="
       absolute left-full ml-3 px-2 py-1 
@@ -34,7 +34,7 @@ const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
 const IconSidebar = () => {
   const location = useLocation();
   const { t } = useTranslation();
-  
+
   // Only include routes that actually exist
   const navItems = [
     {
@@ -54,6 +54,12 @@ const IconSidebar = () => {
       icon: DollarSign,
       label: t('navigation.budget', 'Budget'),
       matchPaths: ['/budgets'],
+    },
+    {
+      to: '/brainstorm',
+      icon: Lightbulb,
+      label: t('navigation.brainstorm', 'Brainstorm'),
+      matchPaths: ['/brainstorm'],
     },
   ];
 

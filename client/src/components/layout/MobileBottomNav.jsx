@@ -1,7 +1,7 @@
 // client/src/components/layout/MobileBottomNav.jsx
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut } from 'lucide-react';
+import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -22,6 +22,7 @@ const MobileBottomNav = () => {
   // More menu items
   const menuItems = [
     { to: '/calendar', icon: Calendar, label: t('navigation.calendar', 'Calendar') },
+    { to: '/brainstorm', icon: Lightbulb, label: t('navigation.brainstorm', 'Brainstorm') },
     { to: '/profile', icon: User, label: t('navigation.profile', 'Profile') },
   ];
 
@@ -40,17 +41,17 @@ const MobileBottomNav = () => {
       {isMenuOpen && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setIsMenuOpen(false)}
           />
-          
+
           {/* Menu panel */}
           <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 rounded-t-3xl shadow-2xl z-50 md:hidden animate-slide-up safe-area-inset-bottom">
             <div className="p-4">
               {/* Handle bar */}
               <div className="w-12 h-1 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4" />
-              
+
               {/* Menu items */}
               <nav className="space-y-1">
                 {menuItems.map((item) => (
@@ -71,10 +72,10 @@ const MobileBottomNav = () => {
                     <span className="font-medium">{item.label}</span>
                   </NavLink>
                 ))}
-                
+
                 {/* Divider */}
                 <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
-                
+
                 {/* Logout */}
                 <button
                   onClick={handleLogout}

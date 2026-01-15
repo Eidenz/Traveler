@@ -22,9 +22,10 @@ const ITEM_TYPES = {
     idea: { icon: Lightbulb, color: 'rose', label: 'Quick Idea' },
 };
 
-const Brainstorm = () => {
+const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const { t } = useTranslation();
-    const { tripId } = useParams();
+    const { tripId: urlTripId } = useParams();
+    const tripId = propTripId || urlTripId;
     const navigate = useNavigate();
     const containerRef = useRef(null);
 
@@ -272,7 +273,7 @@ const Brainstorm = () => {
                 {/* Mobile header */}
                 <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <Link
-                        to={`/trips/${tripId}`}
+                        to={fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
                         className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
                     >
                         <ArrowLeft className="mr-1 h-4 w-4" />
@@ -318,7 +319,7 @@ const Brainstorm = () => {
                     <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                         <div className="flex items-center gap-3">
                             <Link
-                                to={`/trips/${tripId}`}
+                                to={fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
                                 className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                             >
                                 <ArrowLeft className="mr-1 h-4 w-4" />

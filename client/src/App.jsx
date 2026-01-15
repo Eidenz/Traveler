@@ -20,6 +20,7 @@ import EditTrip from './pages/trips/EditTrip';
 import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
 import BudgetDashboard from './pages/budget/BudgetDashboard';
+import BrainstormDashboard from './pages/brainstorm/BrainstormDashboard';
 import Brainstorm from './pages/trips/Brainstorm';
 
 // Public Pages
@@ -66,6 +67,8 @@ function App() {
           <Route path="calendar" element={<Calendar />} />
           <Route path="budgets" element={<BudgetDashboard />} />
           <Route path="budgets/:tripId" element={<BudgetDashboard />} />
+          <Route path="brainstorm" element={<BrainstormDashboard />} />
+          <Route path="brainstorm/:tripId" element={<BrainstormDashboard />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
