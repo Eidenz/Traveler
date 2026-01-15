@@ -2,6 +2,7 @@
 
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
+const { emitToTrip } = require('../utils/socketService');
 
 /**
  * Get a budget for a trip
@@ -9,38 +10,38 @@ const { validationResult } = require('express-validator');
 const getTripBudget = (req, res) => {
   try {
     const { tripId } = req.params;
-    
+
     // Get budget
     const budget = db.prepare('SELECT * FROM budgets WHERE trip_id = ?').get(tripId);
-    
+
     // If no budget exists, return null
     if (!budget) {
       return res.status(200).json({ budget: null, expenses: [] });
     }
-    
+
     // Get expenses
     const expenses = db.prepare('SELECT * FROM expenses WHERE budget_id = ? ORDER BY date DESC').all(budget.id);
-    
+
     // Calculate category totals
     const categories = ['transport', 'lodging', 'activities', 'food', 'other'];
     const categoryTotals = {};
-    
+
     categories.forEach(category => {
       const total = db.prepare(`
         SELECT SUM(amount) as total FROM expenses 
         WHERE budget_id = ? AND category = ?
       `).get(budget.id, category);
-      
+
       categoryTotals[category] = total.total || 0;
     });
-    
+
     // Calculate total spent
     const totalSpent = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE budget_id = ?')
       .get(budget.id).total || 0;
-    
-    return res.status(200).json({ 
-      budget, 
-      expenses, 
+
+    return res.status(200).json({
+      budget,
+      expenses,
       categoryTotals,
       totalSpent
     });
@@ -63,30 +64,33 @@ const createBudget = (req, res) => {
 
     const { tripId } = req.params;
     const { total_amount, currency } = req.body;
-    
+
     // Check if trip exists
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
     }
-    
+
     // Check if budget already exists
     const existingBudget = db.prepare('SELECT * FROM budgets WHERE trip_id = ?').get(tripId);
     if (existingBudget) {
       return res.status(400).json({ message: 'Budget already exists for this trip' });
     }
-    
+
     // Insert budget
     const insert = db.prepare(`
       INSERT INTO budgets (trip_id, total_amount, currency)
       VALUES (?, ?, ?)
     `);
-    
+
     const result = insert.run(tripId, total_amount, currency || '$');
-    
+
     // Get the created budget
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(result.lastInsertRowid);
-    
+
+    // Emit socket event for real-time updates
+    emitToTrip(tripId, 'budget:created', budget);
+
     return res.status(201).json({
       message: 'Budget created successfully',
       budget
@@ -110,25 +114,28 @@ const updateBudget = (req, res) => {
 
     const { budgetId } = req.params;
     const { total_amount, currency } = req.body;
-    
+
     // Check if budget exists
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
     if (!budget) {
       return res.status(404).json({ message: 'Budget not found' });
     }
-    
+
     // Update budget
     const update = db.prepare(`
       UPDATE budgets
       SET total_amount = ?, currency = ?
       WHERE id = ?
     `);
-    
+
     update.run(total_amount, currency || budget.currency, budgetId);
-    
+
     // Get updated budget
     const updatedBudget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
-    
+
+    // Emit socket event for real-time updates
+    emitToTrip(updatedBudget.trip_id, 'budget:updated', updatedBudget);
+
     return res.status(200).json({
       message: 'Budget updated successfully',
       budget: updatedBudget
@@ -152,28 +159,31 @@ const addExpense = (req, res) => {
 
     const { budgetId } = req.params;
     const { name, amount, category, date, notes } = req.body;
-    
+
     // Check if budget exists
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
     if (!budget) {
       return res.status(404).json({ message: 'Budget not found' });
     }
-    
+
     // Insert expense
     const insert = db.prepare(`
       INSERT INTO expenses (budget_id, name, amount, category, date, notes)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    
+
     const result = insert.run(budgetId, name, amount, category, date, notes || null);
-    
+
     // Get the created expense
     const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(result.lastInsertRowid);
-    
+
     // Calculate new total spent
     const totalSpent = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE budget_id = ?')
       .get(budgetId).total || 0;
-    
+
+    // Emit socket event for real-time updates
+    emitToTrip(budget.trip_id, 'expense:created', { expense, totalSpent, budgetId });
+
     return res.status(201).json({
       message: 'Expense added successfully',
       expense,
@@ -198,36 +208,44 @@ const updateExpense = (req, res) => {
 
     const { expenseId } = req.params;
     const { name, amount, category, date, notes } = req.body;
-    
+
     // Check if expense exists
     const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
     }
-    
+
+    // Get budget to find trip_id
+    const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(expense.budget_id);
+
     // Update expense
     const update = db.prepare(`
       UPDATE expenses
       SET name = ?, amount = ?, category = ?, date = ?, notes = ?
       WHERE id = ?
     `);
-    
+
     update.run(
-      name || expense.name, 
-      amount || expense.amount, 
-      category || expense.category, 
-      date || expense.date, 
-      notes !== undefined ? notes : expense.notes, 
+      name || expense.name,
+      amount || expense.amount,
+      category || expense.category,
+      date || expense.date,
+      notes !== undefined ? notes : expense.notes,
       expenseId
     );
-    
+
     // Get updated expense
     const updatedExpense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
-    
+
     // Calculate new total spent
     const totalSpent = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE budget_id = ?')
       .get(expense.budget_id).total || 0;
-    
+
+    // Emit socket event for real-time updates
+    if (budget) {
+      emitToTrip(budget.trip_id, 'expense:updated', { expense: updatedExpense, totalSpent, budgetId: expense.budget_id });
+    }
+
     return res.status(200).json({
       message: 'Expense updated successfully',
       expense: updatedExpense,
@@ -245,22 +263,30 @@ const updateExpense = (req, res) => {
 const deleteExpense = (req, res) => {
   try {
     const { expenseId } = req.params;
-    
+
     // Check if expense exists
     const expense = db.prepare('SELECT * FROM expenses WHERE id = ?').get(expenseId);
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
     }
-    
+
     const budgetId = expense.budget_id;
-    
+
+    // Get budget to find trip_id
+    const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
+
     // Delete expense
     db.prepare('DELETE FROM expenses WHERE id = ?').run(expenseId);
-    
+
     // Calculate new total spent
     const totalSpent = db.prepare('SELECT SUM(amount) as total FROM expenses WHERE budget_id = ?')
       .get(budgetId).total || 0;
-    
+
+    // Emit socket event for real-time updates
+    if (budget) {
+      emitToTrip(budget.trip_id, 'expense:deleted', { expenseId, totalSpent, budgetId });
+    }
+
     return res.status(200).json({
       message: 'Expense deleted successfully',
       totalSpent
@@ -277,26 +303,32 @@ const deleteExpense = (req, res) => {
 const deleteBudget = (req, res) => {
   try {
     const { budgetId } = req.params;
-    
+
     // Check if budget exists
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(budgetId);
     if (!budget) {
       return res.status(404).json({ message: 'Budget not found' });
     }
-    
+
+    // Store tripId before deletion
+    const tripId = budget.trip_id;
+
     // Start a transaction to delete the budget and all its expenses
     db.prepare('BEGIN TRANSACTION').run();
-    
+
     try {
       // Delete all expenses for this budget
       db.prepare('DELETE FROM expenses WHERE budget_id = ?').run(budgetId);
-      
+
       // Delete the budget
       db.prepare('DELETE FROM budgets WHERE id = ?').run(budgetId);
-      
+
       // Commit transaction
       db.prepare('COMMIT').run();
-      
+
+      // Emit socket event for real-time updates
+      emitToTrip(tripId, 'budget:deleted', { budgetId });
+
       return res.status(200).json({
         message: 'Budget deleted successfully'
       });

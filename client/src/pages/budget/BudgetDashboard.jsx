@@ -11,7 +11,6 @@ import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { budgetAPI, personalBudgetAPI, tripAPI } from '../../services/api';
-import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -57,36 +56,8 @@ const BudgetDashboard = () => {
   const [personalCategoryTotals, setPersonalCategoryTotals] = useState({});
   const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
 
-  // Join socket room for real-time collaboration indicator
-  useRealtimeUpdates(selectedTrip?.id);
-
-  // Fetch trips on mount
-  useEffect(() => {
-    fetchTrips();
-  }, []);
-
-  // Handle URL-based trip selection
-  useEffect(() => {
-    if (urlTripId && trips.length > 0) {
-      const trip = trips.find(t => t.id === urlTripId);
-      if (trip) {
-        setSelectedTrip(trip);
-      } else {
-        toast.error(t('errors.tripNotFound', 'Trip not found'));
-        navigate('/budgets');
-      }
-    }
-  }, [urlTripId, trips]);
-
-  // Fetch budgets when trip is selected
-  useEffect(() => {
-    if (selectedTrip?.id) {
-      fetchSharedBudget(selectedTrip.id);
-      fetchPersonalBudget(selectedTrip.id);
-    }
-  }, [selectedTrip?.id]);
-
-  const fetchTrips = async () => {
+  // Fetch trips
+  const fetchTrips = useCallback(async () => {
     try {
       const response = await tripAPI.getUserTrips();
       if (response.data.trips) {
@@ -103,9 +74,27 @@ const BudgetDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [urlTripId, navigate, t]);
 
-  const fetchSharedBudget = async (tripId) => {
+  // Fetch trips on mount
+  useEffect(() => {
+    fetchTrips();
+  }, [fetchTrips]);
+
+  // Handle URL-based trip selection
+  useEffect(() => {
+    if (urlTripId && trips.length > 0) {
+      const trip = trips.find(t => t.id === urlTripId);
+      if (trip) {
+        setSelectedTrip(trip);
+      } else {
+        toast.error(t('errors.tripNotFound', 'Trip not found'));
+        navigate('/budgets');
+      }
+    }
+  }, [urlTripId, trips, t, navigate]);
+
+  const fetchSharedBudget = useCallback(async (tripId) => {
     try {
       const response = await budgetAPI.getTripBudget(tripId);
       setSharedBudget(response.data.budget);
@@ -115,9 +104,9 @@ const BudgetDashboard = () => {
     } catch (error) {
       console.error('Error fetching shared budget:', error);
     }
-  };
+  }, []);
 
-  const fetchPersonalBudget = async (tripId) => {
+  const fetchPersonalBudget = useCallback(async (tripId) => {
     try {
       const response = await personalBudgetAPI.getTripBudget(tripId);
       setPersonalBudget(response.data.budget);
@@ -127,7 +116,31 @@ const BudgetDashboard = () => {
     } catch (error) {
       console.error('Error fetching personal budget:', error);
     }
-  };
+  }, []);
+
+  // Fetch budgets when trip is selected
+  useEffect(() => {
+    if (selectedTrip?.id) {
+      fetchSharedBudget(selectedTrip.id);
+      fetchPersonalBudget(selectedTrip.id);
+    }
+  }, [selectedTrip?.id, fetchSharedBudget, fetchPersonalBudget]);
+
+  // Real-time budget updates - refetch when budget or expense events are received
+  const handleBudgetChange = useCallback(() => {
+    if (selectedTrip?.id) {
+      fetchSharedBudget(selectedTrip.id);
+    }
+  }, [selectedTrip?.id, fetchSharedBudget]);
+
+  useRealtimeUpdates(selectedTrip?.id, {
+    onBudgetCreate: handleBudgetChange,
+    onBudgetUpdate: handleBudgetChange,
+    onBudgetDelete: handleBudgetChange,
+    onExpenseCreate: handleBudgetChange,
+    onExpenseUpdate: handleBudgetChange,
+    onExpenseDelete: handleBudgetChange,
+  });
 
   // Panel resize handlers
   const handleResizeStart = useCallback((e) => {

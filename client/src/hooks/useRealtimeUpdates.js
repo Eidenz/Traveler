@@ -95,8 +95,14 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
         }
 
         // Budget events
+        if (handlers.onBudgetCreate) {
+            unsubscribers.push(subscribe('budget:created', handlers.onBudgetCreate));
+        }
         if (handlers.onBudgetUpdate) {
             unsubscribers.push(subscribe('budget:updated', handlers.onBudgetUpdate));
+        }
+        if (handlers.onBudgetDelete) {
+            unsubscribers.push(subscribe('budget:deleted', handlers.onBudgetDelete));
         }
         if (handlers.onExpenseCreate) {
             unsubscribers.push(subscribe('expense:created', handlers.onExpenseCreate));

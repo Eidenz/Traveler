@@ -1,25 +1,22 @@
 // client/src/components/budget/BudgetWidget.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Wallet, Users, User, ChevronRight } from 'lucide-react';
 import { budgetAPI, personalBudgetAPI } from '../../services/api';
 import { useTranslation } from 'react-i18next';
+import { useSocket } from '../../contexts/SocketContext';
 
 const BudgetWidget = ({ tripId }) => {
     const { t } = useTranslation();
+    const { subscribe } = useSocket();
     const [loading, setLoading] = useState(true);
     const [sharedBudget, setSharedBudget] = useState(null);
     const [personalBudget, setPersonalBudget] = useState(null);
     const [sharedTotalSpent, setSharedTotalSpent] = useState(0);
     const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
 
-    useEffect(() => {
-        if (tripId) {
-            fetchBudgets();
-        }
-    }, [tripId]);
-
-    const fetchBudgets = async () => {
+    const fetchBudgets = useCallback(async () => {
+        if (!tripId) return;
         try {
             setLoading(true);
             const [sharedRes, personalRes] = await Promise.allSettled([
@@ -40,7 +37,37 @@ const BudgetWidget = ({ tripId }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [tripId]);
+
+    useEffect(() => {
+        if (tripId) {
+            fetchBudgets();
+        }
+    }, [tripId, fetchBudgets]);
+
+    // Subscribe to real-time budget updates
+    useEffect(() => {
+        if (!tripId) return;
+
+        const budgetEvents = [
+            'budget:created',
+            'budget:updated',
+            'budget:deleted',
+            'expense:created',
+            'expense:updated',
+            'expense:deleted'
+        ];
+
+        const unsubscribers = budgetEvents.map(event =>
+            subscribe(event, () => {
+                fetchBudgets();
+            })
+        );
+
+        return () => {
+            unsubscribers.forEach(unsub => unsub && unsub());
+        };
+    }, [tripId, subscribe, fetchBudgets]);
 
     const getStatusColor = (budget, spent) => {
         if (!budget) return 'gray';
