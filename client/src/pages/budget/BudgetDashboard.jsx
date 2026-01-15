@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import ExpenseForm from '../../components/budget/ExpenseForm';
 import CreateBudgetForm from '../../components/budget/CreateBudgetForm';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
+import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 
 const BudgetDashboard = () => {
   const { t } = useTranslation();
@@ -55,6 +56,9 @@ const BudgetDashboard = () => {
   const [personalExpenses, setPersonalExpenses] = useState([]);
   const [personalCategoryTotals, setPersonalCategoryTotals] = useState({});
   const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
+
+  // Join socket room for real-time collaboration indicator
+  useRealtimeUpdates(selectedTrip?.id);
 
   // Fetch trips on mount
   useEffect(() => {
@@ -193,9 +197,12 @@ const BudgetDashboard = () => {
   };
 
   const handleUpdateBudget = async (budgetData) => {
+    const budget = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budget) return;
+
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.updateBudget(selectedTrip.id, budgetData)
-      : personalBudgetAPI.updateBudget(selectedTrip.id, budgetData);
+      ? budgetAPI.updateBudget(budget.id, budgetData, selectedTrip.id)
+      : personalBudgetAPI.updateBudget(budget.id, budgetData);
 
     try {
       const response = await apiCall;
@@ -212,9 +219,12 @@ const BudgetDashboard = () => {
   };
 
   const handleDeleteBudget = async () => {
+    const budget = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budget) return;
+
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.deleteBudget(selectedTrip.id)
-      : personalBudgetAPI.deleteBudget(selectedTrip.id);
+      ? budgetAPI.deleteBudget(budget.id, selectedTrip.id)
+      : personalBudgetAPI.deleteBudget(budget.id);
 
     try {
       await apiCall;
@@ -237,9 +247,12 @@ const BudgetDashboard = () => {
   };
 
   const handleAddExpense = async (expenseData) => {
+    const budget = activeBudgetTab === 'shared' ? sharedBudget : personalBudget;
+    if (!budget) return;
+
     const apiCall = activeBudgetTab === 'shared'
-      ? budgetAPI.addExpense(selectedTrip.id, expenseData, selectedTrip.id)
-      : personalBudgetAPI.addExpense(selectedTrip.id, expenseData);
+      ? budgetAPI.addExpense(budget.id, expenseData, selectedTrip.id)
+      : personalBudgetAPI.addExpense(budget.id, expenseData);
 
     try {
       await apiCall;

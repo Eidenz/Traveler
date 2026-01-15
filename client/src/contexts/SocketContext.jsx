@@ -31,6 +31,10 @@ export const SocketProvider = ({ children }) => {
     const reconnectAttempts = useRef(0);
     const maxReconnectAttempts = 5;
 
+    // Refs to track current values for event handlers (avoid stale closures)
+    const currentTripIdRef = useRef(null);
+    const socketRef = useRef(null);
+
     // Initialize socket connection
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -111,8 +115,23 @@ export const SocketProvider = ({ children }) => {
         });
 
         setSocket(newSocket);
+        socketRef.current = newSocket;
+
+        // Handle browser close/refresh - emit leave before closing
+        const handleBeforeUnload = () => {
+            if (currentTripIdRef.current && socketRef.current) {
+                socketRef.current.emit('trip:leave', currentTripIdRef.current);
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            // Emit leave when socket is being closed
+            if (currentTripIdRef.current && newSocket) {
+                newSocket.emit('trip:leave', currentTripIdRef.current);
+            }
             newSocket.close();
         };
     }, []);
@@ -128,6 +147,7 @@ export const SocketProvider = ({ children }) => {
             console.log('[Socket] Joining trip:', tripId);
             socket.emit('trip:join', tripId);
             setCurrentTripId(tripId);
+            currentTripIdRef.current = tripId; // Keep ref in sync
         }
     }, [socket, isConnected, currentTripId]);
 
@@ -139,6 +159,7 @@ export const SocketProvider = ({ children }) => {
             socket.emit('trip:leave', tripIdToLeave);
             if (!forceTripId || forceTripId === currentTripId) {
                 setCurrentTripId(null);
+                currentTripIdRef.current = null; // Keep ref in sync
                 setRoomMembers([]);
             }
         }
@@ -189,7 +210,7 @@ export const useSocket = () => {
 
 // Hook for trip-specific real-time features
 export const useTripSocket = (tripId) => {
-    const { joinTrip, leaveTrip, emit, subscribe, isConnected, roomMembers } = useSocket();
+    const { joinTrip, emit, subscribe, isConnected, roomMembers } = useSocket();
 
     // Join/leave trip room - only join, don't leave on unmount
     // This prevents double notifications when switching between trip pages
@@ -206,6 +227,34 @@ export const useTripSocket = (tripId) => {
         emit,
         subscribe
     };
+};
+
+// Hook to watch route changes and leave trip room when navigating away from trip pages
+// Use this in the main layout component
+export const useSocketRouteWatcher = (pathname) => {
+    const { leaveTrip, currentTripId } = useSocket();
+    const previousPathRef = useRef(pathname);
+
+    // Helper to check if a path is a trip-related page
+    const isTripRelatedPage = (path) => {
+        return path?.includes('/trips/') ||
+            path?.includes('/brainstorm') ||
+            path?.includes('/budgets/');
+    };
+
+    useEffect(() => {
+        const previousPath = previousPathRef.current;
+        const wasTripPage = isTripRelatedPage(previousPath);
+        const isTripPage = isTripRelatedPage(pathname);
+
+        // If we were on a trip page and now we're not, leave the room
+        if (wasTripPage && !isTripPage && currentTripId) {
+            console.log('[Socket] Navigating away from trip pages, leaving room');
+            leaveTrip();
+        }
+
+        previousPathRef.current = pathname;
+    }, [pathname, leaveTrip, currentTripId]);
 };
 
 export default SocketContext;

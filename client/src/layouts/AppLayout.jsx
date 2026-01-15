@@ -4,9 +4,13 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from '../components/layout/Header';
 import IconSidebar from '../components/layout/IconSidebar';
 import MobileBottomNav from '../components/layout/MobileBottomNav';
+import { useSocketRouteWatcher } from '../contexts/SocketContext';
 
 const AppLayout = () => {
   const location = useLocation();
+
+  // Watch for route changes and leave trip room when navigating away from trip pages
+  useSocketRouteWatcher(location.pathname);
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">

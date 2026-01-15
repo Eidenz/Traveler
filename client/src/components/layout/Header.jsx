@@ -22,8 +22,10 @@ const Header = () => {
   const { t } = useTranslation();
   const dropdownRef = useRef(null);
 
-  // Check if we're on a trip or brainstorm page
-  const isOnTripPage = location.pathname.includes('/trips/') || location.pathname.includes('/brainstorm');
+  // Check if we're on a trip-related page (trip details, brainstorm, or budget)
+  const isOnTripPage = location.pathname.includes('/trips/') ||
+    location.pathname.includes('/brainstorm') ||
+    location.pathname.includes('/budgets/');
 
   // Filter out current user from room members for display
   const otherCollaborators = roomMembers.filter(m => m.userId !== user?.id).slice(0, 4);
