@@ -235,6 +235,30 @@ function initializeDatabase() {
         )
       `);
 
+      // Create Brainstorm Items table for freeform trip planning
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS brainstorm_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('place', 'note', 'image', 'link', 'idea')),
+          title TEXT,
+          content TEXT,
+          url TEXT,
+          image_path TEXT,
+          latitude REAL,
+          longitude REAL,
+          location_name TEXT,
+          position_x REAL DEFAULT 100,
+          position_y REAL DEFAULT 100,
+          color TEXT,
+          created_by INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
 
       // Run migrations for existing databases
       await runFieldMigrations();

@@ -20,6 +20,7 @@ const documentRoutes = require('./routes/documents');
 const checklistRoutes = require('./routes/checklists');
 const budgetRoutes = require('./routes/budgets');
 const personalBudgetRoutes = require('./routes/personalBudgets');
+const brainstormRoutes = require('./routes/brainstorm');
 
 // Database initialization
 const { initializeDatabase, db } = require('./db/database'); // Added db export
@@ -89,7 +90,7 @@ app.use(morgan('dev'));
 // Updated CORS configuration
 app.use(cors({
   origin: ['https://eidenz.moe', 'http://localhost:3000', 'https://traveler.eidenz.moe', 'https://hub.eidenz.moe'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
@@ -112,6 +113,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/personal-budgets', personalBudgetRoutes);
+app.use('/api/brainstorm', brainstormRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {

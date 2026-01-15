@@ -278,4 +278,44 @@ export const personalBudgetAPI = {
   deleteBudget: (budgetId) => api.delete(`/personal-budgets/${budgetId}`),
 };
 
+// Brainstorm API
+export const brainstormAPI = {
+  getBrainstormItems: (tripId) => api.get(`/brainstorm/trip/${tripId}`),
+  getBrainstormItem: (itemId) => api.get(`/brainstorm/${itemId}`),
+  createBrainstormItem: (tripId, itemData) => {
+    const formData = new FormData();
+    for (const key in itemData) {
+      if (itemData[key] !== null && itemData[key] !== undefined) {
+        formData.append(key, itemData[key]);
+      }
+    }
+    return api.post(`/brainstorm/trip/${tripId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  updateBrainstormItem: (itemId, itemData, tripId) => {
+    const formData = new FormData();
+    for (const key in itemData) {
+      if (itemData[key] !== null && itemData[key] !== undefined) {
+        formData.append(key, itemData[key]);
+      }
+    }
+    formData.append('trip_id', tripId);
+    return api.put(`/brainstorm/${itemId}?tripId=${tripId}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+  updateItemPosition: (itemId, position_x, position_y, tripId) =>
+    api.patch(`/brainstorm/${itemId}/position?tripId=${tripId}`, { position_x, position_y }),
+  batchUpdatePositions: (positions, tripId) =>
+    api.patch(`/brainstorm/batch/positions?tripId=${tripId}`, { positions }),
+  deleteBrainstormItem: (itemId, tripId) =>
+    api.delete(`/brainstorm/${itemId}?tripId=${tripId}`),
+  getPublicBrainstormItems: (token) => api.get(`/brainstorm/public/${token}`),
+};
+
 export default api;

@@ -425,3 +425,42 @@
   @apply flex-1 overflow-y-auto;
   min-height: 0; /* Important for nested flex overflow */
 }
+
+/* Brainstorm canvas styles */
+.brainstorm-canvas {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.dark .brainstorm-canvas {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
+}
+
+/* Brainstorm item card colors - using color classes for dynamic Tailwind */
+.brainstorm-item-place {
+  @apply bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800;
+}
+
+.brainstorm-item-note {
+  @apply bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800;
+}
+
+.brainstorm-item-image {
+  @apply bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800;
+}
+
+.brainstorm-item-link {
+  @apply bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800;
+}
+
+.brainstorm-item-idea {
+  @apply bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800;
+}
+
+/* Line clamp utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

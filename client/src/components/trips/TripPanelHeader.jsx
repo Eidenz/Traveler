@@ -1,6 +1,6 @@
 // client/src/components/trips/TripPanelHeader.jsx
 import React from 'react';
-import { Share2, Settings, Edit, Wifi, WifiOff, Download, Wallet } from 'lucide-react';
+import { Share2, Settings, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -83,6 +83,14 @@ const TripPanelHeader = ({
               title={t('budget.title', 'Budget')}
             >
               <Wallet className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => navigate(`/trips/${trip?.id}/brainstorm`)}
+              className="p-2 border border-gray-200 dark:border-gray-600 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+              title={t('brainstorm.title', 'Brainstorm')}
+            >
+              <Lightbulb className="w-4 h-4" />
             </button>
 
             {canEdit && (
