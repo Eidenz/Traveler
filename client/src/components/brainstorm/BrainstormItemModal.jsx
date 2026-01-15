@@ -59,6 +59,7 @@ const BrainstormItemModal = ({
     const [locationName, setLocationName] = useState('');
     const [latitude, setLatitude] = useState(null);
     const [longitude, setLongitude] = useState(null);
+    const [priority, setPriority] = useState(0);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -76,6 +77,7 @@ const BrainstormItemModal = ({
                 setLocationName(editingItem.location_name || '');
                 setLatitude(editingItem.latitude || null);
                 setLongitude(editingItem.longitude || null);
+                setPriority(editingItem.priority || 0);
                 setImagePreview(editingItem.image_path || null);
                 setImageFile(null);
             } else if (editingItem?.prefill) {
@@ -87,6 +89,7 @@ const BrainstormItemModal = ({
                 setLocationName('');
                 setLatitude(null);
                 setLongitude(null);
+                setPriority(0);
                 setImagePreview(null);
                 setImageFile(null);
             } else {
@@ -98,6 +101,7 @@ const BrainstormItemModal = ({
                 setLocationName(defaultLocation?.location_name || '');
                 setLatitude(defaultLocation?.latitude || null);
                 setLongitude(defaultLocation?.longitude || null);
+                setPriority(0);
                 setImagePreview(null);
                 setImageFile(null);
             }
@@ -148,6 +152,7 @@ const BrainstormItemModal = ({
                 location_name: locationName || null,
                 latitude: latitude || null,
                 longitude: longitude || null,
+                priority: priority || 0,
             };
 
             if (imageFile) {
@@ -213,8 +218,8 @@ const BrainstormItemModal = ({
                                             key={key}
                                             onClick={() => setType(key)}
                                             className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${type === key
-                                                    ? 'border-accent bg-accent/5 text-accent'
-                                                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                                                ? 'border-accent bg-accent/5 text-accent'
+                                                : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-gray-300'
                                                 }`}
                                         >
                                             <Icon className="w-4 h-4" />
@@ -355,6 +360,31 @@ const BrainstormItemModal = ({
                             )}
                         </div>
                     )}
+
+                    {/* Priority field - always show */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {t('brainstorm.priority', 'Priority / Order')}
+                        </label>
+                        <div className="flex items-center gap-3">
+                            <input
+                                type="number"
+                                min="0"
+                                max="99"
+                                value={priority}
+                                onChange={(e) => setPriority(parseInt(e.target.value) || 0)}
+                                className="form-input w-24 text-center"
+                            />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                                {t('brainstorm.priorityHint', '0 = no priority, 1 = first, 2 = second, etc.')}
+                            </span>
+                        </div>
+                        {priority > 0 && (
+                            <p className="mt-2 text-xs text-accent">
+                                {t('brainstorm.priorityMapHint', 'This number will appear on the map marker')}
+                            </p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Footer */}

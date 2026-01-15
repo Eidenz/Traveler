@@ -105,59 +105,81 @@ const BrainstormMap = ({
 
         if (itemsWithLocation.length === 0) return;
 
-        itemsWithLocation.forEach(item => {
+        itemsWithLocation.forEach((item, index) => {
             // Create custom marker element
             const el = document.createElement('div');
             el.className = 'brainstorm-marker';
+
+            // Show priority number if set, otherwise show icon
+            const hasPriority = item.priority && item.priority > 0;
+
             el.style.cssText = `
-        width: 32px;
-        height: 32px;
-        background: ${MARKER_COLORS[item.type] || MARKER_COLORS.idea};
-        border: 3px solid white;
-        border-radius: 50%;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        cursor: pointer;
-        transition: transform 0.2s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
+                width: ${hasPriority ? '28px' : '32px'};
+                height: ${hasPriority ? '28px' : '32px'};
+                background: ${MARKER_COLORS[item.type] || MARKER_COLORS.idea};
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: ${hasPriority ? '14px' : '12px'};
+                color: white;
+                user-select: none;
+            `;
 
-            el.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          ${getIconPath(item.type)}
-        </svg>
-      `;
+            if (hasPriority) {
+                el.textContent = item.priority;
+            } else {
+                el.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        ${getIconPath(item.type)}
+                    </svg>
+                `;
+            }
 
+            // Hover effects
             el.addEventListener('mouseenter', () => {
                 el.style.transform = 'scale(1.2)';
+                el.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
             });
             el.addEventListener('mouseleave', () => {
                 el.style.transform = 'scale(1)';
+                el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
             });
+
+            // Click handler
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
                 onItemClick(item);
             });
 
-            const marker = new mapboxgl.Marker({ element: el })
+            // Create marker
+            const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
                 .setLngLat([item.longitude, item.latitude])
                 .addTo(mapRef.current);
 
-            // Add popup with item info
+            // Create and attach popup (but don't show it yet)
+            const popupContent = `
+                <div style="padding: 8px; max-width: 200px;">
+                    ${item.priority ? `<span style="display: inline-block; background: ${MARKER_COLORS[item.type]}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-bottom: 4px;">#${item.priority}</span>` : ''}
+                    <strong style="display: block; margin-bottom: 4px;">${item.title || item.location_name || 'Untitled'}</strong>
+                    ${item.content ? `<p style="font-size: 12px; color: #666; margin: 0;">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>` : ''}
+                </div>
+            `;
+
             const popup = new mapboxgl.Popup({
-                offset: 20,
+                offset: 25,
                 closeButton: false,
                 closeOnClick: false,
-            }).setHTML(`
-        <div style="padding: 8px; max-width: 200px;">
-          <strong style="display: block; margin-bottom: 4px;">${item.title || item.location_name || 'Untitled'}</strong>
-          ${item.content ? `<p style="font-size: 12px; color: #666; margin: 0;">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>` : ''}
-        </div>
-      `);
+            }).setHTML(popupContent);
 
+            // Show popup on hover (using popup's own methods)
             el.addEventListener('mouseenter', () => {
-                marker.setPopup(popup).togglePopup();
+                popup.setLngLat([item.longitude, item.latitude]).addTo(mapRef.current);
             });
             el.addEventListener('mouseleave', () => {
                 popup.remove();

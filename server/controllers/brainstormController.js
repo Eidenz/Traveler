@@ -86,7 +86,8 @@ const createBrainstormItem = async (req, res) => {
             location_name,
             position_x,
             position_y,
-            color
+            color,
+            priority
         } = req.body;
 
         // Validate type
@@ -105,8 +106,8 @@ const createBrainstormItem = async (req, res) => {
       INSERT INTO brainstorm_items (
         trip_id, type, title, content, url, image_path,
         latitude, longitude, location_name,
-        position_x, position_y, color, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        position_x, position_y, color, priority, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
             tripId,
             type,
@@ -120,6 +121,7 @@ const createBrainstormItem = async (req, res) => {
             position_x || 100,
             position_y || 100,
             color || null,
+            priority || 0,
             userId
         );
 
@@ -160,6 +162,7 @@ const updateBrainstormItem = async (req, res) => {
             position_x,
             position_y,
             color,
+            priority,
             remove_image
         } = req.body;
 
@@ -202,6 +205,7 @@ const updateBrainstormItem = async (req, res) => {
         position_x = COALESCE(?, position_x),
         position_y = COALESCE(?, position_y),
         color = COALESCE(?, color),
+        priority = COALESCE(?, priority),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
@@ -215,6 +219,7 @@ const updateBrainstormItem = async (req, res) => {
             position_x,
             position_y,
             color,
+            priority,
             itemId
         );
 

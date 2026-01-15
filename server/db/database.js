@@ -251,6 +251,7 @@ function initializeDatabase() {
           position_x REAL DEFAULT 100,
           position_y REAL DEFAULT 100,
           color TEXT,
+          priority INTEGER DEFAULT 0,
           created_by INTEGER NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -266,6 +267,7 @@ function initializeDatabase() {
       await runEmailPreferenceMigration(); // Add email preference migration
       await runPublicShareMigration(); // Add public share token migration
       await runPersonalDocumentsMigration(); // Add personal documents migration
+      await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
 
       console.log('Database initialized successfully');
       resolve();
@@ -379,6 +381,24 @@ function ensureTripIdIsText(tableName) {
     }
   } catch (error) {
     console.error(`Error checking/migrating trip_id column type for ${tableName}:`, error);
+  }
+}
+
+// --- Add priority field to brainstorm_items ---
+async function runBrainstormPriorityMigration() {
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(brainstorm_items)").all();
+    const hasPriority = tableInfo.some(col => col.name === 'priority');
+
+    if (!hasPriority) {
+      db.exec(`ALTER TABLE brainstorm_items ADD COLUMN priority INTEGER DEFAULT 0`);
+      console.log('Brainstorm priority field migration completed');
+    }
+  } catch (error) {
+    // Table might not exist yet, which is fine
+    if (!error.message.includes('no such table')) {
+      console.error('Error in brainstorm priority migration:', error);
+    }
   }
 }
 

@@ -58,10 +58,17 @@ const BrainstormCanvas = ({
 }) => {
     const { t } = useTranslation();
     const canvasRef = useRef(null);
-    const [isPanning, setIsPanning] = useState(false);
-    const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const [draggingItemId, setDraggingItemId] = useState(null);
 
-    // Drag state stored in refs to avoid stale closures
+    // All interactive state stored in refs to avoid stale closures
+    const panStateRef = useRef({
+        isPanning: false,
+        startX: 0,
+        startY: 0,
+        startOffsetX: 0,
+        startOffsetY: 0,
+    });
+
     const dragStateRef = useRef({
         isDragging: false,
         itemId: null,
@@ -70,14 +77,23 @@ const BrainstormCanvas = ({
         startMouseY: 0,
         startItemX: 0,
         startItemY: 0,
+        zoom: 1,
     });
-    const [draggingItemId, setDraggingItemId] = useState(null);
 
-    // Handle canvas pan
+    // Handle canvas pan start
     const handleCanvasMouseDown = (e) => {
-        if (e.button === 1 || (e.button === 0 && e.target === canvasRef.current)) {
-            setIsPanning(true);
-            setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+        // Only start panning if clicking on the canvas background (not on items)
+        const isCanvasBackground = e.target === canvasRef.current ||
+            e.target.classList.contains('canvas-transform-container');
+
+        if (e.button === 0 && isCanvasBackground) {
+            panStateRef.current = {
+                isPanning: true,
+                startX: e.clientX,
+                startY: e.clientY,
+                startOffsetX: offset.x,
+                startOffsetY: offset.y,
+            };
             e.preventDefault();
         }
     };
@@ -91,7 +107,6 @@ const BrainstormCanvas = ({
         const itemEl = document.getElementById(`brainstorm-item-${item.id}`);
         if (!itemEl) return;
 
-        // Store everything we need at the start of the drag
         dragStateRef.current = {
             isDragging: true,
             itemId: item.id,
@@ -105,18 +120,21 @@ const BrainstormCanvas = ({
         setDraggingItemId(item.id);
     };
 
-    // Global mouse move - handles both panning and item dragging
+    // Global mouse handlers - set up once
     useEffect(() => {
         const handleMouseMove = (e) => {
             // Handle panning
-            if (isPanning) {
+            const panState = panStateRef.current;
+            if (panState.isPanning) {
+                const deltaX = e.clientX - panState.startX;
+                const deltaY = e.clientY - panState.startY;
                 onOffsetChange({
-                    x: e.clientX - panStart.x,
-                    y: e.clientY - panStart.y,
+                    x: panState.startOffsetX + deltaX,
+                    y: panState.startOffsetY + deltaY,
                 });
             }
 
-            // Handle item dragging
+            // Handle item dragging with live visual feedback
             const dragState = dragStateRef.current;
             if (dragState.isDragging && dragState.itemEl) {
                 const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
@@ -125,7 +143,7 @@ const BrainstormCanvas = ({
                 const newX = dragState.startItemX + deltaX;
                 const newY = dragState.startItemY + deltaY;
 
-                // Update visual position directly
+                // Update visual position directly on the DOM element
                 dragState.itemEl.style.left = `${newX}px`;
                 dragState.itemEl.style.top = `${newY}px`;
             }
@@ -133,8 +151,9 @@ const BrainstormCanvas = ({
 
         const handleMouseUp = (e) => {
             // Handle panning end
-            if (isPanning) {
-                setIsPanning(false);
+            const panState = panStateRef.current;
+            if (panState.isPanning) {
+                panStateRef.current.isPanning = false;
             }
 
             // Handle item drag end
@@ -146,7 +165,7 @@ const BrainstormCanvas = ({
                 const newX = Math.max(0, dragState.startItemX + deltaX);
                 const newY = Math.max(0, dragState.startItemY + deltaY);
 
-                // Save the new position
+                // Save the new position to backend
                 onPositionUpdate(dragState.itemId, newX, newY);
 
                 // Reset drag state
@@ -158,6 +177,7 @@ const BrainstormCanvas = ({
                     startMouseY: 0,
                     startItemX: 0,
                     startItemY: 0,
+                    zoom: 1,
                 };
                 setDraggingItemId(null);
             }
@@ -170,7 +190,7 @@ const BrainstormCanvas = ({
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
         };
-    }, [isPanning, panStart, onOffsetChange, onPositionUpdate, canEdit]);
+    }, [onOffsetChange, onPositionUpdate, canEdit]);
 
     // Handle zoom with mouse wheel
     const handleWheel = useCallback((e) => {
@@ -215,7 +235,7 @@ const BrainstormCanvas = ({
         >
             {/* Items container with transform */}
             <div
-                className="absolute inset-0"
+                className="absolute inset-0 canvas-transform-container"
                 style={{
                     transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
                     transformOrigin: '0 0',
@@ -231,7 +251,7 @@ const BrainstormCanvas = ({
                             key={item.id}
                             id={`brainstorm-item-${item.id}`}
                             data-brainstorm-item
-                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${isDragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+                            className={`absolute group ${typeConfig.bgColor} ${typeConfig.borderColor} border-2 rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${isDragging ? 'cursor-grabbing' : 'cursor-default'}`}
                             style={{
                                 left: `${item.position_x}px`,
                                 top: `${item.position_y}px`,
@@ -240,7 +260,6 @@ const BrainstormCanvas = ({
                                 zIndex: isDragging ? 1000 : 1,
                                 opacity: isDragging ? 0.9 : 1,
                             }}
-                            onClick={() => !dragStateRef.current.isDragging && onEditItem(item)}
                         >
                             {/* Drag handle */}
                             {canEdit && (
@@ -256,6 +275,13 @@ const BrainstormCanvas = ({
 
                             {/* Type indicator */}
                             <div className={`absolute -left-1 top-3 w-1.5 h-6 rounded-full ${typeConfig.accentColor}`} />
+
+                            {/* Priority badge */}
+                            {item.priority > 0 && (
+                                <div className={`absolute -top-2 -right-2 w-6 h-6 rounded-full ${typeConfig.accentColor} flex items-center justify-center text-white text-xs font-bold shadow-md border-2 border-white dark:border-gray-800`}>
+                                    {item.priority}
+                                </div>
+                            )}
 
                             {/* Card content */}
                             <div className="p-3">
