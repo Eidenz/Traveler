@@ -1,6 +1,17 @@
 # Travel Companion
 
-![App Screenshot](https://github.com/user-attachments/assets/7e8bd62c-914e-4f4d-bc5e-8d7c55a5b440)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/515e3214-7574-4dbf-923c-fe1c01fb9232" width="70%" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/e130ec8e-dc98-4d90-ab6d-bfd6b82f6a0d" width="70%" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/cc624d9e-9b89-4e26-adc4-3c8d10588e89" width="30%" />
+  <img src="https://github.com/user-attachments/assets/9bc918e1-c599-4d20-bcbb-9a8657966dcc" width="30%" />
+</p>
 
 ## Overview
 
