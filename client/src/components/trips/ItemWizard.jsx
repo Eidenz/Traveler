@@ -24,6 +24,8 @@ const ItemWizard = ({
     onSuccess,
     onClose,
     onDelete, // Callback for deletion with (type, itemId) - allows parent to emit socket events
+    tripStartDate,
+    tripEndDate
 }) => {
     const { t } = useTranslation();
     const isEditMode = !!itemId;
@@ -239,6 +241,36 @@ const ItemWizard = ({
                 }
                 if (!formData.to_location.trim()) {
                     newErrors.to_location = t('errors.required', { field: t('transportation.toLocation') });
+                }
+            }
+        }
+
+        // Date validation against trip dates
+        if (tripStartDate && tripEndDate) {
+            const start = dayjs(tripStartDate).startOf('day');
+            const end = dayjs(tripEndDate).endOf('day');
+
+            if (type === 'activity' && currentStep === 0 && formData.date) {
+                const date = dayjs(formData.date);
+                if (date.isBefore(start) || date.isAfter(end)) {
+                    newErrors.date = t('errors.dateOutOfRange', 'Date must be within trip dates');
+                }
+            } else if (type === 'lodging' && currentStep === 1 && formData.check_in) {
+                // For lodging, we typically care that it starts within or during the trip. 
+                // It's technically possible to arrive before or stay after, but for "Trip" planning, usually consistent.
+                // Let's enforce check-in is not after trip end, and check-out is not before trip start.
+                const checkIn = dayjs(formData.check_in);
+                if (checkIn.isAfter(end)) {
+                    newErrors.check_in = t('errors.dateOutOfRange', 'Check-in cannot be after trip ends');
+                }
+                // Allow check-in before trip start? maybe. But let's stick to strict "within range" for now based on user request "cannot create activities outside trip range".
+                if (checkIn.isBefore(start)) {
+                    newErrors.check_in = t('errors.dateOutOfRange', 'Check-in cannot be before trip starts');
+                }
+            } else if (type === 'transport' && currentStep === 2 && formData.departure_date) {
+                const depDate = dayjs(formData.departure_date);
+                if (depDate.isBefore(start) || depDate.isAfter(end)) {
+                    newErrors.departure_date = t('errors.dateOutOfRange', 'Departure must be within trip dates');
                 }
             }
         }
@@ -509,8 +541,14 @@ const ItemWizard = ({
                                         selected={formData.date}
                                         onChange={(date) => handleChange('date', date)}
                                         dateFormat="MMMM d, yyyy"
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        minDate={tripStartDate ? new Date(tripStartDate) : null}
+                                        maxDate={tripEndDate ? new Date(tripEndDate) : null}
+                                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${errors.date
+                                            ? 'border-red-500 focus:ring-red-500'
+                                            : 'border-gray-200 dark:border-gray-600 focus:ring-purple-500'
+                                            } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {errors.date && <p className="mt-1 text-sm text-red-500 absolute top-full left-0 z-10 bg-white dark:bg-gray-800 p-1 rounded shadow text-xs">{errors.date}</p>}
                                 </div>
                             </div>
                         </div>
@@ -676,8 +714,14 @@ const ItemWizard = ({
                                         selected={formData.check_in}
                                         onChange={(date) => handleChange('check_in', date)}
                                         dateFormat="MMMM d, yyyy"
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        minDate={tripStartDate ? new Date(tripStartDate) : null}
+                                        maxDate={tripEndDate ? new Date(tripEndDate) : null}
+                                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${errors.check_in
+                                            ? 'border-red-500 focus:ring-red-500'
+                                            : 'border-gray-200 dark:border-gray-600 focus:ring-green-500'
+                                            } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {errors.check_in && <p className="mt-1 text-sm text-red-500 absolute top-full left-0 z-10 bg-white dark:bg-gray-800 p-1 rounded shadow text-xs">{errors.check_in}</p>}
                                 </div>
                             </div>
 

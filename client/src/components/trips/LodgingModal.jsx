@@ -14,7 +14,9 @@ const LodgingModal = ({
   lodgingId = null,
   onSuccess,
   onDelete,
-  defaultDate = null
+  defaultDate = null,
+  tripStartDate,
+  tripEndDate
 }) => {
   if (!isOpen) return null;
 
@@ -29,6 +31,8 @@ const LodgingModal = ({
           onSuccess={onSuccess}
           onDelete={onDelete}
           onClose={onClose}
+          tripStartDate={tripStartDate}
+          tripEndDate={tripEndDate}
         />
       </div>
     </Modal>

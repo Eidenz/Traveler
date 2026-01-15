@@ -267,6 +267,7 @@ function initializeDatabase() {
       await runEmailPreferenceMigration(); // Add email preference migration
       await runPublicShareMigration(); // Add public share token migration
       await runPersonalDocumentsMigration(); // Add personal documents migration
+      await runDocumentsTripIdMigration(); // Add trip_id to documents
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
 
       console.log('Database initialized successfully');
@@ -339,6 +340,55 @@ async function runPersonalDocumentsMigration() {
     console.log('Personal documents field migration completed');
   } catch (error) {
     console.error('Error running personal documents migration:', error);
+  }
+}
+
+/**
+ * Migration for documents trip_id field
+ */
+async function runDocumentsTripIdMigration() {
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(documents)").all();
+    const hasTripId = tableInfo.some(col => col.name === 'trip_id');
+
+    if (!hasTripId) {
+      console.log('Adding trip_id field to documents table...');
+      db.exec(`ALTER TABLE documents ADD COLUMN trip_id TEXT`);
+
+      console.log('Backfilling trip_id for existing documents...');
+
+      // Backfill for trip references
+      db.prepare(`
+        UPDATE documents 
+        SET trip_id = reference_id 
+        WHERE reference_type = 'trip'
+      `).run();
+
+      // Backfill for activity references (need to cast reference_id to match type if mixed, but sqlite is loose)
+      db.prepare(`
+        UPDATE documents 
+        SET trip_id = (SELECT trip_id FROM activities WHERE id = documents.reference_id)
+        WHERE reference_type = 'activity'
+      `).run();
+
+      // Backfill for transportation references
+      db.prepare(`
+        UPDATE documents 
+        SET trip_id = (SELECT trip_id FROM transportation WHERE id = documents.reference_id)
+        WHERE reference_type = 'transportation'
+      `).run();
+
+      // Backfill for lodging references
+      db.prepare(`
+        UPDATE documents 
+        SET trip_id = (SELECT trip_id FROM lodging WHERE id = documents.reference_id)
+        WHERE reference_type = 'lodging'
+      `).run();
+
+      console.log('Documents trip_id migration completed');
+    }
+  } catch (error) {
+    console.error('Error running documents trip_id migration:', error);
   }
 }
 

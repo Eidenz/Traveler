@@ -292,25 +292,12 @@ const deleteTransportation = (req, res) => {
         }
       }
 
-      // Delete documents first (foreign key constraint)
-      if (documents.length > 0) {
-        // Also delete document files
-        documents.forEach(doc => {
-          try {
-            const filePath = path.join(__dirname, '..', doc.file_path);
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          } catch (err) {
-            console.error("Error deleting document file:", err);
-          }
-        });
-
-        db.prepare(`
-          DELETE FROM documents
-          WHERE reference_type = 'transportation' AND reference_id = ?
-        `).run(transportId);
-      }
+      // Update documents to be unlinked (associated with trip directly)
+      db.prepare(`
+        UPDATE documents
+        SET reference_type = 'trip', reference_id = ?
+        WHERE reference_type = 'transportation' AND reference_id = ?
+      `).run(transportation.trip_id, transportId);
 
       // Delete transportation
       db.prepare('DELETE FROM transportation WHERE id = ?').run(transportId);

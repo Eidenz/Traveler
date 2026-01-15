@@ -1,7 +1,7 @@
 // client/src/components/layout/IconSidebar.jsx
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Calendar, DollarSign, Map, PlusCircle, User, Lightbulb } from 'lucide-react';
+import { Calendar, DollarSign, Map, PlusCircle, User, Lightbulb, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
@@ -60,6 +60,12 @@ const IconSidebar = () => {
       icon: Lightbulb,
       label: t('navigation.brainstorm', 'Brainstorm'),
       matchPaths: ['/brainstorm'],
+    },
+    {
+      to: '/documents',
+      icon: FileText,
+      label: t('navigation.documents', 'Documents'),
+      matchPaths: ['/documents'],
     },
   ];
 

@@ -264,24 +264,12 @@ const deleteLodging = (req, res) => {
         }
       }
 
-      // Delete documents first (foreign key constraint)
-      if (documents.length > 0) {
-        // Also delete document files
-        documents.forEach(doc => {
-          try {
-            const filePath = path.join(__dirname, '..', doc.file_path);
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          } catch (err) {
-            console.error("Error deleting document file:", err);
-          }
-        });
-        db.prepare(`
-          DELETE FROM documents
-          WHERE reference_type = 'lodging' AND reference_id = ?
-        `).run(lodgingId);
-      }
+      // Update documents to be unlinked (associated with trip directly)
+      db.prepare(`
+        UPDATE documents
+        SET reference_type = 'trip', reference_id = ?
+        WHERE reference_type = 'lodging' AND reference_id = ?
+      `).run(lodging.trip_id, lodgingId);
 
       // Delete lodging
       db.prepare('DELETE FROM lodging WHERE id = ?').run(lodgingId);

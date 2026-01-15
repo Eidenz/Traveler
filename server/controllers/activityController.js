@@ -92,6 +92,11 @@ const createActivity = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
+    // Validate date is within trip range
+    if (date < trip.start_date || date > trip.end_date) {
+      return res.status(400).json({ message: 'Activity date must be within trip dates' });
+    }
+
     // Handle banner image if uploaded
     let bannerImage = null;
     if (req.file) {
@@ -166,6 +171,17 @@ const updateActivity = (req, res) => {
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
+    }
+
+    // Check trip dates
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(activity.trip_id);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Validate date is within trip range
+    if (date < trip.start_date || date > trip.end_date) {
+      return res.status(400).json({ message: 'Activity date must be within trip dates' });
     }
 
     // Handle banner image if uploaded
@@ -264,24 +280,14 @@ const deleteActivity = (req, res) => {
         }
       }
 
-      // Delete documents first
-      if (documents.length > 0) {
-        // Also delete document files
-        documents.forEach(doc => {
-          try {
-            const filePath = path.join(__dirname, '..', doc.file_path);
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-          } catch (err) {
-            console.error("Error deleting document file:", err);
-          }
-        });
-        db.prepare(`
-          DELETE FROM documents
-          WHERE reference_type = 'activity' AND reference_id = ?
-        `).run(activityId);
-      }
+      // Update documents to be unlinked (associated with trip directly)
+      // They are already associated with the trip via trip_id column (if migration ran),
+      // but we update reference_type/id to move them to the general trip pool.
+      db.prepare(`
+        UPDATE documents
+        SET reference_type = 'trip', reference_id = ?
+        WHERE reference_type = 'activity' AND reference_id = ?
+      `).run(activity.trip_id, activityId);
 
       // Delete activity
       db.prepare('DELETE FROM activities WHERE id = ?').run(activityId);

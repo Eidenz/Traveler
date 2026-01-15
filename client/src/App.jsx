@@ -22,6 +22,7 @@ import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
 import BudgetDashboard from './pages/budget/BudgetDashboard';
 import BrainstormDashboard from './pages/brainstorm/BrainstormDashboard';
+import DocumentDashboard from './pages/documents/DocumentDashboard';
 import Brainstorm from './pages/trips/Brainstorm';
 
 // Public Pages
@@ -72,6 +73,8 @@ function App() {
           <Route path="budgets/:tripId" element={<BudgetDashboard />} />
           <Route path="brainstorm" element={<BrainstormDashboard />} />
           <Route path="brainstorm/:tripId" element={<BrainstormDashboard />} />
+          <Route path="documents" element={<DocumentDashboard />} />
+          <Route path="documents/:tripId" element={<DocumentDashboard />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 

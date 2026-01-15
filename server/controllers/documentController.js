@@ -57,6 +57,32 @@ const checkDocumentPermission = (userId, reference_type, reference_id, requiredR
 };
 
 
+// Helper to get trip_id from reference
+const getTripIdFromReference = (reference_type, reference_id) => {
+  if (reference_type === 'trip') return reference_id;
+
+  let referenceTable = '';
+  let referenceColumn = 'id';
+
+  switch (reference_type) {
+    case 'transportation': referenceTable = 'transportation'; break;
+    case 'lodging': referenceTable = 'lodging'; break;
+    case 'activity': referenceTable = 'activities'; break;
+    default: return null;
+  }
+
+  try {
+    const refIdNum = parseInt(reference_id, 10);
+    if (isNaN(refIdNum)) return null;
+
+    const item = db.prepare(`SELECT trip_id FROM ${referenceTable} WHERE ${referenceColumn} = ?`).get(refIdNum);
+    return item ? item.trip_id : null;
+  } catch (error) {
+    console.error(`Error getting trip_id for ${reference_type} ${reference_id}:`, error);
+    return null;
+  }
+};
+
 /**
  * Upload a document
  */
@@ -97,6 +123,19 @@ const uploadDocument = async (req, res) => { // Make async if needed later
       return res.status(400).json({ message: 'Invalid reference type' });
     }
 
+    // specific check for mixed types
+    // Resolve trip_id
+    const tripId = getTripIdFromReference(reference_type, reference_id);
+    if (!tripId) {
+      if (req.file && req.file.path) {
+        fs.unlink(req.file.path, (unlinkErr) => {
+          if (unlinkErr) console.error("Error deleting uploaded file due to unresolved trip:", unlinkErr);
+        });
+      }
+      return res.status(400).json({ message: 'Could not resolve trip for this document.' });
+    }
+
+
     // Construct file path relative to server root for DB
     // Assumes 'uploads' is served at root, and files are in uploads/documents
     const relativeFilePath = `/uploads/documents/${req.file.filename}`;
@@ -109,12 +148,12 @@ const uploadDocument = async (req, res) => { // Make async if needed later
     // Insert document metadata into the database
     const insert = db.prepare(`
       INSERT INTO documents (
-        reference_type, reference_id, file_path, file_name, file_type, uploaded_by, is_personal
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        reference_type, reference_id, trip_id, file_path, file_name, file_type, uploaded_by, is_personal
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
-      reference_type, reference_id, relativeFilePath, file_name, file_type, userId, isPersonal
+      reference_type, reference_id, tripId, relativeFilePath, file_name, file_type, userId, isPersonal
     );
 
     // Get the created document record
@@ -331,7 +370,121 @@ const getDocumentsByReference = (req, res) => {
   }
 };
 
+/**
+ * Update a document (e.g. link to a different item)
+ */
+const updateDocument = (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { reference_type, reference_id, is_personal } = req.body;
+    const userId = req.user.id;
 
+    const document = db.prepare('SELECT * FROM documents WHERE id = ?').get(documentId);
+    if (!document) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Check permission on current document
+    if (!checkDocumentPermission(userId, document.reference_type, document.reference_id, ['owner', 'editor'])) {
+      return res.status(403).json({ message: 'Access Denied: You do not have permission to edit this document.' });
+    }
+
+    // If changing reference, validate new reference and check permission
+    if (reference_type && reference_id) {
+      // Validate Reference Type
+      const validReferenceTypes = ['trip', 'transportation', 'lodging', 'activity'];
+      if (!validReferenceTypes.includes(reference_type)) {
+        return res.status(400).json({ message: 'Invalid reference type' });
+      }
+
+      // Check validity and resolving tripId for the new reference
+      const newTripId = getTripIdFromReference(reference_type, reference_id);
+      if (!newTripId) {
+        return res.status(400).json({ message: 'Invalid reference ID or could not resolve trip.' });
+      }
+
+      // Ensure we are not moving documents between trips (optional constraint, but good for consistency)
+      if (newTripId !== document.trip_id) {
+        return res.status(400).json({ message: 'Cannot move documents between different trips.' });
+      }
+
+      // Check permission on the NEW reference (must have edit access to the destination trip/item)
+      // Since we verified trip_id matches and we checked access to the doc, and role is trip-based, 
+      // this is implicitly covered if roles are consistent. 
+      // But explicit check doesn't hurt.
+      if (!checkDocumentPermission(userId, reference_type, reference_id, ['owner', 'editor'])) {
+        return res.status(403).json({ message: 'Access Denied: You do not have permission to link to this item.' });
+      }
+    }
+
+    // Build update query
+    let updateFields = [];
+    let params = [];
+
+    if (reference_type) {
+      updateFields.push('reference_type = ?');
+      params.push(reference_type);
+    }
+    if (reference_id) {
+      updateFields.push('reference_id = ?');
+      params.push(reference_id);
+    }
+    if (is_personal !== undefined) {
+      updateFields.push('is_personal = ?');
+      params.push(is_personal === true || is_personal === 'true' || is_personal === 1 ? 1 : 0);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    params.push(documentId);
+
+    const runInfo = db.prepare(`UPDATE documents SET ${updateFields.join(', ')} WHERE id = ?`).run(...params);
+
+    const updatedDoc = db.prepare('SELECT * FROM documents WHERE id = ?').get(documentId);
+
+    return res.status(200).json({
+      message: 'Document updated successfully',
+      document: updatedDoc
+    });
+
+  } catch (error) {
+    console.error('Update document error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Get all documents for a trip
+ */
+const getAllTripDocuments = (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const userId = req.user.id;
+
+    // Check trip access (any member can view shared docs)
+    // We can reuse checkDocumentPermission with trip reference
+    if (!checkDocumentPermission(userId, 'trip', tripId, ['owner', 'editor', 'viewer'])) {
+      return res.status(403).json({ message: 'Access Denied: You do not have permission to view documents for this trip.' });
+    }
+
+    // Get documents - filter personal documents
+    // This query assumes trip_id has been populated (which the migration does)
+    const documents = db.prepare(`
+      SELECT *
+      FROM documents
+      WHERE trip_id = ?
+        AND (is_personal = 0 OR is_personal IS NULL OR uploaded_by = ?)
+      ORDER BY created_at DESC
+    `).all(tripId, userId);
+
+    return res.status(200).json({ documents });
+  } catch (error) {
+    console.error('Get all trip documents error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
 
 module.exports = {
   uploadDocument,
@@ -340,5 +493,7 @@ module.exports = {
   downloadDocument,
   viewDocument,
   getDocumentsByReference,
+  getAllTripDocuments,
+  updateDocument,
   checkDocumentPermission
 };

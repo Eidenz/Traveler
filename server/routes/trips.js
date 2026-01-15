@@ -14,6 +14,7 @@ const {
   revokePublicShareToken,
   getTripByPublicToken
 } = require('../controllers/tripController');
+const { getAllTripDocuments } = require('../controllers/documentController');
 const { authenticate, checkTripAccess, requireEditAccess, requireOwnerAccess } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
 
@@ -30,6 +31,9 @@ router.get('/', getUserTrips);
 
 // Get single trip by ID
 router.get('/:tripId', checkTripAccess(), getTripById);
+
+// Get all documents for a trip
+router.get('/:tripId/documents', checkTripAccess(), getAllTripDocuments);
 
 // Create a new trip
 router.post(

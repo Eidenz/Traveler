@@ -891,6 +891,8 @@ const TripDetail = () => {
                 itemId={wizardItemId}
                 tripId={tripId}
                 defaultDate={activityDefaultDate}
+                tripStartDate={trip?.start_date}
+                tripEndDate={trip?.end_date}
                 onSuccess={() => {
                   fetchTripData();
                   handleCloseWizard();
@@ -935,6 +937,8 @@ const TripDetail = () => {
         onClose={() => setIsTransportModalOpen(false)}
         tripId={tripId}
         transportId={selectedTransportId}
+        tripStartDate={trip?.start_date}
+        tripEndDate={trip?.end_date}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitTransportDelete(deletedItemId)}
       />
@@ -944,6 +948,8 @@ const TripDetail = () => {
         onClose={() => setIsLodgingModalOpen(false)}
         tripId={tripId}
         lodgingId={selectedLodgingId}
+        tripStartDate={trip?.start_date}
+        tripEndDate={trip?.end_date}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitLodgingDelete(deletedItemId)}
       />
@@ -957,6 +963,8 @@ const TripDetail = () => {
         tripId={tripId}
         activityId={selectedActivityId}
         defaultDate={activityDefaultDate}
+        tripStartDate={trip?.start_date}
+        tripEndDate={trip?.end_date}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitActivityDelete(deletedItemId)}
       />

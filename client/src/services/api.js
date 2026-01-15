@@ -241,6 +241,8 @@ export const documentAPI = {
   viewDocumentAsBlob: (documentId) => api.get(`/documents/${documentId}/view`, {
     responseType: 'blob',
   }),
+  getAllTripDocuments: (tripId) => api.get(`/trips/${tripId}/documents`),
+  updateDocument: (documentId, data) => api.put(`/documents/${documentId}`, data),
 };
 
 // Checklist API
