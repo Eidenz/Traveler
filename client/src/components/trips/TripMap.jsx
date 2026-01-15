@@ -213,7 +213,21 @@ const TripMap = ({
         'bottom-right'
       );
 
+      // Resize observer to handle panel resizing (debounced)
+      let resizeTimeout;
+      const resizeObserver = new ResizeObserver(() => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          if (map.current) {
+            map.current.resize();
+          }
+        }, 100);
+      });
+      resizeObserver.observe(mapContainer.current);
+
       return () => {
+        clearTimeout(resizeTimeout);
+        resizeObserver.disconnect();
         if (map.current) {
           map.current.remove();
           map.current = null;

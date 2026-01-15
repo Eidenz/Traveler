@@ -80,7 +80,21 @@ const BrainstormMap = ({
             }
         });
 
+        // Resize observer to handle panel resizing (debounced)
+        let resizeTimeout;
+        const resizeObserver = new ResizeObserver(() => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                if (mapRef.current) {
+                    mapRef.current.resize();
+                }
+            }, 100);
+        });
+        resizeObserver.observe(mapContainerRef.current);
+
         return () => {
+            clearTimeout(resizeTimeout);
+            resizeObserver.disconnect();
             map.remove();
             mapRef.current = null;
         };
@@ -121,7 +135,7 @@ const BrainstormMap = ({
                 border-radius: 50%;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                 cursor: pointer;
-                transition: transform 0.2s, box-shadow 0.2s;
+                transition: box-shadow 0.2s, border-width 0.1s;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -141,14 +155,14 @@ const BrainstormMap = ({
                 `;
             }
 
-            // Hover effects
+            // Hover effects - only change shadow, not transform (transform causes position jump)
             el.addEventListener('mouseenter', () => {
-                el.style.transform = 'scale(1.2)';
-                el.style.boxShadow = '0 6px 20px rgba(0,0,0,0.4)';
+                el.style.boxShadow = '0 6px 20px rgba(0,0,0,0.5)';
+                el.style.borderWidth = '4px';
             });
             el.addEventListener('mouseleave', () => {
-                el.style.transform = 'scale(1)';
                 el.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+                el.style.borderWidth = '3px';
             });
 
             // Click handler
@@ -161,29 +175,6 @@ const BrainstormMap = ({
             const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
                 .setLngLat([item.longitude, item.latitude])
                 .addTo(mapRef.current);
-
-            // Create and attach popup (but don't show it yet)
-            const popupContent = `
-                <div style="padding: 8px; max-width: 200px;">
-                    ${item.priority ? `<span style="display: inline-block; background: ${MARKER_COLORS[item.type]}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-bottom: 4px;">#${item.priority}</span>` : ''}
-                    <strong style="display: block; margin-bottom: 4px;">${item.title || item.location_name || 'Untitled'}</strong>
-                    ${item.content ? `<p style="font-size: 12px; color: #666; margin: 0;">${item.content.substring(0, 100)}${item.content.length > 100 ? '...' : ''}</p>` : ''}
-                </div>
-            `;
-
-            const popup = new mapboxgl.Popup({
-                offset: 25,
-                closeButton: false,
-                closeOnClick: false,
-            }).setHTML(popupContent);
-
-            // Show popup on hover (using popup's own methods)
-            el.addEventListener('mouseenter', () => {
-                popup.setLngLat([item.longitude, item.latitude]).addTo(mapRef.current);
-            });
-            el.addEventListener('mouseleave', () => {
-                popup.remove();
-            });
 
             markersRef.current.push(marker);
         });
