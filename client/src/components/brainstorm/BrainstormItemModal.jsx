@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     X, MapPin, FileText, Image, Link2, Lightbulb,
-    Upload, ExternalLink, Trash2
+    Upload, ExternalLink, Trash2, Loader2
 } from 'lucide-react';
 import Button from '../ui/Button';
+import { geocodeLocation } from '../../utils/geocoding';
 
 // Item type configuration
 const ITEM_TYPES = {
@@ -64,6 +65,7 @@ const BrainstormItemModal = ({
     const [imagePreview, setImagePreview] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [urlPreview, setUrlPreview] = useState(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
 
     // Reset form when modal opens/closes
     useEffect(() => {
@@ -126,6 +128,39 @@ const BrainstormItemModal = ({
             setUrlPreview(null);
         }
     }, [url, type]);
+
+    // Geocode location name when it changes (debounced)
+    useEffect(() => {
+        // Don't geocode if we already have coordinates and location name hasn't substantially changed
+        if (!locationName || locationName.length < 3) {
+            return;
+        }
+
+        // Don't geocode if coordinates were set from defaultLocation (map click)
+        if (defaultLocation?.latitude && defaultLocation?.longitude &&
+            locationName === defaultLocation?.location_name) {
+            return;
+        }
+
+        const debounceTimer = setTimeout(async () => {
+            setIsGeocoding(true);
+            try {
+                const coords = await geocodeLocation(locationName);
+                if (coords) {
+                    setLatitude(coords.lat);
+                    setLongitude(coords.lng);
+                } else {
+                    // Clear coordinates if geocoding fails
+                    setLatitude(null);
+                    setLongitude(null);
+                }
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 800); // Debounce for 800ms
+
+        return () => clearTimeout(debounceTimer);
+    }, [locationName, defaultLocation]);
 
     // Handle image selection
     const handleImageSelect = (e) => {
@@ -348,14 +383,30 @@ const BrainstormItemModal = ({
                                     type="text"
                                     value={locationName}
                                     onChange={(e) => setLocationName(e.target.value)}
-                                    placeholder={t('brainstorm.locationPlaceholder', 'e.g., Paris, France')}
-                                    className="form-input pl-10"
+                                    placeholder={t('brainstorm.locationPlaceholder', 'e.g., Tokyo, Japan')}
+                                    className="form-input pl-10 pr-10"
                                 />
                                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                {/* Geocoding status indicator */}
+                                {isGeocoding && (
+                                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent animate-spin" />
+                                )}
+                                {!isGeocoding && latitude && longitude && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                )}
                             </div>
                             {latitude && longitude && (
-                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                    {t('brainstorm.coordinates', 'Coordinates')}: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                                <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                                    ✓ {t('brainstorm.locationFound', 'Location found')}: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                                </p>
+                            )}
+                            {locationName && locationName.length >= 3 && !isGeocoding && !latitude && !longitude && (
+                                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                    {t('brainstorm.locationNotFound', 'Location not found - try a more specific address')}
                                 </p>
                             )}
                         </div>
