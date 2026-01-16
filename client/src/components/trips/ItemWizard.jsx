@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
-    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal
+    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
+import { geocodeLocation } from '../../utils/geocoding';
 
 /**
  * Step-based wizard for creating/editing activities, lodging, and transport.
@@ -33,6 +34,7 @@ const ItemWizard = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isGeocoding, setIsGeocoding] = useState(false);
 
     // Form data based on type
     const [formData, setFormData] = useState(() => getInitialFormData(type, defaultDate));
@@ -52,6 +54,8 @@ const ItemWizard = ({
                 date: baseDate,
                 time: '',
                 location: '',
+                latitude: null,
+                longitude: null,
                 confirmation_code: '',
                 notes: '',
             };
@@ -59,6 +63,8 @@ const ItemWizard = ({
             return {
                 name: '',
                 address: '',
+                latitude: null,
+                longitude: null,
                 check_in: baseDate,
                 check_out: new Date(new Date(baseDate).setDate(baseDate.getDate() + 3)),
                 confirmation_code: '',
@@ -114,6 +120,8 @@ const ItemWizard = ({
                     date: activity.date ? new Date(activity.date) : new Date(),
                     time: activity.time || '',
                     location: activity.location || '',
+                    latitude: activity.latitude || null,
+                    longitude: activity.longitude || null,
                     confirmation_code: activity.confirmation_code || '',
                     notes: activity.notes || '',
                 });
@@ -124,6 +132,8 @@ const ItemWizard = ({
                 setFormData({
                     name: lodging.name || '',
                     address: lodging.address || '',
+                    latitude: lodging.latitude || null,
+                    longitude: lodging.longitude || null,
                     check_in: lodging.check_in ? new Date(lodging.check_in) : new Date(),
                     check_out: lodging.check_out ? new Date(lodging.check_out) : new Date(),
                     confirmation_code: lodging.confirmation_code || '',
@@ -154,6 +164,48 @@ const ItemWizard = ({
             setIsFetching(false);
         }
     };
+
+    // Handle geocoding
+    useEffect(() => {
+        const locationText = type === 'activity' ? formData.location : (type === 'lodging' ? formData.address : null);
+
+        // Don't geocode if we already have coordinates and location hasn't changed (complex check omitted for simplicity, relying on debounce)
+        // Or if location is too short
+        if (!locationText || locationText.length < 3) {
+            return;
+        }
+
+        const debounceTimer = setTimeout(async () => {
+            // Only geocode if coordinates are missing OR if this is a new entry/edit where we might want to refresh
+            // But to avoid overwriting efficient data, we could check if lat/lng already exists. 
+            // However, if user CHANGED the text, we want to re-geocode.
+            // Simplified: Always geocode if text changes.
+
+            setIsGeocoding(true);
+            try {
+                const coords = await geocodeLocation(locationText);
+                if (coords) {
+                    setFormData(prev => ({
+                        ...prev,
+                        latitude: coords.lat,
+                        longitude: coords.lng
+                    }));
+                } else {
+                    // Only clear if we explicitly failed to find one? Or keep old? 
+                    // Better to clear if the new address is invalid.
+                    setFormData(prev => ({
+                        ...prev,
+                        latitude: null,
+                        longitude: null
+                    }));
+                }
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 800);
+
+        return () => clearTimeout(debounceTimer);
+    }, [formData.location, formData.address, type]);
 
     // Get step definitions based on type
     const getSteps = () => {
@@ -598,9 +650,30 @@ const ItemWizard = ({
                                         value={formData.location}
                                         onChange={(e) => handleChange('location', e.target.value)}
                                         placeholder={t('activities.locationPlaceholder', 'e.g. National Museum')}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
+                                    {isGeocoding ? (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                                        </div>
+                                    ) : formData.latitude && formData.longitude && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
+                                {formData.latitude && formData.longitude && (
+                                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                                        ✓ {t('brainstorm.locationFound', 'Location found')}: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                                    </p>
+                                )}
+                                {formData.location && formData.location.length >= 3 && !isGeocoding && !formData.latitude && !formData.longitude && (
+                                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                        {t('brainstorm.locationNotFound', 'Location not found - try a more specific address')}
+                                    </p>
+                                )}
                             </div>
 
                             <div>
@@ -619,7 +692,7 @@ const ItemWizard = ({
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div >
                 );
 
             case 2: // Extras - Notes & Documents
@@ -680,9 +753,30 @@ const ItemWizard = ({
                                         onChange={(e) => handleChange('address', e.target.value)}
                                         placeholder={t('lodging.addressPlaceholder', '123 Main St, City, Country')}
                                         rows={3}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                                     />
+                                    {isGeocoding ? (
+                                        <div className="absolute right-3 top-3">
+                                            <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
+                                        </div>
+                                    ) : formData.latitude && formData.longitude && (
+                                        <div className="absolute right-3 top-3 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
+                                {formData.latitude && formData.longitude && (
+                                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">
+                                        ✓ {t('brainstorm.locationFound', 'Location found')}: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                                    </p>
+                                )}
+                                {formData.address && formData.address.length >= 3 && !isGeocoding && !formData.latitude && !formData.longitude && (
+                                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                        {t('brainstorm.locationNotFound', 'Location not found - try a more specific address')}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
