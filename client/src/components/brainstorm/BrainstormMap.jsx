@@ -28,7 +28,8 @@ const BrainstormMap = ({
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
-    const markersRef = useRef([]);
+    const markersRef = useRef([]); // Now stores { id, marker, element } objects
+    const initialFitDoneRef = useRef(false); // Track if we've done initial fit
     const [mapStyle, setMapStyle] = useState('streets');
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
@@ -118,6 +119,7 @@ const BrainstormMap = ({
     }, [mapStyle]);
 
     // Add markers for items with locations and route lines for prioritized items
+    // Optimized to update in-place without resetting map view
     useEffect(() => {
         if (!mapRef.current || !isLoaded) return;
 
@@ -129,11 +131,10 @@ const BrainstormMap = ({
             return;
         }
 
-        // Remove existing markers
-        markersRef.current.forEach(marker => marker.remove());
-        markersRef.current = [];
-
         const itemsWithLocation = items.filter(item => item.latitude && item.longitude);
+
+        // Track which item IDs we've seen
+        const existingItemIds = new Set();
 
         // Get items with priorities for drawing route lines
         const prioritizedItems = itemsWithLocation
@@ -198,14 +199,25 @@ const BrainstormMap = ({
             }
         }
 
-        if (itemsWithLocation.length === 0) return;
+        // Build a map of existing markers by item ID
+        const existingMarkersMap = new Map();
+        markersRef.current.forEach((item) => {
+            if (item && item.id && item.marker) {
+                existingMarkersMap.set(item.id, { marker: item.marker, element: item.element });
+            } else if (item && typeof item.remove === 'function') {
+                // Old format marker without ID - remove it
+                item.remove();
+            }
+        });
 
-        itemsWithLocation.forEach((item, index) => {
-            // Create custom marker element
+        const newMarkers = [];
+
+        // Helper function to create marker element
+        const createMarkerElement = (item) => {
             const el = document.createElement('div');
             el.className = 'brainstorm-marker';
+            el.dataset.itemId = item.id;
 
-            // Show priority number if set, otherwise show icon
             const hasPriority = item.priority && item.priority > 0;
 
             el.style.cssText = `
@@ -236,7 +248,7 @@ const BrainstormMap = ({
                 `;
             }
 
-            // Hover effects - only change shadow, not transform (transform causes position jump)
+            // Hover effects
             el.addEventListener('mouseenter', () => {
                 el.style.boxShadow = '0 6px 20px rgba(0,0,0,0.5)';
                 el.style.borderWidth = '4px';
@@ -252,25 +264,81 @@ const BrainstormMap = ({
                 onItemClick(item);
             });
 
-            // Create marker
-            const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
-                .setLngLat([item.longitude, item.latitude])
-                .addTo(mapRef.current);
+            return el;
+        };
 
-            markersRef.current.push(marker);
+        // Update existing markers or add new ones
+        itemsWithLocation.forEach((item) => {
+            const itemId = `brainstorm-${item.id}`;
+            existingItemIds.add(itemId);
+
+            const existing = existingMarkersMap.get(itemId);
+
+            if (existing) {
+                // Update existing marker position if changed
+                const currentPos = existing.marker.getLngLat();
+                const newLng = parseFloat(item.longitude);
+                const newLat = parseFloat(item.latitude);
+                if (currentPos.lng !== newLng || currentPos.lat !== newLat) {
+                    existing.marker.setLngLat([newLng, newLat]);
+                }
+
+                // Update priority display if changed
+                const hasPriority = item.priority && item.priority > 0;
+                if (hasPriority) {
+                    existing.element.textContent = item.priority;
+                    existing.element.style.width = '28px';
+                    existing.element.style.height = '28px';
+                    existing.element.style.fontSize = '14px';
+                } else {
+                    existing.element.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            ${getIconPath(item.type)}
+                        </svg>
+                    `;
+                    existing.element.style.width = '32px';
+                    existing.element.style.height = '32px';
+                    existing.element.style.fontSize = '12px';
+                }
+
+                // Update color if type changed
+                existing.element.style.background = MARKER_COLORS[item.type] || MARKER_COLORS.idea;
+
+                newMarkers.push({ id: itemId, marker: existing.marker, element: existing.element });
+            } else {
+                // Create new marker
+                const el = createMarkerElement(item);
+
+                const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+                    .setLngLat([item.longitude, item.latitude])
+                    .addTo(mapRef.current);
+
+                newMarkers.push({ id: itemId, marker, element: el });
+            }
         });
 
-        // Fit bounds to show all markers if there are items
-        if (itemsWithLocation.length > 0) {
+        // Remove markers that no longer exist in items
+        existingMarkersMap.forEach(({ marker }, id) => {
+            if (!existingItemIds.has(id)) {
+                marker.remove();
+            }
+        });
+
+        markersRef.current = newMarkers;
+
+        // Fit bounds to show all markers - ONLY on initial load
+        if (itemsWithLocation.length > 0 && !initialFitDoneRef.current) {
             const bounds = new mapboxgl.LngLatBounds();
             itemsWithLocation.forEach(item => {
-                bounds.extend([item.longitude, item.latitude]);
+                bounds.extend([parseFloat(item.longitude), parseFloat(item.latitude)]);
             });
 
             mapRef.current.fitBounds(bounds, {
                 padding: 80,
                 maxZoom: 12,
             });
+
+            initialFitDoneRef.current = true;
         }
     }, [items, onItemClick, isLoaded]);
 
