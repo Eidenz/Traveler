@@ -51,6 +51,7 @@ const BrainstormCanvas = ({
     onEditItem,
     onDeleteItem,
     onPositionUpdate,
+    onZoomToLocation, // Callback to zoom to a location on the map
     offset = { x: 0, y: 0 },
     zoom = 1,
     onOffsetChange,
@@ -421,10 +422,28 @@ const BrainstormCanvas = ({
                                             </h4>
                                         )}
                                         {item.location_name && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
-                                                <MapPin className="w-3 h-3" />
-                                                {item.location_name}
-                                            </p>
+                                            item.latitude && item.longitude && onZoomToLocation ? (
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onZoomToLocation(item.latitude, item.longitude, item.location_name);
+                                                    }}
+                                                    onTouchEnd={(e) => {
+                                                        e.stopPropagation();
+                                                        onZoomToLocation(item.latitude, item.longitude, item.location_name);
+                                                    }}
+                                                    className="text-xs text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 flex items-center gap-1 hover:underline transition-colors max-w-full overflow-hidden"
+                                                    title={t('brainstorm.clickToZoom', 'Click to zoom to location')}
+                                                >
+                                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                                    <span className="truncate">{item.location_name}</span>
+                                                </button>
+                                            ) : (
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3 flex-shrink-0" />
+                                                    <span className="truncate">{item.location_name}</span>
+                                                </p>
+                                            )
                                         )}
                                     </div>
                                 </div>

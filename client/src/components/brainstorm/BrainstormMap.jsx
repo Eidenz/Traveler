@@ -23,6 +23,7 @@ const BrainstormMap = ({
     canEdit = false,
     onMapClick,
     onItemClick,
+    onMapReady, // Callback to expose map ref for external control
 }) => {
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
@@ -31,6 +32,7 @@ const BrainstormMap = ({
     const [mapStyle, setMapStyle] = useState('streets');
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
 
     // Map styles
     const styles = {
@@ -52,6 +54,14 @@ const BrainstormMap = ({
         });
 
         mapRef.current = map;
+
+        // Notify parent when map is ready
+        map.on('load', () => {
+            setIsLoaded(true);
+            if (onMapReady) {
+                onMapReady(map);
+            }
+        });
 
         // Click handler for adding items
         map.on('click', async (e) => {
@@ -98,7 +108,7 @@ const BrainstormMap = ({
             map.remove();
             mapRef.current = null;
         };
-    }, []);
+    }, [onMapReady]);
 
     // Update map style
     useEffect(() => {
@@ -107,15 +117,86 @@ const BrainstormMap = ({
         }
     }, [mapStyle]);
 
-    // Add markers for items with locations
+    // Add markers for items with locations and route lines for prioritized items
     useEffect(() => {
-        if (!mapRef.current) return;
+        if (!mapRef.current || !isLoaded) return;
+
+        // Check if map style is fully loaded before modifying sources
+        if (!mapRef.current.isStyleLoaded()) {
+            mapRef.current.once('style.load', () => {
+                setIsLoaded(true);
+            });
+            return;
+        }
 
         // Remove existing markers
         markersRef.current.forEach(marker => marker.remove());
         markersRef.current = [];
 
         const itemsWithLocation = items.filter(item => item.latitude && item.longitude);
+
+        // Get items with priorities for drawing route lines
+        const prioritizedItems = itemsWithLocation
+            .filter(item => item.priority && item.priority > 0)
+            .sort((a, b) => a.priority - b.priority);
+
+        // Draw route lines between prioritized items
+        const routeSource = mapRef.current.getSource('brainstorm-route');
+        if (prioritizedItems.length > 1) {
+            const lineCoordinates = prioritizedItems.map(item => [
+                parseFloat(item.longitude),
+                parseFloat(item.latitude)
+            ]);
+
+            const routeData = {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: lineCoordinates
+                }
+            };
+
+            if (routeSource) {
+                // Update existing source data in-place
+                routeSource.setData(routeData);
+            } else {
+                // Create new source and layer
+                try {
+                    mapRef.current.addSource('brainstorm-route', {
+                        type: 'geojson',
+                        data: routeData
+                    });
+                    mapRef.current.addLayer({
+                        id: 'brainstorm-route',
+                        type: 'line',
+                        source: 'brainstorm-route',
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        },
+                        paint: {
+                            'line-color': '#8b5cf6', // Violet color to match priorities
+                            'line-width': 3,
+                            'line-opacity': 0.7,
+                            'line-dasharray': [2, 2]
+                        }
+                    });
+                } catch (e) {
+                    console.warn('Error adding brainstorm route layer:', e);
+                }
+            }
+        } else if (routeSource) {
+            // Remove route if no longer needed
+            try {
+                if (mapRef.current.getLayer('brainstorm-route')) {
+                    mapRef.current.removeLayer('brainstorm-route');
+                }
+                mapRef.current.removeSource('brainstorm-route');
+            } catch (e) {
+                // Ignore errors
+            }
+        }
 
         if (itemsWithLocation.length === 0) return;
 
@@ -191,7 +272,7 @@ const BrainstormMap = ({
                 maxZoom: 12,
             });
         }
-    }, [items, onItemClick]);
+    }, [items, onItemClick, isLoaded]);
 
     // Handle search
     const handleSearch = async () => {

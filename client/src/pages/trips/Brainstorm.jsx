@@ -30,6 +30,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const tripId = propTripId || urlTripId;
     const navigate = useNavigate();
     const containerRef = useRef(null);
+    const mapRef = useRef(null); // Store map instance for external control
 
     // State
     const [trip, setTrip] = useState(null);
@@ -256,7 +257,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     // Handle modal save
     const handleModalSave = async (itemData) => {
         try {
-            if (editingItem) {
+            if (editingItem && !editingItem.prefill) {
                 const response = await brainstormAPI.updateBrainstormItem(editingItem.id, itemData, tripId);
                 const updatedItem = response.data.item;
                 setItems(prev => prev.map(item =>
@@ -265,7 +266,15 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                 emitBrainstormUpdate(updatedItem); // Broadcast to other users
                 toast.success(t('brainstorm.updated', 'Item updated'));
             } else {
-                const response = await brainstormAPI.createBrainstormItem(tripId, itemData);
+                // Find a position that doesn't overlap with existing cards
+                const position = findNonOverlappingPosition(items);
+                const itemWithPosition = {
+                    ...itemData,
+                    position_x: position.x,
+                    position_y: position.y,
+                };
+
+                const response = await brainstormAPI.createBrainstormItem(tripId, itemWithPosition);
                 const newItem = response.data.item;
                 setItems(prev => [newItem, ...prev]);
                 emitBrainstormCreate(newItem); // Broadcast to other users
@@ -281,6 +290,42 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
     // Handle clipboard paste
     useEffect(() => {
+        // Inline non-overlapping position finder for paste handler
+        const findPastePosition = (existingItems) => {
+            const CARD_WIDTH = 240;
+            const CARD_HEIGHT = 150;
+            const PADDING = 20;
+            const baseX = 100, baseY = 100;
+
+            const overlaps = (x, y) => {
+                return existingItems.some(item => {
+                    const itemX = item.position_x || 0;
+                    const itemY = item.position_y || 0;
+                    return (
+                        x < itemX + CARD_WIDTH + PADDING &&
+                        x + CARD_WIDTH + PADDING > itemX &&
+                        y < itemY + CARD_HEIGHT + PADDING &&
+                        y + CARD_HEIGHT + PADDING > itemY
+                    );
+                });
+            };
+
+            let x = baseX, y = baseY;
+            if (!overlaps(x, y)) return { x, y };
+
+            const step = CARD_WIDTH + PADDING;
+            let layer = 1, attempts = 0;
+            while (attempts < 50) {
+                for (let i = 0; i < layer && attempts < 50; i++) { x += step; attempts++; if (!overlaps(x, y)) return { x, y }; }
+                for (let i = 0; i < layer && attempts < 50; i++) { y += step; attempts++; if (!overlaps(x, y)) return { x, y }; }
+                layer++;
+                for (let i = 0; i < layer && attempts < 50; i++) { x -= step; attempts++; if (!overlaps(x, y)) return { x, y }; }
+                for (let i = 0; i < layer && attempts < 50; i++) { y -= step; attempts++; if (!overlaps(x, y)) return { x, y }; }
+                layer++;
+            }
+            return { x: baseX + Math.random() * 400, y: baseY + Math.random() * 400 };
+        };
+
         const handlePaste = async (e) => {
             if (!canEdit() || isModalOpen) return;
 
@@ -298,13 +343,14 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                     setEditingItem({ prefill: { url: pastedText.trim() } });
                     setIsModalOpen(true);
                 } else if (pastedText.trim().length > 0 && pastedText.trim().length < 500) {
-                    // Short text, treat as quick idea
+                    // Short text, treat as quick idea - use non-overlapping position
                     try {
+                        const position = findPastePosition(items);
                         const response = await brainstormAPI.createBrainstormItem(tripId, {
                             type: 'idea',
                             content: pastedText.trim(),
-                            position_x: 100 + Math.random() * 200,
-                            position_y: 100 + Math.random() * 200,
+                            position_x: position.x,
+                            position_y: position.y,
                         });
                         setItems(prev => [response.data.item, ...prev]);
                         toast.success(t('brainstorm.pastedIdea', 'Added from clipboard'));
@@ -317,7 +363,93 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
         document.addEventListener('paste', handlePaste);
         return () => document.removeEventListener('paste', handlePaste);
-    }, [canEdit, isModalOpen, tripId, t]);
+    }, [canEdit, isModalOpen, tripId, t, items]);
+
+    // Helper function to find a position that doesn't overlap with existing cards
+    const findNonOverlappingPosition = useCallback((existingItems, baseX = 100, baseY = 100) => {
+        const CARD_WIDTH = 240;  // Approximate card width
+        const CARD_HEIGHT = 150; // Approximate card height
+        const PADDING = 20;      // Space between cards
+
+        // Check if a position overlaps with any existing card
+        const overlaps = (x, y) => {
+            return existingItems.some(item => {
+                const itemX = item.position_x || 0;
+                const itemY = item.position_y || 0;
+                return (
+                    x < itemX + CARD_WIDTH + PADDING &&
+                    x + CARD_WIDTH + PADDING > itemX &&
+                    y < itemY + CARD_HEIGHT + PADDING &&
+                    y + CARD_HEIGHT + PADDING > itemY
+                );
+            });
+        };
+
+        // Try different positions in a spiral pattern
+        let x = baseX;
+        let y = baseY;
+        let attempts = 0;
+        const maxAttempts = 50;
+
+        // If base position doesn't overlap, use it
+        if (!overlaps(x, y)) {
+            return { x, y };
+        }
+
+        // Try spiral pattern
+        const step = CARD_WIDTH + PADDING;
+        let layer = 1;
+        while (attempts < maxAttempts) {
+            // Try right side
+            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
+                x += step;
+                attempts++;
+                if (!overlaps(x, y)) return { x, y };
+            }
+            // Try down
+            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
+                y += step;
+                attempts++;
+                if (!overlaps(x, y)) return { x, y };
+            }
+            layer++;
+            // Try left
+            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
+                x -= step;
+                attempts++;
+                if (!overlaps(x, y)) return { x, y };
+            }
+            // Try up
+            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
+                y -= step;
+                attempts++;
+                if (!overlaps(x, y)) return { x, y };
+            }
+            layer++;
+        }
+
+        // Fallback: return a random position if no non-overlapping position found
+        return {
+            x: baseX + Math.random() * 400,
+            y: baseY + Math.random() * 400
+        };
+    }, []);
+
+    // Handle zoom to location from canvas
+    const handleZoomToLocation = useCallback((lat, lng, name) => {
+        if (mapRef.current) {
+            mapRef.current.flyTo({
+                center: [lng, lat],
+                zoom: 14,
+                duration: 1000
+            });
+        }
+    }, []);
+
+    // Handle map ready callback
+    const handleMapReady = useCallback((map) => {
+        mapRef.current = map;
+    }, []);
 
     // Loading state
     if (loading) {
@@ -365,6 +497,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                         onEditItem={handleEditItem}
                         onDeleteItem={handleDeleteItem}
                         onPositionUpdate={handlePositionUpdate}
+                        onZoomToLocation={handleZoomToLocation}
                         offset={canvasOffset}
                         zoom={canvasZoom}
                         onOffsetChange={setCanvasOffset}
@@ -408,6 +541,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                             onEditItem={handleEditItem}
                             onDeleteItem={handleDeleteItem}
                             onPositionUpdate={handlePositionUpdate}
+                            onZoomToLocation={handleZoomToLocation}
                             offset={canvasOffset}
                             zoom={canvasZoom}
                             onOffsetChange={setCanvasOffset}
@@ -471,6 +605,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                             canEdit={canEdit()}
                             onMapClick={handleMapClick}
                             onItemClick={handleEditItem}
+                            onMapReady={handleMapReady}
                         />
 
                         {/* Quick add menu */}
