@@ -24,6 +24,8 @@ const BrainstormMap = ({
     onMapClick,
     onItemClick,
     onMapReady, // Callback to expose map ref for external control
+    compact = false, // Compact mode for mobile
+    bottomOffset = 0, // Extra bottom offset for legend when panel covers bottom
 }) => {
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
@@ -449,19 +451,26 @@ const BrainstormMap = ({
                 </button>
             </div>
 
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-3 border border-gray-200 dark:border-gray-700">
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                    {t('brainstorm.legend', 'Item types')}
-                </div>
-                <div className="flex flex-wrap gap-2">
+            {/* Legend - positioned higher when there's a bottom offset */}
+            <div
+                className={`absolute left-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-lg ${compact ? 'px-2.5 py-1.5' : 'p-3'} border border-gray-200 dark:border-gray-700`}
+                style={{
+                    bottom: bottomOffset > 0 ? `${bottomOffset + 16}px` : (compact ? '32px' : '16px'),
+                }}
+            >
+                {!compact && (
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                        {t('brainstorm.legend', 'Item types')}
+                    </div>
+                )}
+                <div className={`flex ${compact ? 'gap-2' : 'flex-wrap gap-2'}`}>
                     {Object.entries(MARKER_COLORS).map(([type, color]) => (
-                        <div key={type} className="flex items-center gap-1.5">
+                        <div key={type} className="flex items-center gap-1">
                             <div
-                                className="w-3 h-3 rounded-full"
+                                className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full flex-shrink-0`}
                                 style={{ backgroundColor: color }}
                             />
-                            <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">
+                            <span className={`${compact ? 'text-[10px]' : 'text-xs'} text-gray-600 dark:text-gray-300 capitalize`}>
                                 {type}
                             </span>
                         </div>
@@ -469,8 +478,8 @@ const BrainstormMap = ({
                 </div>
             </div>
 
-            {/* Click hint */}
-            {canEdit && (
+            {/* Click hint - hidden on compact/mobile */}
+            {canEdit && !compact && (
                 <div className="absolute bottom-4 right-4 bg-accent/90 text-white rounded-xl px-3 py-2 text-sm shadow-lg">
                     <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Plus, MapPin, FileText, Image, Link2, Lightbulb,
-    Trash2, Edit3, GripVertical, X, ZoomIn, ZoomOut, Move
+    Trash2, Edit3, GripVertical, X, ZoomIn, ZoomOut, Move, Map
 } from 'lucide-react';
 import { tripAPI, brainstormAPI } from '../../services/api';
 import BrainstormCanvas from '../../components/brainstorm/BrainstormCanvas';
@@ -55,6 +55,12 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     // Canvas state
     const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
     const [canvasZoom, setCanvasZoom] = useState(1);
+
+    // Mobile split view state - 3 states: 'canvas' (full canvas), 'split' (default), 'map' (full map)
+    const [mobileViewState, setMobileViewState] = useState('split'); // 'canvas' | 'split' | 'map'
+    const latchDragStartY = useRef(0);
+    const isDraggingLatch = useRef(false);
+    const mobileMapHeight = 280; // Height of mobile map in pixels
 
     // Panel width constraints
     const MIN_PANEL_WIDTH = 400;
@@ -451,6 +457,42 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         mapRef.current = map;
     }, []);
 
+    // Latch Drag Handlers for mobile split view - 3 states
+    const handleLatchTouchStart = (e) => {
+        latchDragStartY.current = e.touches[0].clientY;
+        isDraggingLatch.current = true;
+        e.stopPropagation();
+    };
+
+    const handleLatchTouchMove = (e) => {
+        if (!isDraggingLatch.current) return;
+        e.preventDefault();
+    };
+
+    const handleLatchTouchEnd = (e) => {
+        if (!isDraggingLatch.current) return;
+        const endY = e.changedTouches[0].clientY;
+        const deltaY = endY - latchDragStartY.current;
+        isDraggingLatch.current = false;
+
+        // Dragged DOWN (positive delta) -> Go to next state (more map)
+        if (deltaY > 50) {
+            if (mobileViewState === 'canvas') {
+                setMobileViewState('split');
+            } else if (mobileViewState === 'split') {
+                setMobileViewState('map');
+            }
+        }
+        // Dragged UP (negative delta) -> Go to previous state (more canvas)
+        else if (deltaY < -50) {
+            if (mobileViewState === 'map') {
+                setMobileViewState('split');
+            } else if (mobileViewState === 'split') {
+                setMobileViewState('canvas');
+            }
+        }
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -465,45 +507,169 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
     return (
         <>
-            {/* Mobile layout */}
-            <div className="md:hidden h-screen flex flex-col overflow-hidden">
-                {/* Mobile header */}
-                <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <Link
-                        to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
-                        className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
+            {/* Mobile layout with map - 3 states: canvas, split, map */}
+            <div className="md:hidden h-screen flex flex-col overflow-hidden relative">
+                {/* Mobile Map Container - fixed at top, hidden in canvas mode */}
+                {hasMapboxToken && mobileViewState !== 'canvas' && (
+                    <div
+                        className="absolute top-0 left-0 right-0 z-0 transition-all duration-300 ease-out"
+                        style={{
+                            height: mobileViewState === 'map' ? '100%' : `${mobileMapHeight}px`,
+                        }}
                     >
-                        <ArrowLeft className="mr-1 h-4 w-4" />
-                        {t('common.back', 'Back')}
-                    </Link>
-                    <h1 className="text-lg font-semibold text-gray-900 dark:text-white truncate max-w-[200px]">
-                        {trip?.name} - {t('brainstorm.title', 'Brainstorm')}
-                    </h1>
-                    {canEdit() && (
-                        <button
-                            onClick={() => handleFloatingAdd()}
-                            className="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center"
+                        <BrainstormMap
+                            items={items}
+                            trip={trip}
+                            canEdit={canEdit()}
+                            onMapClick={handleMapClick}
+                            onItemClick={handleEditItem}
+                            onMapReady={handleMapReady}
+                            compact={mobileViewState === 'split'} // Compact in split mode
+                            bottomOffset={mobileViewState === 'map' ? 160 : 0} // Offset legend above minimized panel
+                        />
+                    </div>
+                )}
+
+                {/* Mobile Content Panel - floats over map */}
+                <div
+                    className={`flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 ease-out ${mobileViewState !== 'canvas' ? 'shadow-[0_-4px_20px_rgba(0,0,0,0.15)]' : ''}`}
+                    style={{
+                        marginTop: mobileViewState === 'map'
+                            ? 'calc(100vh - 160px)' // Leave 160px visible at bottom
+                            : mobileViewState === 'split'
+                                ? `${mobileMapHeight - 20}px` // Overlap map slightly
+                                : '0', // Full canvas
+                        borderTopLeftRadius: mobileViewState !== 'canvas' ? '24px' : '0',
+                        borderTopRightRadius: mobileViewState !== 'canvas' ? '24px' : '0',
+                    }}
+                >
+                    <div className="bg-white dark:bg-gray-800 flex-1 flex flex-col min-h-full">
+                        {/* Latch indicator - drag to switch views - always visible when map is available */}
+                        {hasMapboxToken && (
+                            <div
+                                className="flex justify-center py-3 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing"
+                                onTouchStart={handleLatchTouchStart}
+                                onTouchMove={handleLatchTouchMove}
+                                onTouchEnd={handleLatchTouchEnd}
+                            >
+                                <div className="w-16 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full" />
+                            </div>
+                        )}
+
+                        {/* Mobile header */}
+                        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                            <Link
+                                to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
+                                className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
+                            >
+                                <ArrowLeft className="mr-1 h-4 w-4" />
+                                {t('common.back', 'Back')}
+                            </Link>
+
+                            <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate max-w-[140px]">
+                                {trip?.name}
+                            </h1>
+
+                            <div className="flex items-center gap-2">
+                                {/* Toggle map visibility - cycles through states */}
+                                {hasMapboxToken && (
+                                    <button
+                                        onClick={() => {
+                                            // Cycle: split -> map -> canvas -> split
+                                            if (mobileViewState === 'split') setMobileViewState('map');
+                                            else if (mobileViewState === 'map') setMobileViewState('canvas');
+                                            else setMobileViewState('split');
+                                        }}
+                                        className={`p-1.5 rounded-lg transition-colors ${mobileViewState === 'map'
+                                            ? 'bg-accent text-white'
+                                            : mobileViewState === 'canvas'
+                                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                            }`}
+                                        title={
+                                            mobileViewState === 'map'
+                                                ? t('brainstorm.hideMap', 'Hide map')
+                                                : mobileViewState === 'canvas'
+                                                    ? t('brainstorm.showMap', 'Show map')
+                                                    : t('brainstorm.expandMap', 'Expand map')
+                                        }
+                                    >
+                                        <Map className="w-4 h-4" />
+                                    </button>
+                                )}
+
+                                {canEdit() && (
+                                    <button
+                                        onClick={() => handleFloatingAdd()}
+                                        className="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Mobile canvas - always visible except when map is full screen */}
+                        <div
+                            className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900"
+                            style={{
+                                display: mobileViewState === 'map' ? 'none' : 'block',
+                            }}
                         >
-                            <Plus className="w-5 h-5" />
-                        </button>
-                    )}
+                            <BrainstormCanvas
+                                items={items}
+                                canEdit={canEdit()}
+                                onEditItem={handleEditItem}
+                                onDeleteItem={handleDeleteItem}
+                                onPositionUpdate={handlePositionUpdate}
+                                onZoomToLocation={handleZoomToLocation}
+                                offset={canvasOffset}
+                                zoom={canvasZoom}
+                                onOffsetChange={setCanvasOffset}
+                                onZoomChange={setCanvasZoom}
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                {/* Mobile canvas */}
-                <div className="flex-1 overflow-hidden">
-                    <BrainstormCanvas
-                        items={items}
-                        canEdit={canEdit()}
-                        onEditItem={handleEditItem}
-                        onDeleteItem={handleDeleteItem}
-                        onPositionUpdate={handlePositionUpdate}
-                        onZoomToLocation={handleZoomToLocation}
-                        offset={canvasOffset}
-                        zoom={canvasZoom}
-                        onOffsetChange={setCanvasOffset}
-                        onZoomChange={setCanvasZoom}
-                    />
-                </div>
+                {/* Quick add menu for map clicks */}
+                {quickAddMenu && (
+                    <div
+                        className="fixed z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-gray-700"
+                        style={{
+                            left: `${quickAddMenu.x}px`,
+                            top: `${quickAddMenu.y}px`,
+                            transform: 'translate(-50%, -50%)',
+                        }}
+                    >
+                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
+                                {quickAddMenu.locationName || t('brainstorm.newItem', 'New item')}
+                            </span>
+                            <button
+                                onClick={() => setQuickAddMenu(null)}
+                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+                            >
+                                <X className="w-4 h-4 text-gray-400" />
+                            </button>
+                        </div>
+                        <div className="flex gap-2">
+                            {['place', 'note', 'image', 'link', 'idea'].map(type => {
+                                const TypeIcon = { place: MapPin, note: FileText, image: Image, link: Link2, idea: Lightbulb }[type];
+                                return (
+                                    <button
+                                        key={type}
+                                        onClick={() => handleQuickAdd(type)}
+                                        className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                        title={t(`brainstorm.types.${type}`, type)}
+                                    >
+                                        <TypeIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Desktop layout */}
