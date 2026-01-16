@@ -82,6 +82,25 @@ const BrainstormCanvas = ({
         zoom: 1,
     });
 
+    const pinchStateRef = useRef({
+        isPinching: false,
+        startDistance: 0,
+        startZoom: 1,
+        startCenter: { x: 0, y: 0 },
+        startOffset: { x: 0, y: 0 },
+    });
+
+    const getTouchDistance = (touch1, touch2) => {
+        return Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+    };
+
+    const getTouchCenter = (touch1, touch2) => {
+        return {
+            x: (touch1.clientX + touch2.clientX) / 2,
+            y: (touch1.clientY + touch2.clientY) / 2,
+        };
+    };
+
     // Handle canvas pan start
     const handleCanvasMouseDown = useCallback((e) => {
         // Only start panning if clicking on the canvas background (not on items)
@@ -137,6 +156,29 @@ const BrainstormCanvas = ({
                 startOffsetX: offset.x,
                 startOffsetY: offset.y,
             };
+        } else if (e.touches.length === 2) {
+            // Two touches for zooming
+            e.preventDefault();
+            const dist = getTouchDistance(e.touches[0], e.touches[1]);
+            const center = getTouchCenter(e.touches[0], e.touches[1]);
+
+            pinchStateRef.current = {
+                isPinching: true,
+                startDistance: dist,
+                startZoom: zoom,
+                startCenter: center,
+                startOffset: { ...offset },
+            };
+
+            // Cancel any ongoing pan
+            panStateRef.current.isPanning = false;
+
+            // Optional: reset item dragging if it was happening, though less likely to conflict immediately
+            if (dragStateRef.current.isDragging) {
+                // If we want to strictly stop dragging when pinching starts:
+                // dragStateRef.current.isDragging = false;
+                // setDraggingItemId(null);
+            }
         }
     };
 
@@ -228,6 +270,11 @@ const BrainstormCanvas = ({
                 panStateRef.current.isPanning = false;
             }
 
+            // Handle pinch end
+            if (pinchStateRef.current.isPinching) {
+                pinchStateRef.current.isPinching = false;
+            }
+
             // Handle item drag end
             const dragState = dragStateRef.current;
             if (dragState.isDragging && canEdit) {
@@ -264,13 +311,49 @@ const BrainstormCanvas = ({
         };
 
         // Touch Events
+        // Touch Events
         const onTouchMove = (e) => {
-            if (e.touches.length > 0) {
+            if (e.touches.length === 2) {
+                // Pinch to Zoom
+                e.preventDefault();
+
+                // Safety check: ensure we have pinch state
+                const pinchState = pinchStateRef.current;
+                if (!pinchState.isPinching) return;
+
+                const currentDist = getTouchDistance(e.touches[0], e.touches[1]);
+                const currentCenter = getTouchCenter(e.touches[0], e.touches[1]);
+
+                if (pinchState.startDistance > 0) {
+                    const scale = currentDist / pinchState.startDistance;
+                    const newZoom = Math.min(2, Math.max(0.25, pinchState.startZoom * scale));
+
+                    // Calculate new offset to zoom towards center
+                    const rect = canvasRef.current.getBoundingClientRect();
+                    const pLocalX = currentCenter.x - rect.left;
+                    const pLocalY = currentCenter.y - rect.top;
+
+                    // Calculate the point in world coordinates (relative to content origin) that corresponds to the pinch center
+                    const worldX = (pLocalX - pinchState.startOffset.x) / pinchState.startZoom;
+                    const worldY = (pLocalY - pinchState.startOffset.y) / pinchState.startZoom;
+
+                    // Calculate new offset such that the world point remains under the pinch center
+                    const newOffsetX = pLocalX - worldX * newZoom;
+                    const newOffsetY = pLocalY - worldY * newZoom;
+
+                    onZoomChange(newZoom);
+                    onOffsetChange({ x: newOffsetX, y: newOffsetY });
+                }
+
+            } else if (e.touches.length > 0) {
                 // Prevent default scroll if panning or dragging item
                 if (panStateRef.current.isPanning || dragStateRef.current.isDragging) {
                     e.preventDefault();
                 }
-                handleMove(e.touches[0].clientX, e.touches[0].clientY);
+                // Only handle single touch move for pan/drag here
+                if (e.touches.length === 1) {
+                    handleMove(e.touches[0].clientX, e.touches[0].clientY);
+                }
             }
         };
         const onTouchEnd = (e) => {
@@ -302,7 +385,7 @@ const BrainstormCanvas = ({
             window.removeEventListener('touchmove', onTouchMove);
             window.removeEventListener('touchend', onTouchEnd);
         };
-    }, [onOffsetChange, onPositionUpdate, canEdit, zoom]);
+    }, [onOffsetChange, onPositionUpdate, canEdit]);
 
     // Handle zoom with mouse wheel
     const handleWheel = useCallback((e) => {
