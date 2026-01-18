@@ -64,7 +64,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
     // Panel width constraints
     const MIN_PANEL_WIDTH = 400;
-    const MAX_PANEL_WIDTH = 800;
+
 
     // Check for Mapbox token
     const hasMapboxToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
@@ -169,9 +169,11 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         if (!isResizing || !containerRef.current) return;
         const containerRect = containerRef.current.getBoundingClientRect();
         const newWidth = e.clientX - containerRect.left;
-        const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
+        // Allow resizing up to the full container width minus a safety buffer for the handle
+        const maxWidth = containerRect.width - 20;
+        const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), maxWidth);
         setPanelWidth(clampedWidth);
-    }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]);
+    }, [isResizing, MIN_PANEL_WIDTH]);
 
     const handleResizeEnd = useCallback(() => {
         if (isResizing) {
