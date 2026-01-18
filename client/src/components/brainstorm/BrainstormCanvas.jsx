@@ -300,8 +300,8 @@ const BrainstormCanvas = ({
             if (dragState.isDragging && canEdit) {
                 const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
                 const deltaY = (e.clientY - dragState.startMouseY) / dragState.zoom;
-                const newX = Math.max(0, dragState.startItemX + deltaX);
-                const newY = Math.max(0, dragState.startItemY + deltaY);
+                const newX = dragState.startItemX + deltaX;
+                const newY = dragState.startItemY + deltaY;
                 onPositionUpdate(dragState.itemId, newX, newY);
 
                 dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
@@ -363,8 +363,8 @@ const BrainstormCanvas = ({
                 const dragState = dragStateRef.current;
                 const deltaX = (touch.clientX - dragState.startMouseX) / dragState.zoom;
                 const deltaY = (touch.clientY - dragState.startMouseY) / dragState.zoom;
-                const newX = Math.max(0, dragState.startItemX + deltaX);
-                const newY = Math.max(0, dragState.startItemY + deltaY);
+                const newX = dragState.startItemX + deltaX;
+                const newY = dragState.startItemY + deltaY;
                 onPositionUpdate(dragState.itemId, newX, newY);
 
                 dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
