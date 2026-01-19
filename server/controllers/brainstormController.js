@@ -360,6 +360,170 @@ const getPublicBrainstormItems = async (req, res) => {
     }
 };
 
+/**
+ * Get all brainstorm groups for a trip
+ */
+const getBrainstormGroups = async (req, res) => {
+    try {
+        const { tripId } = req.params;
+
+        const groups = db.prepare(`
+      SELECT bg.*
+      FROM brainstorm_groups bg
+      WHERE bg.trip_id = ?
+      ORDER BY bg.created_at ASC
+    `).all(tripId);
+
+        res.json({ groups });
+    } catch (error) {
+        console.error('Error fetching brainstorm groups:', error);
+        res.status(500).json({ message: 'Failed to fetch brainstorm groups' });
+    }
+};
+
+/**
+ * Create a new brainstorm group
+ */
+const createBrainstormGroup = async (req, res) => {
+    try {
+        const { tripId } = req.params;
+        const userId = req.user.id;
+        const {
+            title,
+            color,
+            position_x,
+            position_y,
+            width,
+            height
+        } = req.body;
+
+        const result = db.prepare(`
+      INSERT INTO brainstorm_groups (
+        trip_id, title, color, position_x, position_y, width, height, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+            tripId,
+            title || 'New Group',
+            color || '#e5e7eb',
+            position_x || 100,
+            position_y || 100,
+            width || 300,
+            height || 300,
+            userId
+        );
+
+        const newGroup = db.prepare(`
+      SELECT * FROM brainstorm_groups WHERE id = ?
+    `).get(result.lastInsertRowid);
+
+        res.status(201).json({ group: newGroup });
+    } catch (error) {
+        console.error('Error creating brainstorm group:', error);
+        res.status(500).json({ message: 'Failed to create brainstorm group' });
+    }
+};
+
+/**
+ * Update a brainstorm group
+ */
+const updateBrainstormGroup = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const userId = req.user.id;
+
+        // Verify group exists
+        const group = db.prepare('SELECT * FROM brainstorm_groups WHERE id = ?').get(groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        // Check edit access
+        const access = checkItemEditAccess(group.id, userId); // Reusing checkItemEditAccess logic requires slight adjustment or check trip ID directly
+        // checkItemEditAccess queries 'brainstorm_items'. We need to check 'brainstorm_groups' or just use the trip_id.
+
+        // Let's do a direct check for trip access since group logic is similar
+        const tripMember = db.prepare(`
+            SELECT role FROM trip_members 
+            WHERE trip_id = ? AND user_id = ?
+        `).get(group.trip_id, userId);
+
+        if (!tripMember || !['owner', 'editor'].includes(tripMember.role)) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+
+        const {
+            title,
+            color,
+            position_x,
+            position_y,
+            width,
+            height
+        } = req.body;
+
+        db.prepare(`
+      UPDATE brainstorm_groups SET
+        title = COALESCE(?, title),
+        color = COALESCE(?, color),
+        position_x = COALESCE(?, position_x),
+        position_y = COALESCE(?, position_y),
+        width = COALESCE(?, width),
+        height = COALESCE(?, height),
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+            title,
+            color,
+            position_x,
+            position_y,
+            width,
+            height,
+            groupId
+        );
+
+        const updatedGroup = db.prepare(`
+      SELECT * FROM brainstorm_groups WHERE id = ?
+    `).get(groupId);
+
+        res.json({ group: updatedGroup });
+    } catch (error) {
+        console.error('Error updating brainstorm group:', error);
+        res.status(500).json({ message: 'Failed to update brainstorm group' });
+    }
+};
+
+/**
+ * Delete a brainstorm group
+ */
+const deleteBrainstormGroup = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const userId = req.user.id;
+
+        const group = db.prepare('SELECT * FROM brainstorm_groups WHERE id = ?').get(groupId);
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        // Check edit access
+        const tripMember = db.prepare(`
+            SELECT role FROM trip_members 
+            WHERE trip_id = ? AND user_id = ?
+        `).get(group.trip_id, userId);
+
+        if (!tripMember || !['owner', 'editor'].includes(tripMember.role)) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        db.prepare('DELETE FROM brainstorm_groups WHERE id = ?').run(groupId);
+
+        res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting brainstorm group:', error);
+        res.status(500).json({ message: 'Failed to delete brainstorm group' });
+    }
+};
+
 module.exports = {
     getBrainstormItems,
     getBrainstormItem,
@@ -368,5 +532,9 @@ module.exports = {
     updateItemPosition,
     batchUpdatePositions,
     deleteBrainstormItem,
-    getPublicBrainstormItems
+    getPublicBrainstormItems,
+    getBrainstormGroups,
+    createBrainstormGroup,
+    updateBrainstormGroup,
+    deleteBrainstormGroup
 };

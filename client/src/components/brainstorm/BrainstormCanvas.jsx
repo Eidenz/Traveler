@@ -3,7 +3,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     MapPin, FileText, Image, Link2, Lightbulb,
-    Trash2, Edit3, GripVertical, ExternalLink
+    Trash2, Edit3, GripVertical, ExternalLink, Maximize2, Pencil
 } from 'lucide-react';
 
 // Item type configuration with colors
@@ -47,11 +47,14 @@ const ITEM_TYPES = {
 
 const BrainstormCanvas = ({
     items = [],
+    groups = [], // List of visual groups
     canEdit = false,
     onEditItem,
     onDeleteItem,
     onPositionUpdate,
     onZoomToLocation, // Callback to zoom to a location on the map
+    onGroupChange, // (group) => void
+    onDeleteGroup, // (groupId) => void
     offset = { x: 0, y: 0 },
     zoom = 1,
     onOffsetChange,
@@ -60,6 +63,9 @@ const BrainstormCanvas = ({
     const { t } = useTranslation();
     const canvasRef = useRef(null);
     const [draggingItemId, setDraggingItemId] = useState(null);
+    const [draggingGroupId, setDraggingGroupId] = useState(null);
+    const [resizingGroupId, setResizingGroupId] = useState(null);
+    const [editingGroupId, setEditingGroupId] = useState(null);
     const longPressTimerRef = useRef(null);
 
     // All interactive state stored in refs to avoid stale closures
@@ -73,12 +79,24 @@ const BrainstormCanvas = ({
 
     const dragStateRef = useRef({
         isDragging: false,
-        itemId: null,
-        itemEl: null,
+        type: 'item', // 'item' | 'group'
+        id: null,
+        el: null, // DOM element
         startMouseX: 0,
         startMouseY: 0,
-        startItemX: 0,
-        startItemY: 0,
+        startX: 0, // Original X
+        startY: 0, // Original Y
+        zoom: 1,
+    });
+
+    const resizeStateRef = useRef({
+        isResizing: false,
+        groupId: null,
+        groupEl: null,
+        startMouseX: 0,
+        startMouseY: 0,
+        startWidth: 0,
+        startHeight: 0,
         zoom: 1,
     });
 
@@ -132,15 +150,62 @@ const BrainstormCanvas = ({
 
         dragStateRef.current = {
             isDragging: true,
-            itemId: item.id,
-            itemEl: itemEl,
+            type: 'item',
+            id: item.id,
+            el: itemEl,
             startMouseX: e.clientX,
             startMouseY: e.clientY,
-            startItemX: item.position_x,
-            startItemY: item.position_y,
+            startX: item.position_x,
+            startY: item.position_y,
             zoom: zoom,
         };
         setDraggingItemId(item.id);
+    };
+
+    // Start dragging a group
+    const handleGroupDragStart = (e, group) => {
+        if (!canEdit) return;
+        // Don't stop propagation if clicking on resize handle, but here we assume header drag
+        e.preventDefault();
+        e.stopPropagation();
+
+        const groupEl = document.getElementById(`brainstorm-group-${group.id}`);
+        if (!groupEl) return;
+
+        dragStateRef.current = {
+            isDragging: true,
+            type: 'group',
+            id: group.id,
+            el: groupEl,
+            startMouseX: e.clientX,
+            startMouseY: e.clientY,
+            startX: group.position_x,
+            startY: group.position_y,
+            zoom: zoom,
+        };
+        setDraggingGroupId(group.id);
+    };
+
+    // Start resizing a group
+    const handleGroupResizeStart = (e, group) => {
+        if (!canEdit) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const groupEl = document.getElementById(`brainstorm-group-${group.id}`);
+        if (!groupEl) return;
+
+        resizeStateRef.current = {
+            isResizing: true,
+            groupId: group.id,
+            groupEl: groupEl,
+            startMouseX: e.clientX,
+            startMouseY: e.clientY,
+            startWidth: group.width,
+            startHeight: group.height,
+            zoom: zoom,
+        };
+        setResizingGroupId(group.id);
     };
 
     // --- Touch Handlers ---
@@ -205,12 +270,13 @@ const BrainstormCanvas = ({
 
             dragStateRef.current = {
                 isDragging: true,
-                itemId: item.id,
-                itemEl: itemEl,
+                type: 'item',
+                id: item.id,
+                el: itemEl,
                 startMouseX: startX, // Use captured start position
                 startMouseY: startY,
-                startItemX: item.position_x,
-                startItemY: item.position_y,
+                startX: item.position_x,
+                startY: item.position_y,
                 zoom: zoom,
             };
             setDraggingItemId(item.id);
@@ -243,18 +309,31 @@ const BrainstormCanvas = ({
                 }
             }
 
-            // Handle item dragging with live visual feedback
+            // Handle dragging (items or groups) with live visual feedback
             const dragState = dragStateRef.current;
-            if (dragState.isDragging && dragState.itemEl) {
+            if (dragState.isDragging && dragState.el) {
                 const deltaX = (clientX - dragState.startMouseX) / dragState.zoom;
                 const deltaY = (clientY - dragState.startMouseY) / dragState.zoom;
 
-                const newX = dragState.startItemX + deltaX;
-                const newY = dragState.startItemY + deltaY;
+                const newX = dragState.startX + deltaX;
+                const newY = dragState.startY + deltaY;
 
                 // Update visual position directly on the DOM element
-                dragState.itemEl.style.left = `${newX}px`;
-                dragState.itemEl.style.top = `${newY}px`;
+                dragState.el.style.left = `${newX}px`;
+                dragState.el.style.top = `${newY}px`;
+            }
+
+            // Handle resizing group with live visual feedback
+            const resizeState = resizeStateRef.current;
+            if (resizeState.isResizing && resizeState.groupEl) {
+                const deltaX = (clientX - resizeState.startMouseX) / resizeState.zoom;
+                const deltaY = (clientY - resizeState.startMouseY) / resizeState.zoom;
+
+                const newWidth = Math.max(100, resizeState.startWidth + deltaX);
+                const newHeight = Math.max(100, resizeState.startHeight + deltaY);
+
+                resizeState.groupEl.style.width = `${newWidth}px`;
+                resizeState.groupEl.style.height = `${newHeight}px`;
             }
         };
 
@@ -300,12 +379,47 @@ const BrainstormCanvas = ({
             if (dragState.isDragging && canEdit) {
                 const deltaX = (e.clientX - dragState.startMouseX) / dragState.zoom;
                 const deltaY = (e.clientY - dragState.startMouseY) / dragState.zoom;
-                const newX = dragState.startItemX + deltaX;
-                const newY = dragState.startItemY + deltaY;
-                onPositionUpdate(dragState.itemId, newX, newY);
+                const newX = dragState.startX + deltaX;
+                const newY = dragState.startY + deltaY;
 
-                dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
-                setDraggingItemId(null);
+                if (dragState.type === 'item') {
+                    onPositionUpdate(dragState.id, newX, newY);
+                    setDraggingItemId(null);
+                } else if (dragState.type === 'group') {
+                    // Update group position
+                    const group = groups.find(g => g.id === dragState.id);
+                    if (group && onGroupChange) {
+                        onGroupChange({
+                            ...group,
+                            position_x: newX,
+                            position_y: newY
+                        });
+                    }
+                    setDraggingGroupId(null);
+                }
+
+                dragStateRef.current = { ...dragStateRef.current, isDragging: false, id: null, el: null };
+            }
+
+            const resizeState = resizeStateRef.current;
+            if (resizeState.isResizing && canEdit) {
+                const deltaX = (e.clientX - resizeState.startMouseX) / resizeState.zoom;
+                const deltaY = (e.clientY - resizeState.startMouseY) / resizeState.zoom;
+
+                const newWidth = Math.max(100, resizeState.startWidth + deltaX);
+                const newHeight = Math.max(100, resizeState.startHeight + deltaY);
+
+                const group = groups.find(g => g.id === resizeState.groupId);
+                if (group && onGroupChange) {
+                    onGroupChange({
+                        ...group,
+                        width: newWidth,
+                        height: newHeight
+                    });
+                }
+
+                resizeStateRef.current = { ...resizeStateRef.current, isResizing: false, groupId: null, groupEl: null };
+                setResizingGroupId(null);
             }
             handleEnd();
         };
@@ -347,7 +461,9 @@ const BrainstormCanvas = ({
 
             } else if (e.touches.length > 0) {
                 // Prevent default scroll if panning or dragging item
-                if (panStateRef.current.isPanning || dragStateRef.current.isDragging) {
+            } else if (e.touches.length > 0) {
+                // Prevent default scroll if panning or dragging item
+                if (panStateRef.current.isPanning || dragStateRef.current.isDragging || resizeStateRef.current.isResizing) {
                     e.preventDefault();
                 }
                 // Only handle single touch move for pan/drag here
@@ -358,17 +474,31 @@ const BrainstormCanvas = ({
         };
         const onTouchEnd = (e) => {
             // For touch end, we need the last position. `changedTouches` has it.
+            // For touch end, we need the last position. `changedTouches` has it.
             if (dragStateRef.current.isDragging && canEdit && e.changedTouches.length > 0) {
                 const touch = e.changedTouches[0];
                 const dragState = dragStateRef.current;
                 const deltaX = (touch.clientX - dragState.startMouseX) / dragState.zoom;
                 const deltaY = (touch.clientY - dragState.startMouseY) / dragState.zoom;
-                const newX = dragState.startItemX + deltaX;
-                const newY = dragState.startItemY + deltaY;
-                onPositionUpdate(dragState.itemId, newX, newY);
+                const newX = dragState.startX + deltaX;
+                const newY = dragState.startY + deltaY;
 
-                dragStateRef.current = { ...dragStateRef.current, isDragging: false, itemId: null, itemEl: null };
-                setDraggingItemId(null);
+                if (dragState.type === 'item') {
+                    onPositionUpdate(dragState.id, newX, newY);
+                    setDraggingItemId(null);
+                } else if (dragState.type === 'group') {
+                    const group = groups.find(g => g.id === dragState.id);
+                    if (group && onGroupChange) {
+                        onGroupChange({
+                            ...group,
+                            position_x: newX,
+                            position_y: newY
+                        });
+                    }
+                    setDraggingGroupId(null);
+                }
+
+                dragStateRef.current = { ...dragStateRef.current, isDragging: false, id: null, el: null };
             }
             handleEnd();
         };
@@ -437,6 +567,130 @@ const BrainstormCanvas = ({
                     transformOrigin: '0 0',
                 }}
             >
+                {/* Visual Groups Layer - Background */}
+                {groups.map((group) => {
+                    const isDragging = draggingGroupId === group.id;
+                    const isResizing = resizingGroupId === group.id;
+
+                    return (
+                        <div
+                            key={group.id}
+                            id={`brainstorm-group-${group.id}`}
+                            className={`absolute border-2 rounded-2xl transition-shadow pointer-events-auto group/bg ${isDragging ? 'shadow-lg z-10' : 'z-0'
+                                }`}
+                            style={{
+                                left: `${group.position_x}px`,
+                                top: `${group.position_y}px`,
+                                width: `${group.width}px`,
+                                height: `${group.height}px`,
+                                backgroundColor: group.color || '#e5e7eb',
+                                borderColor: 'rgba(0,0,0,0.1)',
+                                opacity: 0.5,
+                            }}
+                        >
+                            {/* Drag Handle (Floating Center Top) */}
+                            {canEdit && (
+                                <div
+                                    className="absolute -top-3 left-1/2 -translate-x-1/2 opacity-0 group-hover/bg:opacity-100 transition-opacity cursor-move z-50 pointer-events-auto"
+                                    onMouseDown={(e) => handleGroupDragStart(e, group)}
+                                >
+                                    <div className="bg-white dark:bg-gray-800 rounded-full p-1 shadow-md border border-gray-200 dark:border-gray-600">
+                                        <GripVertical className="w-4 h-4 text-gray-400" />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Group Title/Header */}
+                            <div
+                                className="absolute top-0 left-0 right-0 h-8 flex items-center px-2"
+                                onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    if (canEdit) setEditingGroupId(group.id);
+                                }}
+                            >
+                                {editingGroupId === group.id ? (
+                                    <input
+                                        autoFocus
+                                        className="text-xs font-bold text-gray-700 dark:text-gray-800 uppercase tracking-wider bg-white/50 dark:bg-black/20 rounded px-1 py-0.5 w-full outline-none border border-blue-400"
+                                        defaultValue={group.title}
+                                        onBlur={(e) => {
+                                            if (e.target.value !== group.title) {
+                                                onGroupChange({ ...group, title: e.target.value });
+                                            }
+                                            setEditingGroupId(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.currentTarget.blur();
+                                            } else if (e.key === 'Escape') {
+                                                setEditingGroupId(null);
+                                            }
+                                            e.stopPropagation();
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    />
+                                ) : (
+                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-800 uppercase tracking-wider select-none truncate flex-1 cursor-text">
+                                        {group.title || 'Group'}
+                                    </span>
+                                )}
+
+                                {canEdit && (
+                                    <div className="flex gap-1 opacity-0 group-hover/bg:opacity-100 transition-opacity ml-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingGroupId(group.id);
+                                            }}
+                                            className="p-1 hover:bg-black/10 rounded text-black/50 hover:text-gray-900"
+                                            title={t('common.edit', 'Rename')}
+                                        >
+                                            <Pencil className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // Cycle colors
+                                                const colors = ['#e5e7eb', '#fee2e2', '#fef3c7', '#d1fae5', '#bfdbfe', '#e0e7ff', '#f3e8ff', '#fce7f3'];
+                                                const currentIndex = colors.indexOf(group.color || '#e5e7eb');
+                                                const nextColor = colors[(currentIndex + 1) % colors.length];
+                                                onGroupChange({ ...group, color: nextColor });
+                                            }}
+                                            className="p-1 hover:bg-black/10 rounded"
+                                            title={t('brainstorm.changeColor', 'Change color')}
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-black/50" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (confirm(t('brainstorm.deleteGroup', 'Delete this group?'))) {
+                                                    onDeleteGroup(group.id);
+                                                }
+                                            }}
+                                            className="p-1 hover:bg-black/10 rounded text-black/50 hover:text-red-600"
+                                            title={t('common.delete', 'Delete')}
+                                        >
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Resize Handle */}
+                            {canEdit && (
+                                <div
+                                    className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize flex items-end justify-end p-1 opacity-0 group-hover/bg:opacity-100 transition-opacity"
+                                    onMouseDown={(e) => handleGroupResizeStart(e, group)}
+                                >
+                                    <Maximize2 className="w-4 h-4 text-gray-500 rotate-90" />
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+
                 {items.map((item) => {
                     const typeConfig = ITEM_TYPES[item.type] || ITEM_TYPES.idea;
                     const Icon = typeConfig.icon;

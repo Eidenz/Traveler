@@ -319,6 +319,12 @@ export const brainstormAPI = {
   deleteBrainstormItem: (itemId, tripId) =>
     api.delete(`/brainstorm/${itemId}?tripId=${tripId}`),
   getPublicBrainstormItems: (token) => api.get(`/brainstorm/public/${token}`),
+
+  // Groups
+  getBrainstormGroups: (tripId) => api.get(`/brainstorm/trip/${tripId}/groups`),
+  createBrainstormGroup: (tripId, groupData) => api.post(`/brainstorm/trip/${tripId}/groups`, groupData),
+  updateBrainstormGroup: (groupId, groupData) => api.put(`/brainstorm/groups/${groupId}`, groupData),
+  deleteBrainstormGroup: (groupId) => api.delete(`/brainstorm/groups/${groupId}`),
 };
 
 export default api;

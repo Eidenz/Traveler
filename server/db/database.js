@@ -261,6 +261,26 @@ function initializeDatabase() {
       `);
 
 
+      // Create Brainstorm Groups table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS brainstorm_groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          title TEXT,
+          color TEXT DEFAULT '#e5e7eb',
+          position_x REAL DEFAULT 100,
+          position_y REAL DEFAULT 100,
+          width REAL DEFAULT 300,
+          height REAL DEFAULT 300,
+          created_by INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
+
       // Run migrations for existing databases
       await runFieldMigrations();
       await runPasswordResetMigration();
@@ -270,6 +290,7 @@ function initializeDatabase() {
       await runDocumentsTripIdMigration(); // Add trip_id to documents
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
       await runBrainstormPublicShareMigration(); // Add public brainstorm share setting
+      await runBrainstormGroupsMigration(); // Add brainstorm groups table
 
       console.log('Database initialized successfully');
       resolve();
@@ -278,6 +299,45 @@ function initializeDatabase() {
       reject(error);
     }
   });
+}
+
+/**
+ * Migration for brainstorm groups table
+ */
+async function runBrainstormGroupsMigration() {
+  try {
+    const tableInfo = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='brainstorm_groups'").get();
+
+    if (!tableInfo) {
+      // If table doesn't exist (handled by CREATE TABLE IF NOT EXISTS above, but this double check is fine)
+      // Actually strictly speaking, the CREATE TABLE above handles it. 
+      // This migration wrapper is useful if we need to add COLUMNS to an existing table.
+      // But since it's a new table, the CREATE statement in initializeDatabase is enough for new DBs.
+      // For existing DBs running this code, initializeDatabase executes the CREATE statement too.
+      // So strictly we don't need a complex migration here unless we changed the schema of groups later.
+      // But to be consistent with the pattern:
+      console.log('Ensuring brainstorm_groups table exists...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS brainstorm_groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id TEXT NOT NULL,
+          title TEXT,
+          color TEXT DEFAULT '#e5e7eb',
+          position_x REAL DEFAULT 100,
+          position_y REAL DEFAULT 100,
+          width REAL DEFAULT 300,
+          height REAL DEFAULT 300,
+          created_by INTEGER NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
+          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+    }
+  } catch (error) {
+    console.error('Error running brainstorm groups migration:', error);
+  }
 }
 
 /**

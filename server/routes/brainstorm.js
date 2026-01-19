@@ -8,7 +8,11 @@ const {
     updateItemPosition,
     batchUpdatePositions,
     deleteBrainstormItem,
-    getPublicBrainstormItems
+    getPublicBrainstormItems,
+    getBrainstormGroups,
+    createBrainstormGroup,
+    updateBrainstormGroup,
+    deleteBrainstormGroup
 } = require('../controllers/brainstormController');
 const { authenticate, checkTripAccess, requireEditAccess } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
@@ -50,5 +54,19 @@ router.patch('/batch/positions', batchUpdatePositions);
 
 // Delete a brainstorm item
 router.delete('/:itemId', deleteBrainstormItem);
+
+// --- Groups Routes ---
+
+// Get all brainstorm groups for a trip
+router.get('/trip/:tripId/groups', checkTripAccess(), getBrainstormGroups);
+
+// Create a new brainstorm group
+router.post('/trip/:tripId/groups', requireEditAccess, createBrainstormGroup);
+
+// Update a brainstorm group
+router.put('/groups/:groupId', updateBrainstormGroup);
+
+// Delete a brainstorm group
+router.delete('/groups/:groupId', deleteBrainstormGroup);
 
 module.exports = router;

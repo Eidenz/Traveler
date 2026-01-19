@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Plus, MapPin, FileText, Image, Link2, Lightbulb,
-    Trash2, Edit3, GripVertical, X, ZoomIn, ZoomOut, Move, Map
+    Trash2, Edit3, GripVertical, X, ZoomIn, ZoomOut, Move, Map, Grid
 } from 'lucide-react';
 import { tripAPI, brainstormAPI } from '../../services/api';
 import BrainstormCanvas from '../../components/brainstorm/BrainstormCanvas';
@@ -36,6 +36,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const [trip, setTrip] = useState(null);
     const [members, setMembers] = useState([]);
     const [items, setItems] = useState([]);
+    const [groups, setGroups] = useState([]); // Visual groups
     const [loading, setLoading] = useState(true);
     const [isResizing, setIsResizing] = useState(false);
     const [panelWidth, setPanelWidth] = useState(() => {
@@ -124,14 +125,16 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                 }
             } else if (tripId) {
                 // Private view fetch
-                const [tripResponse, brainstormResponse] = await Promise.all([
+                const [tripResponse, brainstormResponse, groupsResponse] = await Promise.all([
                     tripAPI.getTripById(tripId),
                     brainstormAPI.getBrainstormItems(tripId),
+                    brainstormAPI.getBrainstormGroups(tripId),
                 ]);
 
                 setTrip(tripResponse.data.trip);
                 setMembers(tripResponse.data.members);
                 setItems(brainstormResponse.data.items || []);
+                setGroups(groupsResponse.data.groups || []);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -293,6 +296,54 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         } catch (error) {
             console.error('Error saving item:', error);
             toast.error(t('brainstorm.saveFailed', 'Failed to save item'));
+        }
+    };
+
+    // Group Handlers
+    const handleCreateGroup = async () => {
+        if (!canEdit()) return;
+        try {
+            // Center in current view approx
+            const centerX = (-canvasOffset.x + 100) / canvasZoom;
+            const centerY = (-canvasOffset.y + 100) / canvasZoom;
+
+            const response = await brainstormAPI.createBrainstormGroup(tripId, {
+                title: t('brainstorm.newGroup', 'New Group'),
+                position_x: centerX > 0 ? centerX : 100,
+                position_y: centerY > 0 ? centerY : 100,
+                width: 300,
+                height: 300,
+                color: '#e5e7eb'
+            });
+            setGroups(prev => [...prev, response.data.group]);
+            toast.success(t('brainstorm.groupCreated', 'Group created'));
+        } catch (error) {
+            console.error('Error creating group:', error);
+            toast.error(t('brainstorm.groupCreateFailed', 'Failed to create group'));
+        }
+    };
+
+    const handleUpdateGroup = async (group) => {
+        if (!canEdit()) return;
+        try {
+            // Optimistic update
+            setGroups(prev => prev.map(g => g.id === group.id ? group : g));
+            await brainstormAPI.updateBrainstormGroup(group.id, group);
+        } catch (error) {
+            console.error('Error updating group:', error);
+            // Revert on error (could be improved by refetching)
+        }
+    };
+
+    const handleDeleteGroup = async (groupId) => {
+        if (!canEdit()) return;
+        try {
+            await brainstormAPI.deleteBrainstormGroup(groupId);
+            setGroups(prev => prev.filter(g => g.id !== groupId));
+            toast.success(t('brainstorm.groupDeleted', 'Group deleted'));
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            toast.error(t('brainstorm.groupDeleteFailed', 'Failed to delete group'));
         }
     };
 
@@ -510,7 +561,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     return (
         <>
             {/* Mobile layout with map - 3 states: canvas, split, map */}
-            <div className="md:hidden h-screen flex flex-col overflow-hidden relative">
+            <div className="md:hidden h-full flex flex-col overflow-hidden relative">
                 {/* Mobile Map Container - fixed at top, hidden in canvas mode */}
                 {hasMapboxToken && mobileViewState !== 'canvas' && (
                     <div
@@ -620,11 +671,14 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                         >
                             <BrainstormCanvas
                                 items={items}
+                                groups={groups}
                                 canEdit={canEdit()}
                                 onEditItem={handleEditItem}
                                 onDeleteItem={handleDeleteItem}
                                 onPositionUpdate={handlePositionUpdate}
                                 onZoomToLocation={handleZoomToLocation}
+                                onGroupChange={handleUpdateGroup}
+                                onDeleteGroup={handleDeleteGroup}
                                 offset={canvasOffset}
                                 zoom={canvasZoom}
                                 onOffsetChange={setCanvasOffset}
@@ -675,7 +729,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             </div>
 
             {/* Desktop layout */}
-            <div ref={containerRef} className="hidden md:flex h-screen overflow-hidden">
+            <div ref={containerRef} className="hidden md:flex h-full overflow-hidden">
                 {/* Left Panel - Canvas */}
                 <div
                     className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-0 flex-shrink-0 relative"
@@ -705,11 +759,14 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                     <div className="flex-1 overflow-hidden relative">
                         <BrainstormCanvas
                             items={items}
+                            groups={groups}
                             canEdit={canEdit()}
                             onEditItem={handleEditItem}
                             onDeleteItem={handleDeleteItem}
                             onPositionUpdate={handlePositionUpdate}
                             onZoomToLocation={handleZoomToLocation}
+                            onGroupChange={handleUpdateGroup}
+                            onDeleteGroup={handleDeleteGroup}
                             offset={canvasOffset}
                             zoom={canvasZoom}
                             onOffsetChange={setCanvasOffset}
@@ -748,7 +805,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                         {/* Floating add button */}
                         {canEdit() && (
                             <div className="absolute bottom-4 right-4">
-                                <FloatingAddButton onAdd={handleFloatingAdd} />
+                                <FloatingAddButton onAdd={handleFloatingAdd} onAddGroup={handleCreateGroup} />
                             </div>
                         )}
                     </div>
@@ -835,7 +892,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 };
 
 // Floating add button with type selection
-const FloatingAddButton = ({ onAdd }) => {
+const FloatingAddButton = ({ onAdd, onAddGroup }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { t } = useTranslation();
 
@@ -861,6 +918,21 @@ const FloatingAddButton = ({ onAdd }) => {
                                 </span>
                             </button>
                         ))}
+                        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+                        <button
+                            onClick={() => {
+                                onAddGroup();
+                                setIsOpen(false);
+                            }}
+                            className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                <Grid className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                {t('brainstorm.addGroup', 'Add Visual Group')}
+                            </span>
+                        </button>
                     </div>
                 </div>
             )}
