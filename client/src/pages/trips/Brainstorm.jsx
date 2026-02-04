@@ -546,6 +546,40 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         }
     };
 
+    // Touch handlers for detecting pull gesture on the content panel (not latch)
+    const panelTouchStartY = useRef(0);
+    const isPanelDragging = useRef(false);
+
+    const handlePanelTouchStart = useCallback((e) => {
+        // Only track if in split mode - to allow pull-down to map
+        if (mobileViewState === 'split') {
+            panelTouchStartY.current = e.touches[0].clientY;
+            isPanelDragging.current = true;
+        }
+    }, [mobileViewState]);
+
+    const handlePanelTouchMove = useCallback((e) => {
+        if (!isPanelDragging.current || mobileViewState !== 'split') return;
+
+        const currentY = e.touches[0].clientY;
+        const deltaY = currentY - panelTouchStartY.current;
+
+        // User is pulling down (finger moving down = positive delta = trying to reveal more map)
+        if (deltaY > 80) {
+            setMobileViewState('map');
+            isPanelDragging.current = false;
+        }
+        // User is pulling up (finger moving up = negative delta = trying to show more canvas)
+        else if (deltaY < -80) {
+            setMobileViewState('canvas');
+            isPanelDragging.current = false;
+        }
+    }, [mobileViewState]);
+
+    const handlePanelTouchEnd = useCallback(() => {
+        isPanelDragging.current = false;
+    }, []);
+
     // Loading state
     if (loading) {
         return (
@@ -609,8 +643,13 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                             </div>
                         )}
 
-                        {/* Mobile header */}
-                        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+                        {/* Mobile header - swipeable to change view states */}
+                        <div
+                            className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0"
+                            onTouchStart={handlePanelTouchStart}
+                            onTouchMove={handlePanelTouchMove}
+                            onTouchEnd={handlePanelTouchEnd}
+                        >
                             <Link
                                 to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
                                 className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"

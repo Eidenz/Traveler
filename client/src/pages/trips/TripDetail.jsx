@@ -92,13 +92,12 @@ const TripDetail = () => {
   const MIN_PANEL_WIDTH = 450;
   const MAX_PANEL_WIDTH = 800;
 
-  // Mobile map scroll state
-  const [mobileMapVisible, setMobileMapVisible] = useState(true);
+  // Mobile view state: 'details' (fullscreen details) | 'split' (default) | 'map' (fullscreen map)
+  const [mobileViewState, setMobileViewState] = useState('split');
   const [mobileMapHeight] = useState(280); // Height of mobile map in pixels
-  const [isSheetMinimized, setIsSheetMinimized] = useState(false);
   const mobileScrollRef = useRef(null);
   const lastScrollY = useRef(0);
-  const scrollThreshold = 50; // Pixels before map starts hiding
+  const scrollThreshold = 50; // Pixels before transitioning states
   const latchDragStartY = useRef(0);
   const isDraggingLatch = useRef(false);
 
@@ -272,27 +271,71 @@ const TripDetail = () => {
     };
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
-  // Mobile map scroll handling
+  // Mobile map scroll handling - 3 states: details, split, map
   const handleMobileScroll = useCallback((e) => {
-    // If minimized or dragging, don't auto-hide/show map based on scroll
-    if (isSheetMinimized || isDraggingLatch.current) return;
+    // Don't process scroll in fullscreen map mode or when dragging latch
+    if (mobileViewState === 'map' || isDraggingLatch.current) return;
 
     const scrollTop = e.target.scrollTop;
     const scrollDelta = scrollTop - lastScrollY.current;
 
-    // Scrolling down - hide map after threshold
-    if (scrollDelta > 0 && scrollTop > scrollThreshold) {
-      setMobileMapVisible(false);
+    // In split view
+    if (mobileViewState === 'split') {
+      // Scrolling down from top - go to fullscreen details
+      if (scrollDelta > 0 && scrollTop > scrollThreshold) {
+        setMobileViewState('details');
+      }
     }
-    // Scrolling up - show map
-    else if (scrollDelta < -10) {
-      setMobileMapVisible(true);
+    // In details view
+    else if (mobileViewState === 'details') {
+      // Scrolling up near top - return to split
+      if (scrollDelta < -10 && scrollTop < scrollThreshold) {
+        setMobileViewState('split');
+      }
     }
 
     lastScrollY.current = scrollTop;
-  }, [scrollThreshold, isSheetMinimized]);
+  }, [scrollThreshold, mobileViewState]);
 
-  // Latch Drag Handlers
+  // Touch handlers for detecting pull-up gesture when at top of scroll (to go from split to map)
+  const panelTouchStartY = useRef(0);
+  const isPanelDragging = useRef(false);
+
+  const handlePanelTouchStart = useCallback((e) => {
+    // Only track if in split mode and at top of scroll
+    if (mobileViewState === 'split' && mobileScrollRef.current) {
+      const scrollTop = mobileScrollRef.current.scrollTop;
+      if (scrollTop <= 5) {
+        panelTouchStartY.current = e.touches[0].clientY;
+        isPanelDragging.current = true;
+      }
+    }
+  }, [mobileViewState]);
+
+  const handlePanelTouchMove = useCallback((e) => {
+    if (!isPanelDragging.current || mobileViewState !== 'split') return;
+
+    // Check if still at top
+    if (mobileScrollRef.current && mobileScrollRef.current.scrollTop <= 5) {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - panelTouchStartY.current;
+
+      // User is pulling down (finger moving down = positive delta = trying to reveal more map)
+      if (deltaY > 60) {
+        setMobileViewState('map');
+        isPanelDragging.current = false;
+      }
+    } else {
+      // User scrolled down, stop tracking
+      isPanelDragging.current = false;
+    }
+  }, [mobileViewState]);
+
+  const handlePanelTouchEnd = useCallback(() => {
+    isPanelDragging.current = false;
+  }, []);
+
+  // Latch Drag Handlers for mobile split view - 3 states
   const handleLatchTouchStart = (e) => {
     latchDragStartY.current = e.touches[0].clientY;
     isDraggingLatch.current = true;
@@ -300,13 +343,8 @@ const TripDetail = () => {
   };
 
   const handleLatchTouchMove = (e) => {
-    if (!isDraggingLatch.current || !mobileScrollRef.current) return;
+    if (!isDraggingLatch.current) return;
     e.preventDefault(); // Prevent scroll while dragging latch
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - latchDragStartY.current;
-
-    // Optional: Add visual feedback via transform during drag if desired
-    // For now, simple snap logic on release
   };
 
   const handleLatchTouchEnd = (e) => {
@@ -315,23 +353,39 @@ const TripDetail = () => {
     const deltaY = endY - latchDragStartY.current;
     isDraggingLatch.current = false;
 
-    // Dragged DOWN (positive delta) -> Minimize Sheet (Show Full Map)
-    if (deltaY > 50 && !isSheetMinimized) {
-      setIsSheetMinimized(true);
-      setMobileMapVisible(true); // Ensure map is visible behind
+    // Dragged DOWN (positive delta) -> Go to next state (more map)
+    if (deltaY > 50) {
+      if (mobileViewState === 'details') {
+        setMobileViewState('split');
+        // Scroll to top when returning to split
+        if (mobileScrollRef.current) {
+          mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } else if (mobileViewState === 'split') {
+        setMobileViewState('map');
+      }
     }
-    // Dragged UP (negative delta) -> Restore Sheet (Partial Map)
-    else if (deltaY < -50 && isSheetMinimized) {
-      setIsSheetMinimized(false);
+    // Dragged UP (negative delta) -> Go to previous state (more details)
+    else if (deltaY < -50) {
+      if (mobileViewState === 'map') {
+        setMobileViewState('split');
+      } else if (mobileViewState === 'split') {
+        setMobileViewState('details');
+      }
     }
   };
 
-  // Function to toggle mobile map visibility
-  const toggleMobileMap = () => {
-    setMobileMapVisible(prev => !prev);
-    // If showing map, scroll to top
-    if (!mobileMapVisible && mobileScrollRef.current) {
-      mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  // Function to cycle mobile view states
+  const cycleMobileView = () => {
+    if (mobileViewState === 'details') {
+      setMobileViewState('split');
+      if (mobileScrollRef.current) {
+        mobileScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else if (mobileViewState === 'split') {
+      setMobileViewState('map');
+    } else {
+      setMobileViewState('split');
     }
   };
 
@@ -557,15 +611,12 @@ const TripDetail = () => {
     <>
       {/* Mobile layout with map */}
       <div className="md:hidden h-full flex flex-col overflow-hidden relative">
-        {/* Mobile Map Container - fixed at top */}
-        {hasMapboxToken && (
+        {/* Mobile Map Container - fixed at top, hidden in details-only mode */}
+        {hasMapboxToken && mobileViewState !== 'details' && (
           <div
             className="absolute top-0 left-0 right-0 z-0 transition-all duration-300 ease-out"
             style={{
-              height: isSheetMinimized ? '100%' : `${mobileMapHeight}px`, // Full height when minimized
-              transform: mobileMapVisible ? 'translateY(0)' : `translateY(-${mobileMapHeight - 60}px)`,
-              opacity: mobileMapVisible ? 1 : 0.5,
-              zIndex: isSheetMinimized ? 0 : 0
+              height: mobileViewState === 'map' ? '100%' : `${mobileMapHeight}px`,
             }}
           >
             <TripMap
@@ -575,19 +626,8 @@ const TripDetail = () => {
               lodging={lodging}
               onActivityClick={handleOpenActivityModal}
               selectedActivityId={selectedActivityId}
-              compact={!isSheetMinimized} // Full controls when minimized
+              compact={mobileViewState === 'split'} // Full controls when in map mode
             />
-
-            {/* Map toggle button when hidden - only show if NOT minimized */}
-            {!mobileMapVisible && !isSheetMinimized && (
-              <button
-                onClick={toggleMobileMap}
-                className="absolute bottom-2 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full shadow-lg flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 z-20"
-              >
-                <Map className="w-4 h-4" />
-                {t('trips.showMap', 'Show map')}
-              </button>
-            )}
           </div>
         )}
 
@@ -595,27 +635,32 @@ const TripDetail = () => {
         <div
           ref={mobileScrollRef}
           onScroll={handleMobileScroll}
-          className="flex-1 overflow-y-auto custom-scrollbar z-10 transition-all duration-300 ease-out shadow-[0_-4px_20px_rgba(0,0,0,0.15)]"
+          onTouchStart={handlePanelTouchStart}
+          onTouchMove={handlePanelTouchMove}
+          onTouchEnd={handlePanelTouchEnd}
+          className={`flex-1 z-10 transition-all duration-300 ease-out ${mobileViewState !== 'details' ? 'shadow-[0_-4px_20px_rgba(0,0,0,0.15)]' : ''}`}
           style={{
-            marginTop: isSheetMinimized
-              ? 'calc(100vh - 160px)' // Use vh for height-relative positioning. 160px allows space for bottom nav + latch visibility
-              : (hasMapboxToken && mobileMapVisible ? `${mobileMapHeight - 20}px` : '0'),
-            borderTopLeftRadius: (hasMapboxToken && (mobileMapVisible || isSheetMinimized)) ? '24px' : '0',
-            borderTopRightRadius: (hasMapboxToken && (mobileMapVisible || isSheetMinimized)) ? '24px' : '0',
-            overflow: isSheetMinimized ? 'hidden' : 'auto', // Disable scroll when minimized
+            marginTop: mobileViewState === 'map'
+              ? 'calc(100vh - 160px)' // Leave 160px visible at bottom in fullscreen map mode
+              : mobileViewState === 'split'
+                ? `${mobileMapHeight - 20}px` // Overlap map slightly
+                : '0', // Full details
+            borderTopLeftRadius: (hasMapboxToken && mobileViewState !== 'details') ? '24px' : '0',
+            borderTopRightRadius: (hasMapboxToken && mobileViewState !== 'details') ? '24px' : '0',
+            overflow: mobileViewState === 'map' ? 'hidden' : 'auto', // Disable scroll in fullscreen map
             zIndex: 10
           }}
         >
           <div className="bg-white dark:bg-gray-800 min-h-full">
-            {/* Pull indicator when map is visible */}
-            {hasMapboxToken && (mobileMapVisible || isSheetMinimized) && (
+            {/* Latch indicator - drag to switch views - always visible when map is available */}
+            {hasMapboxToken && (
               <div
-                className="flex justify-center pt-2 pb-1 touch-none"
+                className="flex justify-center py-3 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing"
                 onTouchStart={handleLatchTouchStart}
                 onTouchMove={handleLatchTouchMove}
                 onTouchEnd={handleLatchTouchEnd}
               >
-                <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />
+                <div className="w-16 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full" />
               </div>
             )}
 
@@ -629,14 +674,25 @@ const TripDetail = () => {
                 {t('common.back', 'Back')}
               </Link>
 
-              {/* Map toggle button */}
-              {hasMapboxToken && !mobileMapVisible && (
+              {/* Map toggle button - cycles through states */}
+              {hasMapboxToken && (
                 <button
-                  onClick={toggleMobileMap}
-                  className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"
+                  onClick={cycleMobileView}
+                  className={`p-1.5 rounded-lg transition-colors ${mobileViewState === 'map'
+                    ? 'bg-accent text-white'
+                    : mobileViewState === 'details'
+                      ? 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                  title={
+                    mobileViewState === 'map'
+                      ? t('trips.hideMap', 'Hide map')
+                      : mobileViewState === 'details'
+                        ? t('trips.showMap', 'Show map')
+                        : t('trips.expandMap', 'Expand map')
+                  }
                 >
                   <Map className="w-4 h-4" />
-                  {t('trips.map', 'Map')}
                 </button>
               )}
             </div>
