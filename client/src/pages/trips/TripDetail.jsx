@@ -1030,6 +1030,8 @@ const TripDetail = () => {
         }
         tripId={tripId}
         isOfflineMode={!navigator.onLine && isAvailableOffline}
+        onDocumentsChange={refreshDocuments}
+        canEdit={canEdit()}
       />
 
       {/* Share Modal */}

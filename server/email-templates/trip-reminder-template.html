@@ -371,14 +371,17 @@
                     </div>
                     
                     <!-- Weather Forecast -->
+                    {{#if hasWeather}}
                     <div class="weather-forecast" style="display: flex; background-color: #f0f7ff; border-radius: 8px; padding: 15px; margin: 25px 0; align-items: center;">
-                        <img src="{{weatherIcon}}" alt="Weather" class="weather-icon" style="width: 60px; height: 60px; margin-right: 20px;">
+                        <div style="font-size: 48px; margin-right: 20px;">{{weatherIcon}}</div>
                         <div class="weather-details" style="flex: 1;">
                             <div class="weather-temp" style="font-size: 22px; font-weight: 600; color: #1e40af;">{{weatherTemp}}°C</div>
+                            <div style="font-size: 14px; color: #4b5563;">High: {{weatherTempMax}}°C · Low: {{weatherTempMin}}°C</div>
                             <div>{{weatherCondition}} in {{tripDestination}} tomorrow</div>
                             <div style="font-size: 14px; color: #4b5563; margin-top: 5px;">Pack appropriate clothing for this weather</div>
                         </div>
                     </div>
+                    {{/if}}
                     
                     <!-- Last-Minute Preparation Tips -->
                     <h2 style="color: #1e40af; margin-top: 30px; margin-bottom: 15px; font-weight: 600; font-size: 20px;">Last-Minute Preparation Tips</h2>

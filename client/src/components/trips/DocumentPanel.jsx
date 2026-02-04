@@ -48,10 +48,22 @@ const DocumentPanel = ({
         return { sharedDocs: shared, personalDocs: personal };
     }, [documents]);
 
-    // Handle file selection
+    // Allowed file extensions for document uploads
+    const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg'];
+
+    // Handle file selection with validation
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
         if (file) {
+            const extension = '.' + file.name.split('.').pop().toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(extension)) {
+                toast.error(
+                    t('documents.unsupportedFormat',
+                        `Unsupported file format. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG, JPEG`)
+                );
+                e.target.value = '';
+                return;
+            }
             setUploadFile(file);
             setShowUploadForm(true);
         }
@@ -405,8 +417,8 @@ const DocumentPanel = ({
                                 type="button"
                                 onClick={() => setIsPersonalDocument(false)}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${!isPersonalDocument
-                                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                                     }`}
                             >
                                 <Users className="w-4 h-4" />
@@ -416,8 +428,8 @@ const DocumentPanel = ({
                                 type="button"
                                 onClick={() => setIsPersonalDocument(true)}
                                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${isPersonalDocument
-                                        ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                                     }`}
                             >
                                 <Lock className="w-4 h-4" />

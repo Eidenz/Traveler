@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
-    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2
+    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -41,7 +41,9 @@ const ItemWizard = ({
     const [bannerImage, setBannerImage] = useState(null);
     const [bannerImagePreview, setBannerImagePreview] = useState(null);
     const [existingBannerImage, setExistingBannerImage] = useState(null);
-    const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects
+    const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
+    const [existingDocuments, setExistingDocuments] = useState([]); // Existing documents from the server
+    const [deletingDocId, setDeletingDocId] = useState(null);
     const [errors, setErrors] = useState({});
 
     // Get initial form data based on type
@@ -126,6 +128,10 @@ const ItemWizard = ({
                     notes: activity.notes || '',
                 });
                 setExistingBannerImage(activity.banner_image || null);
+                // Load existing documents
+                if (response.data.documents) {
+                    setExistingDocuments(response.data.documents);
+                }
             } else if (type === 'lodging') {
                 response = await lodgingAPI.getLodging(itemId);
                 const lodging = response.data.lodging;
@@ -140,6 +146,10 @@ const ItemWizard = ({
                     notes: lodging.notes || '',
                 });
                 setExistingBannerImage(lodging.banner_image || null);
+                // Load existing documents
+                if (response.data.documents) {
+                    setExistingDocuments(response.data.documents);
+                }
             } else if (type === 'transport') {
                 response = await transportAPI.getTransportation(itemId);
                 const transport = response.data.transportation;
@@ -156,6 +166,10 @@ const ItemWizard = ({
                     notes: transport.notes || '',
                 });
                 setExistingBannerImage(transport.banner_image || null);
+                // Load existing documents
+                if (response.data.documents) {
+                    setExistingDocuments(response.data.documents);
+                }
             }
         } catch (error) {
             console.error('Error fetching item:', error);
@@ -251,12 +265,38 @@ const ItemWizard = ({
         }
     };
 
-    // Handle document file - add to array
+    // Allowed file extensions for document uploads
+    const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg'];
+
+    // Handle document file - add to array with validation
     const handleDocumentChange = (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
-            const newDocs = files.map(file => ({ file, isPersonal: false }));
-            setDocumentFiles(prev => [...prev, ...newDocs]);
+            // Validate each file
+            const validFiles = [];
+            const invalidFiles = [];
+
+            files.forEach(file => {
+                const extension = '.' + file.name.split('.').pop().toLowerCase();
+                if (ALLOWED_EXTENSIONS.includes(extension)) {
+                    validFiles.push({ file, isPersonal: false });
+                } else {
+                    invalidFiles.push(file.name);
+                }
+            });
+
+            // Show error for invalid files
+            if (invalidFiles.length > 0) {
+                toast.error(
+                    t('documents.unsupportedFormat',
+                        `Unsupported file format: ${invalidFiles.join(', ')}. Allowed: PDF, DOC, DOCX, TXT, PNG, JPG, JPEG`)
+                );
+            }
+
+            // Add valid files
+            if (validFiles.length > 0) {
+                setDocumentFiles(prev => [...prev, ...validFiles]);
+            }
         }
         // Reset input so same file can be selected again
         e.target.value = '';
@@ -272,6 +312,23 @@ const ItemWizard = ({
     // Remove document from list
     const removeDocument = (index) => {
         setDocumentFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Delete an existing document from the server
+    const deleteExistingDocument = async (documentId) => {
+        if (!confirm(t('common.confirmDelete'))) return;
+
+        try {
+            setDeletingDocId(documentId);
+            await documentAPI.deleteDocument(documentId, tripId);
+            setExistingDocuments(prev => prev.filter(doc => doc.id !== documentId));
+            toast.success(t('documents.deleteSuccess'));
+        } catch (error) {
+            console.error('Error deleting document:', error);
+            toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
+        } finally {
+            setDeletingDocId(null);
+        }
     };
 
     // Validate current step
@@ -1128,17 +1185,67 @@ const ItemWizard = ({
                         />
                     </div>
 
-                    {/* Document Upload */}
+                    {/* Documents Section */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {t('documents.upload', 'Upload Document')} {documentFiles.length > 0 && `(${documentFiles.length})`}
+                            {t('documents.title', 'Documents')} {(existingDocuments.length + documentFiles.length) > 0 && `(${existingDocuments.length + documentFiles.length})`}
                         </label>
 
-                        {/* List of selected documents */}
+                        {/* Existing documents (already uploaded to server) */}
+                        {existingDocuments.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    {t('documents.existing', 'Uploaded documents')}
+                                </p>
+                                {existingDocuments.map((doc) => (
+                                    <div key={doc.id} className={`p-3 rounded-xl border ${doc.is_personal
+                                        ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800'
+                                        : 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800'
+                                        }`}>
+                                        {/* Top row: icon, filename, delete */}
+                                        <div className="flex items-center gap-2">
+                                            <FileText className={`w-5 h-5 flex-shrink-0 ${doc.is_personal ? 'text-amber-500' : 'text-green-500'
+                                                }`} />
+                                            <span className="text-sm font-medium truncate flex-1 text-gray-900 dark:text-white">{doc.file_name}</span>
+
+                                            {/* Delete button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => deleteExistingDocument(doc.id)}
+                                                disabled={deletingDocId === doc.id}
+                                                className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-full text-red-500 disabled:opacity-50 flex-shrink-0"
+                                            >
+                                                {deletingDocId === doc.id ? (
+                                                    <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
+                                            </button>
+                                        </div>
+
+                                        {/* Bottom row: privacy indicator */}
+                                        <div className="flex items-center gap-2 mt-2 pl-7">
+                                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${doc.is_personal
+                                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                }`}>
+                                                {doc.is_personal ? <Lock className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                                                {doc.is_personal ? t('budget.personal', 'Personal') : t('budget.shared', 'Shared')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* New documents to upload */}
                         {documentFiles.length > 0 && (
                             <div className="space-y-2 mb-3">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    {t('documents.new', 'New documents to upload')}
+                                </p>
                                 {documentFiles.map((doc, index) => (
-                                    <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                                    <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                                         <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
                                         <span className="text-sm font-medium truncate flex-1">{doc.file.name}</span>
 
@@ -1173,7 +1280,7 @@ const ItemWizard = ({
                         <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
                             <Upload className="w-6 h-6 text-gray-400 mb-1" />
                             <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {documentFiles.length > 0
+                                {(existingDocuments.length + documentFiles.length) > 0
                                     ? t('documents.addMore', 'Add more documents')
                                     : t('documents.dragDrop', 'Click or drag to upload')
                                 }

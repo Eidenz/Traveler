@@ -37,6 +37,9 @@ const { getFallbackImageUrl } = require('./utils/ssrUtils');
 // Email Queue Service
 const { initializeEmailQueue, startEmailQueueProcessor } = require('./utils/emailQueueService');
 
+// Weather Service
+const { getWeatherForTrip } = require('./utils/weatherService');
+
 // Initialize express app
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -227,8 +230,18 @@ cron.schedule('0 8 * * *', async () => {
       const firstActivity = db.prepare('SELECT name, time, location, confirmation_code FROM activities WHERE trip_id = ? AND date = ? ORDER BY time ASC LIMIT 1').get(trip.id, tomorrowDateString);
       const checklists = db.prepare('SELECT id FROM checklists WHERE trip_id = ?').all(trip.id);
 
-      // Simple placeholder for weather - replace with actual API call if desired
-      const weather = { temp: 15, condition: 'Partly cloudy', icon: 'https://example.com/weather-icon.png' };
+      // Fetch real weather data from Open-Meteo (free, no API key needed)
+      let weather = null;
+      if (trip.location) {
+        try {
+          weather = await getWeatherForTrip(trip.location, tomorrowDateString);
+          if (weather) {
+            console.log(`Weather for ${trip.name}: ${weather.temp}°C, ${weather.condition}`);
+          }
+        } catch (weatherError) {
+          console.error(`Failed to fetch weather for trip ${trip.name}:`, weatherError.message);
+        }
+      }
 
       const commonEmailData = {
         tripName: trip.name,
@@ -262,10 +275,13 @@ cron.schedule('0 8 * * *', async () => {
         firstActivityTime: firstActivity?.time || 'Anytime',
         firstActivityLocation: firstActivity?.location || '',
         firstActivityCode: firstActivity?.confirmation_code || '',
-        // Weather
-        weatherIcon: weather.icon,
-        weatherTemp: weather.temp,
-        weatherCondition: weather.condition,
+        // Weather (only include if we got valid data)
+        hasWeather: !!weather,
+        weatherIcon: weather?.icon || '',
+        weatherTemp: weather?.temp || '',
+        weatherTempMax: weather?.tempMax || '',
+        weatherTempMin: weather?.tempMin || '',
+        weatherCondition: weather?.condition || '',
         // Checklists
         hasChecklists: checklists.length > 0,
       };

@@ -1,6 +1,6 @@
 // client/src/components/trips/DocumentsModal.jsx
 import React, { useState, useMemo } from 'react';
-import { FileText, Download, Eye, Info, ExternalLink, X, Lock, Users } from 'lucide-react';
+import { FileText, Download, Eye, Info, ExternalLink, X, Lock, Users, Trash2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import PDFViewerModal from './PDFViewerModal';
@@ -15,7 +15,9 @@ const DocumentsModal = ({
   referenceType,
   referenceId,
   tripId,
-  isOfflineMode = false
+  isOfflineMode = false,
+  onDocumentsChange, // Callback to refresh documents after delete
+  canEdit = true,
 }) => {
   const { t } = useTranslation();
   const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
@@ -118,6 +120,27 @@ const DocumentsModal = ({
     }
   };
 
+  // Handle document deletion
+  const handleDeleteDocument = async (documentId) => {
+    if (!confirm(t('common.confirmDelete'))) return;
+
+    try {
+      setIsLoading(true);
+      await documentAPI.deleteDocument(documentId, tripId);
+      toast.success(t('documents.deleteSuccess'));
+
+      // Refresh documents
+      if (onDocumentsChange) {
+        onDocumentsChange();
+      }
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast.error(t('errors.deleteFailed', { item: t('documents.title').toLowerCase() }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getFileTypeIcon = (fileType, isPersonal = false) => {
     const bgColor = isPersonal
       ? 'bg-amber-100 dark:bg-amber-900/30'
@@ -161,15 +184,16 @@ const DocumentsModal = ({
   const renderDocumentItem = (doc, isPersonal = false) => (
     <div
       key={doc.id}
-      className={`flex items-center justify-between p-4 rounded-lg transition-all hover:shadow-md animate-fade-in ${isPersonal
-          ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800'
-          : 'bg-gray-50 dark:bg-gray-800'
+      className={`p-3 sm:p-4 rounded-lg transition-all hover:shadow-md animate-fade-in ${isPersonal
+        ? 'bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800'
+        : 'bg-gray-50 dark:bg-gray-800'
         }`}
     >
-      <div className="flex items-center">
+      {/* Document info row */}
+      <div className="flex items-start gap-3">
         {getFileTypeIcon(doc.file_type, isPersonal)}
-        <div className="ml-3">
-          <div className="font-medium text-gray-900 dark:text-white truncate max-w-[200px]">
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-gray-900 dark:text-white truncate">
             {doc.file_name}
           </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
@@ -177,27 +201,37 @@ const DocumentsModal = ({
           </div>
         </div>
       </div>
-      <div className="flex space-x-2">
+
+      {/* Actions row */}
+      <div className="flex items-center gap-2 mt-3 pl-11">
         {canPreview(doc.file_type) && (
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             disabled={isLoading}
             onClick={() => handleViewDocument(doc)}
-            icon={<Eye size={16} />}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
           >
-            {t('documents.view')}
-          </Button>
+            <Eye size={16} />
+            <span className="hidden sm:inline">{t('documents.view')}</span>
+          </button>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
+        <button
           disabled={isLoading}
           onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
-          icon={<Download size={16} />}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
         >
-          {t('documents.download')}
-        </Button>
+          <Download size={16} />
+          <span className="hidden sm:inline">{t('documents.download')}</span>
+        </button>
+        {canEdit && !isOfflineMode && (
+          <button
+            disabled={isLoading}
+            onClick={() => handleDeleteDocument(doc.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+          >
+            <Trash2 size={16} />
+            <span className="hidden sm:inline">{t('common.delete', 'Delete')}</span>
+          </button>
+        )}
       </div>
     </div>
   );

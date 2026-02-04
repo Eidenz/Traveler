@@ -425,7 +425,6 @@ const BrainstormCanvas = ({
         };
 
         // Touch Events
-        // Touch Events
         const onTouchMove = (e) => {
             if (e.touches.length === 2) {
                 // Pinch to Zoom
@@ -461,8 +460,6 @@ const BrainstormCanvas = ({
 
             } else if (e.touches.length > 0) {
                 // Prevent default scroll if panning or dragging item
-            } else if (e.touches.length > 0) {
-                // Prevent default scroll if panning or dragging item
                 if (panStateRef.current.isPanning || dragStateRef.current.isDragging || resizeStateRef.current.isResizing) {
                     e.preventDefault();
                 }
@@ -473,7 +470,6 @@ const BrainstormCanvas = ({
             }
         };
         const onTouchEnd = (e) => {
-            // For touch end, we need the last position. `changedTouches` has it.
             // For touch end, we need the last position. `changedTouches` has it.
             if (dragStateRef.current.isDragging && canEdit && e.changedTouches.length > 0) {
                 const touch = e.changedTouches[0];

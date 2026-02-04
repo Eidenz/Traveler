@@ -60,7 +60,7 @@ const getTransportation = (req, res) => {
 
     // Get documents
     const documents = db.prepare(`
-      SELECT d.id, d.file_name, d.file_type, d.file_path, d.created_at
+      SELECT d.id, d.file_name, d.file_type, d.file_path, d.created_at, d.is_personal
       FROM documents d
       WHERE d.reference_type = 'transportation' AND d.reference_id = ?
     `).all(transportId);
