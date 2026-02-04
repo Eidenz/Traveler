@@ -15,6 +15,7 @@ const checkDocumentPermission = (userId, reference_type, reference_id, requiredR
     case 'trip':
       tripId = reference_id; // Reference ID is the Trip ID
       break;
+    case 'transport':
     case 'transportation':
       referenceTable = 'transportation';
       break;
@@ -65,6 +66,7 @@ const getTripIdFromReference = (reference_type, reference_id) => {
   let referenceColumn = 'id';
 
   switch (reference_type) {
+    case 'transport':
     case 'transportation': referenceTable = 'transportation'; break;
     case 'lodging': referenceTable = 'lodging'; break;
     case 'activity': referenceTable = 'activities'; break;
@@ -112,7 +114,7 @@ const uploadDocument = async (req, res) => { // Make async if needed later
     }
 
     // Reference validation (basic check, specific existence check integrated into permission check)
-    const validReferenceTypes = ['trip', 'transportation', 'lodging', 'activity'];
+    const validReferenceTypes = ['trip', 'transport', 'transportation', 'lodging', 'activity'];
     if (!validReferenceTypes.includes(reference_type)) {
       // If invalid reference type, delete the uploaded file
       if (req.file && req.file.path) {
@@ -152,8 +154,11 @@ const uploadDocument = async (req, res) => { // Make async if needed later
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    // Normalize reference_type for DB (transport -> transportation)
+    const dbReferenceType = reference_type === 'transport' ? 'transportation' : reference_type;
+
     const result = insert.run(
-      reference_type, reference_id, tripId, relativeFilePath, file_name, file_type, userId, isPersonal
+      dbReferenceType, reference_id, tripId, relativeFilePath, file_name, file_type, userId, isPersonal
     );
 
     // Get the created document record
@@ -347,7 +352,7 @@ const getDocumentsByReference = (req, res) => {
     }
 
 
-    const validReferenceTypes = ['trip', 'transportation', 'lodging', 'activity'];
+    const validReferenceTypes = ['trip', 'transport', 'transportation', 'lodging', 'activity'];
     if (!validReferenceTypes.includes(reference_type)) {
       return res.status(400).json({ message: 'Invalid reference type' });
     }
@@ -355,13 +360,16 @@ const getDocumentsByReference = (req, res) => {
     // Get documents - filter personal documents to only show to uploader
     // Show shared documents (is_personal = 0 or null) to everyone
     // Show personal documents (is_personal = 1) only to the uploader
+    // Normalize reference type for DB query
+    const dbReferenceType = reference_type === 'transport' ? 'transportation' : reference_type;
+
     const documents = db.prepare(`
       SELECT id, file_name, file_type, created_at, uploaded_by, is_personal
       FROM documents
       WHERE reference_type = ? AND reference_id = ?
         AND (is_personal = 0 OR is_personal IS NULL OR uploaded_by = ?)
       ORDER BY is_personal ASC, created_at DESC
-    `).all(reference_type, reference_id, userId);
+    `).all(dbReferenceType, reference_id, userId);
 
     return res.status(200).json({ documents });
   } catch (error) {
@@ -392,7 +400,7 @@ const updateDocument = (req, res) => {
     // If changing reference, validate new reference and check permission
     if (reference_type && reference_id) {
       // Validate Reference Type
-      const validReferenceTypes = ['trip', 'transportation', 'lodging', 'activity'];
+      const validReferenceTypes = ['trip', 'transport', 'transportation', 'lodging', 'activity'];
       if (!validReferenceTypes.includes(reference_type)) {
         return res.status(400).json({ message: 'Invalid reference type' });
       }
@@ -423,7 +431,7 @@ const updateDocument = (req, res) => {
 
     if (reference_type) {
       updateFields.push('reference_type = ?');
-      params.push(reference_type);
+      params.push(reference_type === 'transport' ? 'transportation' : reference_type);
     }
     if (reference_id) {
       updateFields.push('reference_id = ?');

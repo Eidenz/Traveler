@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
+const fs = require('fs');
 const {
   uploadDocument,
   getDocument,
@@ -52,7 +53,7 @@ router.post(
   '/',
   handleUpload,
   [
-    body('reference_type').isIn(['trip', 'transportation', 'lodging', 'activity'])
+    body('reference_type').isIn(['trip', 'transport', 'transportation', 'lodging', 'activity'])
       .withMessage('Valid reference type is required'),
     body('reference_id').notEmpty().withMessage('Valid reference ID is required')
   ],

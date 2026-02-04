@@ -536,15 +536,26 @@ const TripDetail = () => {
 
     try {
       let documents = [];
+      const refId = parseInt(currentReferenceId, 10);
+
       if (currentReferenceType === 'transport' || currentReferenceType === 'transportation') {
-        const response = await transportAPI.getTransportation(currentReferenceId);
+        const response = await transportAPI.getTransportation(refId);
         documents = response.data.documents || [];
+        setTransportation(prev => prev.map(item =>
+          item.id === refId ? { ...item, has_documents: documents.length } : item
+        ));
       } else if (currentReferenceType === 'lodging') {
-        const response = await lodgingAPI.getLodging(currentReferenceId);
+        const response = await lodgingAPI.getLodging(refId);
         documents = response.data.documents || [];
+        setLodging(prev => prev.map(item =>
+          item.id === refId ? { ...item, has_documents: documents.length } : item
+        ));
       } else if (currentReferenceType === 'activity') {
-        const response = await activityAPI.getActivity(currentReferenceId);
+        const response = await activityAPI.getActivity(refId);
         documents = response.data.documents || [];
+        setActivities(prev => prev.map(item =>
+          item.id === refId ? { ...item, has_documents: documents.length } : item
+        ));
       }
       setCurrentDocuments(documents);
     } catch (error) {
