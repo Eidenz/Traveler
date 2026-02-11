@@ -47,12 +47,13 @@ const getActivity = (req, res) => {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
-    // Get documents
+    // Get documents - filter personal documents to only show to uploader
     const documents = db.prepare(`
       SELECT d.id, d.file_name, d.file_type, d.file_path, d.created_at, d.is_personal
       FROM documents d
       WHERE d.reference_type = 'activity' AND d.reference_id = ?
-    `).all(activityId);
+        AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)
+    `).all(activityId, req.user.id);
 
     return res.status(200).json({
       activity,
