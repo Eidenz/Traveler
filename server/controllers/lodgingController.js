@@ -12,15 +12,16 @@ const fs = require('fs'); // Import fs
 const getTripLodging = (req, res) => {
   try {
     const { tripId } = req.params;
+    const userId = req.user.id;
 
-    // Get lodging
+    // Get lodging - filter document count to exclude personal documents from other users
     const lodging = db.prepare(`
       SELECT l.*,
-        (SELECT COUNT(*) FROM documents WHERE reference_type = 'lodging' AND reference_id = l.id) as has_documents
+        (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'lodging' AND d.reference_id = l.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM lodging l
       WHERE l.trip_id = ?
       ORDER BY l.check_in
-    `).all(tripId);
+    `).all(userId, tripId);
 
     return res.status(200).json({ lodging });
   } catch (error) {

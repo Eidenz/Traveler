@@ -56,32 +56,34 @@ const getTripById = (req, res) => {
       WHERE tm.trip_id = ?
     `).all(tripId);
 
+    const userId = req.user.id;
+
     // Get transportation
     const transportation = db.prepare(`
       SELECT t.*,
-        (SELECT COUNT(*) FROM documents WHERE reference_type = 'transportation' AND reference_id = t.id) as has_documents
+        (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'transportation' AND d.reference_id = t.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM transportation t
       WHERE t.trip_id = ?
       ORDER BY t.departure_date, t.departure_time
-    `).all(tripId);
+    `).all(userId, tripId);
 
     // Get lodging
     const lodging = db.prepare(`
       SELECT l.*,
-        (SELECT COUNT(*) FROM documents WHERE reference_type = 'lodging' AND reference_id = l.id) as has_documents
+        (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'lodging' AND d.reference_id = l.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM lodging l
       WHERE l.trip_id = ?
       ORDER BY l.check_in
-    `).all(tripId);
+    `).all(userId, tripId);
 
     // Get activities
     const activities = db.prepare(`
       SELECT a.*,
-        (SELECT COUNT(*) FROM documents WHERE reference_type = 'activity' AND reference_id = a.id) as has_documents
+        (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'activity' AND d.reference_id = a.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM activities a
       WHERE a.trip_id = ?
       ORDER BY a.date, a.time
-    `).all(tripId);
+    `).all(userId, tripId);
 
     return res.status(200).json({
       trip,

@@ -12,15 +12,16 @@ const fs = require('fs'); // Import fs
 const getTripActivities = (req, res) => {
   try {
     const { tripId } = req.params;
+    const userId = req.user.id;
 
-    // Get activities
+    // Get activities - filter document count to exclude personal documents from other users
     const activities = db.prepare(`
       SELECT a.*,
-        (SELECT COUNT(*) FROM documents WHERE reference_type = 'activity' AND reference_id = a.id) as has_documents
+        (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'activity' AND d.reference_id = a.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM activities a
       WHERE a.trip_id = ?
       ORDER BY a.date, a.time
-    `).all(tripId);
+    `).all(userId, tripId);
 
     return res.status(200).json({ activities });
   } catch (error) {
