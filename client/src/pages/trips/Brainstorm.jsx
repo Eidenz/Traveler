@@ -95,6 +95,15 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             setItems(prev => prev.map(i =>
                 i.id === itemId ? { ...i, position_x, position_y } : i
             ));
+        },
+        onBrainstormGroupCreate: (group) => {
+            setGroups(prev => [...prev, group]);
+        },
+        onBrainstormGroupUpdate: (group) => {
+            setGroups(prev => prev.map(g => g.id === group.id ? group : g));
+        },
+        onBrainstormGroupDelete: (groupId) => {
+            setGroups(prev => prev.filter(g => g.id !== groupId));
         }
     }), []);
 
@@ -103,7 +112,10 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         emitBrainstormCreate,
         emitBrainstormUpdate,
         emitBrainstormDelete,
-        emitBrainstormMove
+        emitBrainstormMove,
+        emitBrainstormGroupCreate,
+        emitBrainstormGroupUpdate,
+        emitBrainstormGroupDelete
     } = useRealtimeUpdates(tripId || trip?.id, realtimeHandlers);
 
     // Fetch trip and brainstorm data
@@ -315,7 +327,9 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
                 height: 300,
                 color: '#e5e7eb'
             });
-            setGroups(prev => [...prev, response.data.group]);
+            const newGroup = response.data.group;
+            setGroups(prev => [...prev, newGroup]);
+            emitBrainstormGroupCreate(newGroup); // Broadcast to other users
             toast.success(t('brainstorm.groupCreated', 'Group created'));
         } catch (error) {
             console.error('Error creating group:', error);
@@ -329,6 +343,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             // Optimistic update
             setGroups(prev => prev.map(g => g.id === group.id ? group : g));
             await brainstormAPI.updateBrainstormGroup(group.id, group);
+            emitBrainstormGroupUpdate(group); // Broadcast to other users
         } catch (error) {
             console.error('Error updating group:', error);
             // Revert on error (could be improved by refetching)
@@ -340,6 +355,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         try {
             await brainstormAPI.deleteBrainstormGroup(groupId);
             setGroups(prev => prev.filter(g => g.id !== groupId));
+            emitBrainstormGroupDelete(groupId); // Broadcast to other users
             toast.success(t('brainstorm.groupDeleted', 'Group deleted'));
         } catch (error) {
             console.error('Error deleting group:', error);

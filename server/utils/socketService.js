@@ -185,6 +185,19 @@ function initializeSocket(httpServer) {
             });
         });
 
+        // Brainstorm group events
+        socket.on('brainstormGroup:create', (data) => {
+            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:created', data.group);
+        });
+
+        socket.on('brainstormGroup:update', (data) => {
+            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:updated', data.group);
+        });
+
+        socket.on('brainstormGroup:delete', (data) => {
+            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:deleted', data.groupId);
+        });
+
         // Trip data events (activities, lodging, transport)
         socket.on('activity:create', (data) => {
             socket.to(`trip:${data.tripId}`).emit('activity:created', data.activity);

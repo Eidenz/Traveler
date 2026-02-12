@@ -56,6 +56,17 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
             unsubscribers.push(subscribe('brainstorm:moved', handlers.onBrainstormMove));
         }
 
+        // Brainstorm group events
+        if (handlers.onBrainstormGroupCreate) {
+            unsubscribers.push(subscribe('brainstormGroup:created', handlers.onBrainstormGroupCreate));
+        }
+        if (handlers.onBrainstormGroupUpdate) {
+            unsubscribers.push(subscribe('brainstormGroup:updated', handlers.onBrainstormGroupUpdate));
+        }
+        if (handlers.onBrainstormGroupDelete) {
+            unsubscribers.push(subscribe('brainstormGroup:deleted', handlers.onBrainstormGroupDelete));
+        }
+
         // Activity events
         if (handlers.onActivityCreate) {
             unsubscribers.push(subscribe('activity:created', handlers.onActivityCreate));
@@ -169,6 +180,18 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
         emit('brainstorm:move', { itemId, position_x, position_y });
     }, [emit]);
 
+    const emitBrainstormGroupCreate = useCallback((group) => {
+        emit('brainstormGroup:create', { group });
+    }, [emit]);
+
+    const emitBrainstormGroupUpdate = useCallback((group) => {
+        emit('brainstormGroup:update', { group });
+    }, [emit]);
+
+    const emitBrainstormGroupDelete = useCallback((groupId) => {
+        emit('brainstormGroup:delete', { groupId });
+    }, [emit]);
+
     const emitActivityCreate = useCallback((activity) => {
         emit('activity:create', { activity });
     }, [emit]);
@@ -268,6 +291,10 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
         emitBrainstormUpdate,
         emitBrainstormDelete,
         emitBrainstormMove,
+        // Brainstorm group emitters
+        emitBrainstormGroupCreate,
+        emitBrainstormGroupUpdate,
+        emitBrainstormGroupDelete,
         // Activity emitters
         emitActivityCreate,
         emitActivityUpdate,
