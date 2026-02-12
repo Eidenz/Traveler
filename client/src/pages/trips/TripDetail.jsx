@@ -465,6 +465,16 @@ const TripDetail = () => {
 
   // Document handling
   const handleViewDocument = async (referenceType, item) => {
+    // Close wizard if open - documents should replace the edit view
+    if (showWizard) {
+      handleCloseWizard();
+    }
+
+    // Close mobile modals if open - documents should replace the edit view
+    if (isTransportModalOpen) setIsTransportModalOpen(false);
+    if (isLodgingModalOpen) setIsLodgingModalOpen(false);
+    if (isActivityModalOpen) setIsActivityModalOpen(false);
+
     try {
       setCurrentReferenceType(referenceType);
       setCurrentDocumentItemName(item.name || item.from_location || '');

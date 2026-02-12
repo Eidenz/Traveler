@@ -114,12 +114,22 @@ const ItemWizard = ({
             setIsFetching(true);
             let response;
 
+            // Helper to parse date string consistently - preserves the intended date
+            // regardless of user's timezone by parsing as local date
+            const parseLocalDate = (dateString) => {
+                if (!dateString) return new Date();
+                // Parse date string (YYYY-MM-DD format) and create local Date
+                // This avoids timezone shifts where UTC midnight becomes previous day
+                const [year, month, day] = dateString.split('-').map(Number);
+                return new Date(year, month - 1, day);
+            };
+
             if (type === 'activity') {
                 response = await activityAPI.getActivity(itemId);
                 const activity = response.data.activity;
                 setFormData({
                     name: activity.name || '',
-                    date: activity.date ? new Date(activity.date) : new Date(),
+                    date: activity.date ? parseLocalDate(activity.date) : new Date(),
                     time: activity.time || '',
                     location: activity.location || '',
                     latitude: activity.latitude || null,
@@ -140,8 +150,8 @@ const ItemWizard = ({
                     address: lodging.address || '',
                     latitude: lodging.latitude || null,
                     longitude: lodging.longitude || null,
-                    check_in: lodging.check_in ? new Date(lodging.check_in) : new Date(),
-                    check_out: lodging.check_out ? new Date(lodging.check_out) : new Date(),
+                    check_in: lodging.check_in ? parseLocalDate(lodging.check_in) : new Date(),
+                    check_out: lodging.check_out ? parseLocalDate(lodging.check_out) : new Date(),
                     confirmation_code: lodging.confirmation_code || '',
                     notes: lodging.notes || '',
                 });
@@ -158,9 +168,9 @@ const ItemWizard = ({
                     company: transport.company || '',
                     from_location: transport.from_location || '',
                     to_location: transport.to_location || '',
-                    departure_date: transport.departure_date ? new Date(transport.departure_date) : new Date(),
+                    departure_date: transport.departure_date ? parseLocalDate(transport.departure_date) : new Date(),
                     departure_time: transport.departure_time || '',
-                    arrival_date: transport.arrival_date ? new Date(transport.arrival_date) : null,
+                    arrival_date: transport.arrival_date ? parseLocalDate(transport.arrival_date) : null,
                     arrival_time: transport.arrival_time || '',
                     confirmation_code: transport.confirmation_code || '',
                     notes: transport.notes || '',
