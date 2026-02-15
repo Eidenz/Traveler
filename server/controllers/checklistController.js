@@ -2,6 +2,7 @@
 const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
+const { emitToTrip } = require('../utils/socketService');
 
 /**
  * Get all checklists for a trip
@@ -134,6 +135,9 @@ const updateUserItemStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status. Must be checked, skipped, or pending.' });
     }
 
+    // Get checklist ID for socket emission
+    const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(item.checklist_id);
+
     // Begin transaction
     db.prepare('BEGIN TRANSACTION').run();
 
@@ -224,6 +228,28 @@ const updateUserItemStatus = async (req, res) => {
       // Calculate completion metrics for response
       const completionPercentage = totalMembers > 0 ? Math.round((actionedCount / totalMembers) * 100) : 0;
 
+      // Emit socket event for real-time update (checked is true if status is 'checked')
+      if (checklist) {
+        emitToTrip(checklist.trip_id, 'checklistItem:toggled', {
+          checklistId: item.checklist_id,
+          itemId: itemId,
+          checked: status === 'checked',
+          status: status,
+          item: {
+            ...updatedItem,
+            user_statuses: userStatusesWithInfo,
+            current_user_status: status,
+            completion: {
+              total_members: totalMembers,
+              checked_count: checkedCount,
+              skipped_count: skippedCount,
+              percentage: completionPercentage,
+              is_complete: collectiveStatus === 'complete'
+            }
+          }
+        });
+      }
+
       return res.status(200).json({
         message: 'Checklist item status updated successfully',
         item: {
@@ -298,6 +324,9 @@ const createChecklist = (req, res) => {
       location: trip.location
     });
 
+    // Emit socket event for real-time update
+    emitToTrip(tripId, 'checklist:created', checklist);
+
     return res.status(201).json({
       message: 'Checklist created successfully',
       checklist // Send back the created checklist with creator name
@@ -345,6 +374,9 @@ const updateChecklist = (req, res) => {
       WHERE c.id = ?
     `).get(checklistId);
 
+    // Emit socket event for real-time update
+    emitToTrip(checklist.trip_id, 'checklist:updated', updatedChecklist);
+
     return res.status(200).json({
       message: 'Checklist updated successfully',
       checklist: updatedChecklist
@@ -368,8 +400,13 @@ const deleteChecklist = (req, res) => {
       return res.status(404).json({ message: 'Checklist not found' });
     }
 
+    const tripId = checklist.trip_id;
+
     // Delete checklist (will cascade to delete items and user statuses)
     db.prepare('DELETE FROM checklists WHERE id = ?').run(checklistId);
+
+    // Emit socket event for real-time update
+    emitToTrip(tripId, 'checklist:deleted', checklistId);
 
     return res.status(200).json({
       message: 'Checklist deleted successfully'
@@ -413,6 +450,9 @@ const createChecklistItem = (req, res) => {
 
     // Recalculate user and collective statuses after adding item
     // (No explicit user status added here, handled by updateUserItemStatus)
+
+    // Emit socket event for real-time update
+    emitToTrip(checklist.trip_id, 'checklistItem:created', { checklistId, item });
 
     return res.status(201).json({
       message: 'Checklist item created successfully',
@@ -520,8 +560,16 @@ const deleteChecklistItem = (req, res) => {
       return res.status(404).json({ message: 'Checklist item not found' });
     }
 
+    // Get checklist for trip_id
+    const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(item.checklist_id);
+
     // Delete item (will cascade delete user statuses)
     db.prepare('DELETE FROM checklist_items WHERE id = ?').run(itemId);
+
+    // Emit socket event for real-time update
+    if (checklist) {
+      emitToTrip(checklist.trip_id, 'checklistItem:deleted', { checklistId: item.checklist_id, itemId });
+    }
 
     return res.status(200).json({
       message: 'Checklist item deleted successfully'

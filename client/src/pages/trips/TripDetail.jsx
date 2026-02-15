@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
 // API and stores
-import { tripAPI, transportAPI, lodgingAPI, activityAPI } from '../../services/api';
+import { tripAPI, transportAPI, lodgingAPI, activityAPI, checklistAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import {
   isTripAvailableOffline, saveTripOffline, removeTripOffline,
@@ -52,6 +52,7 @@ const TripDetail = () => {
   const [transportation, setTransportation] = useState([]);
   const [lodging, setLodging] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [checklists, setChecklists] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Offline state
@@ -146,6 +147,52 @@ const TripDetail = () => {
     },
     onMemberRoleChange: ({ userId, role }) => {
       setMembers(prev => prev.map(m => m.id === userId ? { ...m, role } : m));
+    },
+    onChecklistCreate: (checklist) => {
+      setChecklists(prev => [...prev, checklist]);
+    },
+    onChecklistUpdate: (checklist) => {
+      setChecklists(prev => prev.map(c => c.id === checklist.id ? checklist : c));
+    },
+    onChecklistDelete: (checklistId) => {
+      setChecklists(prev => prev.filter(c => c.id !== checklistId));
+    },
+    onChecklistItemToggle: (data) => {
+      // Update item in checklist - this is handled by TripChecklist component
+      // via its own data fetching, so we just trigger a refetch if needed
+      setChecklists(prev => prev.map(c => {
+        if (c.id === data.checklistId && c.items) {
+          return {
+            ...c,
+            items: c.items.map(i => i.id === data.itemId ? data.item : i)
+          };
+        }
+        return c;
+      }));
+    },
+    onChecklistItemCreate: (data) => {
+      setChecklists(prev => prev.map(c => {
+        if (c.id === data.checklistId && c.items) {
+          return {
+            ...c,
+            items: [...c.items, data.item],
+            total_items: (c.total_items || 0) + 1
+          };
+        }
+        return c;
+      }));
+    },
+    onChecklistItemDelete: (data) => {
+      setChecklists(prev => prev.map(c => {
+        if (c.id === data.checklistId && c.items) {
+          return {
+            ...c,
+            items: c.items.filter(i => i.id !== data.itemId),
+            total_items: Math.max((c.total_items || 0) - 1, 0)
+          };
+        }
+        return c;
+      }));
     }
   }), []);
 
@@ -164,18 +211,34 @@ const TripDetail = () => {
     emitTripUpdate,
     emitMemberAdd,
     emitMemberRemove,
-    emitMemberRoleChange
+    emitMemberRoleChange,
+    emitChecklistCreate,
+    emitChecklistUpdate,
+    emitChecklistDelete,
+    emitChecklistItemToggle,
+    emitChecklistItemCreate,
+    emitChecklistItemDelete
   } = useRealtimeUpdates(tripId, realtimeHandlers);
 
   // Fetch trip data
   useEffect(() => {
     fetchTripData();
+    fetchChecklists();
     checkOfflineAvailability();
   }, [tripId]);
 
   const checkOfflineAvailability = async () => {
     const available = await isTripAvailableOffline(tripId);
     setIsAvailableOffline(available);
+  };
+
+  const fetchChecklists = async () => {
+    try {
+      const response = await checklistAPI.getTripChecklists(tripId);
+      setChecklists(response.data.checklists || []);
+    } catch (error) {
+      console.error('Error fetching checklists:', error);
+    }
   };
 
   const fetchTripData = async () => {
@@ -613,7 +676,7 @@ const TripDetail = () => {
     { id: 'timeline', label: t('trips.timeline', 'Timeline'), count: activities.length },
     { id: 'transport', label: t('transportation.title', 'Transport'), count: transportation.length },
     { id: 'lodging', label: t('lodging.title', 'Lodging'), count: lodging.length },
-    { id: 'checklist', label: t('checklists.title', 'Checklists') },
+    { id: 'checklist', label: t('checklists.title', 'Checklists'), count: checklists.length },
   ];
 
   // Loading state
@@ -820,6 +883,8 @@ const TripDetail = () => {
                   <TripChecklist
                     tripId={tripId}
                     canEdit={canEdit()}
+                    checklists={checklists}
+                    onChange={setChecklists}
                   />
                 </div>
               )}
@@ -976,6 +1041,8 @@ const TripDetail = () => {
                 <TripChecklist
                   tripId={tripId}
                   canEdit={canEdit()}
+                  checklists={checklists}
+                  onChange={setChecklists}
                 />
               </div>
             )}

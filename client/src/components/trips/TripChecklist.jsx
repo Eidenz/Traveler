@@ -11,11 +11,13 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../stores/authStore';
 
-const TripChecklist = ({ tripId, canEdit }) => {
+const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChange }) => {
   const { t } = useTranslation();
   const { user } = useAuthStore();
 
-  const [checklists, setChecklists] = useState([]);
+  const [internalChecklists, setInternalChecklists] = useState([]);
+  // Use external checklists if provided, otherwise use internal state
+  const checklists = externalChecklists ?? internalChecklists;
   const [loading, setLoading] = useState(true);
   const [expandedChecklistId, setExpandedChecklistId] = useState(null);
   const [newChecklistName, setNewChecklistName] = useState('');
@@ -26,6 +28,21 @@ const TripChecklist = ({ tripId, canEdit }) => {
   const [editingItemId, setEditingItemId] = useState(null);
   const [editingItemForm, setEditingItemForm] = useState({ description: '', note: '' });
 
+  // Notify parent of checklists count change
+  const notifyChange = (newChecklists) => {
+    if (onChange) {
+      onChange(newChecklists);
+    }
+  };
+
+  // Update internal state and notify parent
+  const updateChecklists = (newChecklists) => {
+    if (externalChecklists === undefined) {
+      setInternalChecklists(newChecklists);
+    }
+    notifyChange(newChecklists);
+  };
+
   // Fetch checklists
   useEffect(() => {
     fetchChecklists();
@@ -35,11 +52,12 @@ const TripChecklist = ({ tripId, canEdit }) => {
     try {
       setLoading(true);
       const response = await checklistAPI.getTripChecklists(tripId);
-      setChecklists(response.data.checklists || []);
+      const fetchedChecklists = response.data.checklists || [];
+      updateChecklists(fetchedChecklists);
 
       // Auto-expand first checklist if none is expanded
-      if (!expandedChecklistId && response.data.checklists.length > 0) {
-        const firstChecklistId = response.data.checklists[0].id;
+      if (!expandedChecklistId && fetchedChecklists.length > 0) {
+        const firstChecklistId = fetchedChecklists[0].id;
         setExpandedChecklistId(firstChecklistId);
         await fetchChecklistItems(firstChecklistId);
       }
@@ -54,7 +72,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
   const fetchChecklistItems = async (checklistId) => {
     try {
       const response = await checklistAPI.getChecklist(checklistId);
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === checklistId
           ? { ...checklist, items: response.data.items || [] }
           : checklist
@@ -87,7 +105,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
     try {
       const response = await checklistAPI.createChecklist(tripId, newChecklistName);
       const newChecklist = response.data.checklist;
-      setChecklists(prev => [...prev, { ...newChecklist, items: [] }]);
+      updateChecklists(prev => [...prev, { ...newChecklist, items: [] }]);
       setExpandedChecklistId(newChecklist.id);
       setNewChecklistName('');
       setShowNewChecklistForm(false);
@@ -106,7 +124,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
 
     try {
       const response = await checklistAPI.updateChecklist(checklistId, editingChecklistName, tripId);
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === checklistId
           ? { ...checklist, name: response.data.checklist.name }
           : checklist
@@ -125,7 +143,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
 
     try {
       await checklistAPI.deleteChecklist(checklistId, tripId);
-      setChecklists(prev => prev.filter(c => c.id !== checklistId));
+      updateChecklists(prev => prev.filter(c => c.id !== checklistId));
       if (expandedChecklistId === checklistId) {
         setExpandedChecklistId(null);
       }
@@ -150,7 +168,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
         tripId
       );
 
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === newItemForm.checklistId
           ? {
             ...checklist,
@@ -195,7 +213,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
         .find(c => c.id === checklistId)?.items
         .find(i => i.id === itemId);
 
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === checklistId
           ? {
             ...checklist,
@@ -225,7 +243,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
 
     try {
       await checklistAPI.deleteChecklistItem(itemId, tripId);
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === checklistId
           ? {
             ...checklist,
@@ -246,7 +264,7 @@ const TripChecklist = ({ tripId, canEdit }) => {
       const newStatus = item.current_user_status === 'checked' ? 'pending' : 'checked';
       const response = await checklistAPI.updateUserItemStatus(item.id, newStatus, tripId);
 
-      setChecklists(prev => prev.map(checklist =>
+      updateChecklists(prev => prev.map(checklist =>
         checklist.id === checklistId
           ? {
             ...checklist,

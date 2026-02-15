@@ -438,7 +438,7 @@ const ItemWizard = ({
                 toast.success(t('activities.deleteSuccess', 'Activity deleted successfully'));
             } else if (type === 'lodging') {
                 await lodgingAPI.deleteLodging(itemId, tripId);
-                toast.success(t('lodging.deleteSuccess', 'Accommodation deleted successfully'));
+                toast.success(t('lodging.deleteSuccess', 'Lodging deleted successfully'));
             } else if (type === 'transport') {
                 await transportAPI.deleteTransportation(itemId, tripId);
                 toast.success(t('transportation.deleteSuccess', 'Transportation deleted successfully'));
@@ -495,10 +495,10 @@ const ItemWizard = ({
 
                 if (isEditMode) {
                     response = await lodgingAPI.updateLodging(itemId, formattedData, tripId);
-                    toast.success(t('lodging.updateSuccess', 'Accommodation updated successfully'));
+                    toast.success(t('lodging.updateSuccess', 'Lodging updated successfully'));
                 } else {
                     response = await lodgingAPI.createLodging(tripId, formattedData);
-                    toast.success(t('lodging.createSuccess', 'Accommodation added successfully'));
+                    toast.success(t('lodging.createSuccess', 'Lodging added successfully'));
                 }
 
                 // Upload documents if any selected
@@ -565,7 +565,7 @@ const ItemWizard = ({
         if (type === 'activity') {
             return isEditMode ? t('activities.edit', 'Edit Activity') : t('activities.add', 'Add Activity');
         } else if (type === 'lodging') {
-            return isEditMode ? t('lodging.edit', 'Edit Accommodation') : t('lodging.add', 'Add Accommodation');
+            return isEditMode ? t('lodging.edit', 'Edit Lodging') : t('lodging.add', 'Add Lodging');
         } else if (type === 'transport') {
             return isEditMode ? t('transportation.edit', 'Edit Transport') : t('transportation.add', 'Add Transport');
         }
@@ -784,7 +784,7 @@ const ItemWizard = ({
                                 {t('wizard.whereStaying', "Where are you staying?")}
                             </h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {t('wizard.lodgingPlaceDesc', 'Enter the hotel or accommodation details')}
+                                {t('wizard.lodgingPlaceDesc', 'Enter the hotel or lodging details')}
                             </p>
                         </div>
 
