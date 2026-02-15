@@ -291,6 +291,7 @@ function initializeDatabase() {
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
       await runBrainstormPublicShareMigration(); // Add public brainstorm share setting
       await runBrainstormGroupsMigration(); // Add brainstorm groups table
+      await runTransportationLocationMigration(); // Add geolocation fields to transportation
 
       console.log('Database initialized successfully');
       resolve();
@@ -528,6 +529,23 @@ async function runBrainstormPublicShareMigration() {
     }
   } catch (error) {
     console.error('Error running public brainstorm share migration:', error);
+  }
+}
+
+/**
+ * Migration for transportation location fields
+ */
+async function runTransportationLocationMigration() {
+  try {
+    migrateField('transportation', 'from_latitude', 'REAL');
+    migrateField('transportation', 'from_longitude', 'REAL');
+    migrateField('transportation', 'to_latitude', 'REAL');
+    migrateField('transportation', 'to_longitude', 'REAL');
+    migrateField('transportation', 'from_location_disabled', 'INTEGER DEFAULT 0');
+    migrateField('transportation', 'to_location_disabled', 'INTEGER DEFAULT 0');
+    console.log('Transportation location fields migration completed');
+  } catch (error) {
+    console.error('Error running transportation location migration:', error);
   }
 }
 

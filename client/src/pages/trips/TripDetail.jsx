@@ -473,6 +473,10 @@ const TripDetail = () => {
       setWizardItemId(transportId);
       setShowWizard(true);
       setShowDocumentPanel(false);
+      // Use trip start date as default when creating (not editing)
+      if (!transportId) {
+        setActivityDefaultDate(trip?.start_date || null);
+      }
     } else {
       setSelectedTransportId(transportId);
       setIsTransportModalOpen(true);
@@ -486,6 +490,10 @@ const TripDetail = () => {
       setWizardItemId(lodgingId);
       setShowWizard(true);
       setShowDocumentPanel(false);
+      // Use trip start date as default when creating (not editing)
+      if (!lodgingId) {
+        setActivityDefaultDate(trip?.start_date || null);
+      }
     } else {
       setSelectedLodgingId(lodgingId);
       setIsLodgingModalOpen(true);
@@ -502,6 +510,9 @@ const TripDetail = () => {
     } else if (activityOrDate?.id) {
       // If it's an activity object, edit it
       itemId = activityOrDate.id;
+    } else {
+      // No specific date provided, use trip start date as default
+      defaultDate = trip?.start_date || null;
     }
 
     // On desktop with map, use wizard; on mobile, use modal
@@ -1080,6 +1091,7 @@ const TripDetail = () => {
           <div className="hidden md:flex flex-1 h-full relative min-w-0">
             {showWizard ? (
               <ItemWizard
+                key={`${wizardType}-${wizardItemId || 'create'}`}
                 type={wizardType}
                 itemId={wizardItemId}
                 tripId={tripId}

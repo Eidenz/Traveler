@@ -45,6 +45,7 @@ const ItemWizard = ({
     const [existingDocuments, setExistingDocuments] = useState([]); // Existing documents from the server
     const [deletingDocId, setDeletingDocId] = useState(null);
     const [errors, setErrors] = useState({});
+    const [warnings, setWarnings] = useState({});
 
     // Get initial form data based on type
     function getInitialFormData(type, defaultDate) {
@@ -78,6 +79,12 @@ const ItemWizard = ({
                 company: '',
                 from_location: '',
                 to_location: '',
+                from_latitude: null,
+                from_longitude: null,
+                to_latitude: null,
+                to_longitude: null,
+                from_location_disabled: false,
+                to_location_disabled: false,
                 departure_date: baseDate,
                 departure_time: '',
                 arrival_date: null,
@@ -101,17 +108,21 @@ const ItemWizard = ({
         if (!isEditMode) {
             setFormData(getInitialFormData(type, defaultDate));
             setDocumentFiles([]);
+            setExistingDocuments([]);
             setBannerImage(null);
             setBannerImagePreview(null);
             setExistingBannerImage(null);
             setCurrentStep(0);
             setErrors({});
+            setWarnings({});
         }
     }, [isEditMode, defaultDate, type]);
 
     const fetchItemData = async () => {
         try {
             setIsFetching(true);
+            setErrors({});
+            setWarnings({});
             let response;
 
             // Helper to parse date string consistently - preserves the intended date
@@ -168,6 +179,12 @@ const ItemWizard = ({
                     company: transport.company || '',
                     from_location: transport.from_location || '',
                     to_location: transport.to_location || '',
+                    from_latitude: transport.from_latitude || null,
+                    from_longitude: transport.from_longitude || null,
+                    to_latitude: transport.to_latitude || null,
+                    to_longitude: transport.to_longitude || null,
+                    from_location_disabled: transport.from_location_disabled || false,
+                    to_location_disabled: transport.to_location_disabled || false,
                     departure_date: transport.departure_date ? parseLocalDate(transport.departure_date) : new Date(),
                     departure_time: transport.departure_time || '',
                     arrival_date: transport.arrival_date ? parseLocalDate(transport.arrival_date) : null,
@@ -189,7 +206,7 @@ const ItemWizard = ({
         }
     };
 
-    // Handle geocoding
+    // Handle geocoding for activities and lodging
     useEffect(() => {
         const locationText = type === 'activity' ? formData.location : (type === 'lodging' ? formData.address : null);
 
@@ -201,7 +218,7 @@ const ItemWizard = ({
 
         const debounceTimer = setTimeout(async () => {
             // Only geocode if coordinates are missing OR if this is a new entry/edit where we might want to refresh
-            // But to avoid overwriting efficient data, we could check if lat/lng already exists. 
+            // But to avoid overwriting efficient data, we could check if lat/lng already exists.
             // However, if user CHANGED the text, we want to re-geocode.
             // Simplified: Always geocode if text changes.
 
@@ -215,7 +232,7 @@ const ItemWizard = ({
                         longitude: coords.lng
                     }));
                 } else {
-                    // Only clear if we explicitly failed to find one? Or keep old? 
+                    // Only clear if we explicitly failed to find one? Or keep old?
                     // Better to clear if the new address is invalid.
                     setFormData(prev => ({
                         ...prev,
@@ -230,6 +247,84 @@ const ItemWizard = ({
 
         return () => clearTimeout(debounceTimer);
     }, [formData.location, formData.address, type]);
+
+    // Handle geocoding for transportation from_location
+    useEffect(() => {
+        if (type !== 'transport' || !formData.from_location || formData.from_location.length < 3 || formData.from_location_disabled) {
+            // Clear coordinates if disabled
+            if (type === 'transport' && formData.from_location_disabled && (formData.from_latitude || formData.from_longitude)) {
+                setFormData(prev => ({
+                    ...prev,
+                    from_latitude: null,
+                    from_longitude: null
+                }));
+            }
+            return;
+        }
+
+        const debounceTimer = setTimeout(async () => {
+            setIsGeocoding(true);
+            try {
+                const coords = await geocodeLocation(formData.from_location);
+                if (coords) {
+                    setFormData(prev => ({
+                        ...prev,
+                        from_latitude: coords.lat,
+                        from_longitude: coords.lng
+                    }));
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        from_latitude: null,
+                        from_longitude: null
+                    }));
+                }
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 800);
+
+        return () => clearTimeout(debounceTimer);
+    }, [type, formData.from_location, formData.from_location_disabled]);
+
+    // Handle geocoding for transportation to_location
+    useEffect(() => {
+        if (type !== 'transport' || !formData.to_location || formData.to_location.length < 3 || formData.to_location_disabled) {
+            // Clear coordinates if disabled
+            if (type === 'transport' && formData.to_location_disabled && (formData.to_latitude || formData.to_longitude)) {
+                setFormData(prev => ({
+                    ...prev,
+                    to_latitude: null,
+                    to_longitude: null
+                }));
+            }
+            return;
+        }
+
+        const debounceTimer = setTimeout(async () => {
+            setIsGeocoding(true);
+            try {
+                const coords = await geocodeLocation(formData.to_location);
+                if (coords) {
+                    setFormData(prev => ({
+                        ...prev,
+                        to_latitude: coords.lat,
+                        to_longitude: coords.lng
+                    }));
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        to_latitude: null,
+                        to_longitude: null
+                    }));
+                }
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 800);
+
+        return () => clearTimeout(debounceTimer);
+    }, [type, formData.to_location, formData.to_location_disabled]);
 
     // Get step definitions based on type
     const getSteps = () => {
@@ -344,6 +439,7 @@ const ItemWizard = ({
     // Validate current step
     const validateStep = () => {
         const newErrors = {};
+        const newWarnings = {};
 
         if (type === 'activity') {
             if (currentStep === 0 && !formData.name.trim()) {
@@ -386,15 +482,45 @@ const ItemWizard = ({
                 if (checkIn.isBefore(start)) {
                     newErrors.check_in = t('errors.dateOutOfRange', 'Check-in cannot be before trip starts');
                 }
-            } else if (type === 'transport' && currentStep === 2 && formData.departure_date) {
-                const depDate = dayjs(formData.departure_date);
-                if (depDate.isBefore(start) || depDate.isAfter(end)) {
-                    newErrors.departure_date = t('errors.dateOutOfRange', 'Departure must be within trip dates');
+            } else if (type === 'transport' && currentStep === 2) {
+                // For transport, validate that at least arrival is within trip dates
+                // Departure can be before trip (e.g., flight to destination)
+                const depDate = formData.departure_date ? dayjs(formData.departure_date) : null;
+                const arrDate = formData.arrival_date ? dayjs(formData.arrival_date) : depDate;
+
+                // Add warning if departure is before trip starts
+                if (depDate && depDate.isBefore(start)) {
+                    newWarnings.departure_date = t('warnings.departureBeforeTrip', 'Departure is before trip starts (arrival will be within trip)');
+                }
+                // Add warning if departure is after trip ends
+                if (depDate && depDate.isAfter(end)) {
+                    newWarnings.departure_date = t('warnings.departureAfterTrip', 'Departure is after trip ends');
+                }
+                // Add warning if arrival is after trip ends
+                if (arrDate && arrDate.isAfter(end)) {
+                    newWarnings.arrival_date = t('warnings.arrivalAfterTrip', 'Arrival is after trip ends');
+                }
+                // Add warning if arrival is before trip starts (and departure is also before)
+                if (arrDate && arrDate.isBefore(start) && depDate && depDate.isBefore(start)) {
+                    newWarnings.arrival_date = t('warnings.bothBeforeTrip', 'Both departure and arrival are before trip starts');
+                }
+
+                // Only block if both departure and arrival are completely outside trip range
+                if (depDate && arrDate) {
+                    const bothAfter = depDate.isAfter(end) && arrDate.isAfter(end);
+                    const bothBefore = depDate.isBefore(start) && arrDate.isBefore(start);
+                    if (bothAfter || bothBefore) {
+                        newErrors.departure_date = t('errors.dateOutOfRange', 'At least one date must be within trip dates');
+                    }
+                } else if (depDate && depDate.isAfter(end)) {
+                    // If only departure is set and it's after trip ends, that's an error
+                    newErrors.departure_date = t('errors.dateOutOfRange', 'Departure cannot be after trip ends');
                 }
             }
         }
 
         setErrors(newErrors);
+        setWarnings(newWarnings);
         return Object.keys(newErrors).length === 0;
     };
 
@@ -1022,13 +1148,57 @@ const ItemWizard = ({
                                         value={formData.from_location}
                                         onChange={(e) => handleChange('from_location', e.target.value)}
                                         placeholder={t('transportation.fromLocationPlaceholder', 'e.g. New York (JFK)')}
-                                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${errors.from_location
+                                        className={`w-full pl-10 pr-10 py-3 rounded-xl border ${errors.from_location
                                             ? 'border-red-500 focus:ring-red-500'
                                             : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
                                             } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {isGeocoding ? (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                                        </div>
+                                    ) : formData.from_latitude && formData.from_longitude && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
                                 {errors.from_location && <p className="mt-1 text-sm text-red-500">{errors.from_location}</p>}
+                                {formData.from_latitude && formData.from_longitude && !formData.from_location_disabled && (
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                            {t('brainstorm.locationFound', 'Location found')}: {formData.from_latitude.toFixed(4)}, {formData.from_longitude.toFixed(4)}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('from_location_disabled', true)}
+                                            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+                                        >
+                                            {t('transportation.disableLocation', 'Don\'t show on map')}
+                                        </button>
+                                    </div>
+                                )}
+                                {formData.from_location_disabled && (
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {t('transportation.locationDisabled', 'Location hidden from map')}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('from_location_disabled', false)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                        >
+                                            {t('transportation.enableLocation', 'Show on map')}
+                                        </button>
+                                    </div>
+                                )}
+                                {formData.from_location && formData.from_location.length >= 3 && !isGeocoding && !formData.from_latitude && !formData.from_longitude && !formData.from_location_disabled && (
+                                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                        {t('brainstorm.locationNotFound', 'Location not found - will not appear on map')}
+                                    </p>
+                                )}
                             </div>
 
                             <div className="flex justify-center">
@@ -1048,13 +1218,57 @@ const ItemWizard = ({
                                         value={formData.to_location}
                                         onChange={(e) => handleChange('to_location', e.target.value)}
                                         placeholder={t('transportation.toLocationPlaceholder', 'e.g. London (LHR)')}
-                                        className={`w-full pl-10 pr-4 py-3 rounded-xl border ${errors.to_location
+                                        className={`w-full pl-10 pr-10 py-3 rounded-xl border ${errors.to_location
                                             ? 'border-red-500 focus:ring-red-500'
                                             : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
                                             } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {isGeocoding ? (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                                        </div>
+                                    ) : formData.to_latitude && formData.to_longitude && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </div>
+                                    )}
                                 </div>
                                 {errors.to_location && <p className="mt-1 text-sm text-red-500">{errors.to_location}</p>}
+                                {formData.to_latitude && formData.to_longitude && !formData.to_location_disabled && (
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                            {t('brainstorm.locationFound', 'Location found')}: {formData.to_latitude.toFixed(4)}, {formData.to_longitude.toFixed(4)}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('to_location_disabled', true)}
+                                            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+                                        >
+                                            {t('transportation.disableLocation', 'Don\'t show on map')}
+                                        </button>
+                                    </div>
+                                )}
+                                {formData.to_location_disabled && (
+                                    <div className="mt-2 flex items-center justify-between">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            {t('transportation.locationDisabled', 'Location hidden from map')}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleChange('to_location_disabled', false)}
+                                            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                                        >
+                                            {t('transportation.enableLocation', 'Show on map')}
+                                        </button>
+                                    </div>
+                                )}
+                                {formData.to_location && formData.to_location.length >= 3 && !isGeocoding && !formData.to_latitude && !formData.to_longitude && !formData.to_location_disabled && (
+                                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                        {t('brainstorm.locationNotFound', 'Location not found - will not appear on map')}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1085,8 +1299,20 @@ const ItemWizard = ({
                                         selected={formData.departure_date}
                                         onChange={(date) => handleChange('departure_date', date)}
                                         dateFormat="MMM d, yyyy"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={`w-full px-4 py-3 rounded-xl border ${errors.departure_date || warnings.departure_date
+                                            ? 'border-amber-500 focus:ring-amber-500'
+                                            : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
+                                            } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {errors.departure_date && <p className="mt-1 text-sm text-red-500">{errors.departure_date}</p>}
+                                    {warnings.departure_date && !errors.departure_date && (
+                                        <p className="mt-1 text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            {warnings.departure_date}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -1113,8 +1339,20 @@ const ItemWizard = ({
                                         onChange={(date) => handleChange('arrival_date', date)}
                                         dateFormat="MMM d, yyyy"
                                         placeholderText={t('transportation.arrivalDatePlaceholder', 'Same day')}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={`w-full px-4 py-3 rounded-xl border ${errors.arrival_date || warnings.arrival_date
+                                            ? 'border-amber-500 focus:ring-amber-500'
+                                            : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'
+                                            } bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2`}
                                     />
+                                    {errors.arrival_date && <p className="mt-1 text-sm text-red-500">{errors.arrival_date}</p>}
+                                    {warnings.arrival_date && !errors.arrival_date && (
+                                        <p className="mt-1 text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                            {warnings.arrival_date}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div>

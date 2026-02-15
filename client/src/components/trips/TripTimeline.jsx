@@ -455,10 +455,21 @@ const TripTimeline = ({
         dayjs(a.date).format('YYYY-MM-DD') === dateStr
       );
 
-      // Get all transports departing this day (supports multiple)
-      const dayTransports = transportation.filter(t =>
-        dayjs(t.departure_date).format('YYYY-MM-DD') === dateStr
-      );
+      // Get all transports for this day
+      // Include transports that: depart this day, arrive this day, or overlap with this day
+      const dayTransports = transportation.filter(t => {
+        const depDate = dayjs(t.departure_date).format('YYYY-MM-DD');
+        const arrDate = t.arrival_date ? dayjs(t.arrival_date).format('YYYY-MM-DD') : depDate;
+
+        // Transport departs this day
+        if (depDate === dateStr) return true;
+        // Transport arrives this day
+        if (arrDate === dateStr) return true;
+        // Transport spans this day (departs before, arrives after)
+        if (depDate < dateStr && arrDate > dateStr) return true;
+
+        return false;
+      });
 
       // Get lodging checking in this day
       const dayLodging = lodging.find(l =>
@@ -512,6 +523,46 @@ const TripTimeline = ({
 
       {/* Timeline */}
       <div className="relative">
+        {/* Pre-trip transports - those departing before trip but arriving during or after */}
+        {(() => {
+          const preTripTransports = transportation.filter(t => {
+            const depDate = dayjs(t.departure_date);
+            const tripStart = dayjs(trip.start_date);
+            const tripEnd = dayjs(trip.end_date);
+
+            // Departs before trip starts
+            if (depDate.isBefore(tripStart, 'day')) {
+              // And arrives during or after the trip (not a transport that ends before trip)
+              const arrDate = t.arrival_date ? dayjs(t.arrival_date) : depDate;
+              return arrDate.isSameOrAfter(tripStart.subtract(1, 'day'), 'day');
+            }
+            return false;
+          });
+
+          if (preTripTransports.length === 0) return null;
+
+          return (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Plane className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {t('transport.preTrip', 'Pre-trip transportation')}
+                </span>
+              </div>
+              <div className="space-y-2 pl-6">
+                {preTripTransports.map(transport => (
+                  <TransportMini
+                    key={transport.id}
+                    transport={transport}
+                    onClick={onTransportClick}
+                    onDocumentClick={onDocumentClick}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {days.map((day, index) => (
           <DayGroup
             key={day.date.toISOString()}

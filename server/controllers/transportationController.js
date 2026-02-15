@@ -100,7 +100,13 @@ const createTransportation = (req, res) => {
       arrival_date,
       arrival_time,
       confirmation_code,
-      notes
+      notes,
+      from_latitude,
+      from_longitude,
+      to_latitude,
+      to_longitude,
+      from_location_disabled,
+      to_location_disabled
     } = req.body;
 
     // Check if trip exists
@@ -115,21 +121,48 @@ const createTransportation = (req, res) => {
       bannerImage = `/uploads/transportation/${req.file.filename}`;
     }
 
-    // Insert transportation
-    const insert = db.prepare(`
-      INSERT INTO transportation (
-        trip_id, type, company, from_location, to_location,
-        departure_date, departure_time, arrival_date, arrival_time,
-        confirmation_code, notes, banner_image
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Check if the new location_disabled columns exist
+    const tableInfo = db.prepare("PRAGMA table_info(transportation)").all();
+    const hasFromLocationDisabled = tableInfo.some(col => col.name === 'from_location_disabled');
+    const hasToLocationDisabled = tableInfo.some(col => col.name === 'to_location_disabled');
 
-    const result = insert.run(
-      tripId,
-      type, company, from_location, to_location,
-      departure_date, departure_time, arrival_date, arrival_time,
-      confirmation_code, notes, bannerImage
-    );
+    // Insert transportation - handle both old and new schema
+    let insert, result;
+    if (hasFromLocationDisabled && hasToLocationDisabled) {
+      insert = db.prepare(`
+        INSERT INTO transportation (
+          trip_id, type, company, from_location, to_location,
+          departure_date, departure_time, arrival_date, arrival_time,
+          confirmation_code, notes, banner_image,
+          from_latitude, from_longitude, to_latitude, to_longitude,
+          from_location_disabled, to_location_disabled
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      result = insert.run(
+        tripId,
+        type, company, from_location, to_location,
+        departure_date, departure_time, arrival_date, arrival_time,
+        confirmation_code, notes, bannerImage,
+        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
+        from_location_disabled ? 1 : 0, to_location_disabled ? 1 : 0
+      );
+    } else {
+      insert = db.prepare(`
+        INSERT INTO transportation (
+          trip_id, type, company, from_location, to_location,
+          departure_date, departure_time, arrival_date, arrival_time,
+          confirmation_code, notes, banner_image,
+          from_latitude, from_longitude, to_latitude, to_longitude
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      result = insert.run(
+        tripId,
+        type, company, from_location, to_location,
+        departure_date, departure_time, arrival_date, arrival_time,
+        confirmation_code, notes, bannerImage,
+        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null
+      );
+    }
 
     // Get the created transportation
     const transportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(result.lastInsertRowid);
@@ -186,7 +219,13 @@ const updateTransportation = (req, res) => {
       arrival_date,
       arrival_time,
       confirmation_code,
-      notes
+      notes,
+      from_latitude,
+      from_longitude,
+      to_latitude,
+      to_longitude,
+      from_location_disabled,
+      to_location_disabled
     } = req.body;
 
     // Check if transportation exists
@@ -228,20 +267,47 @@ const updateTransportation = (req, res) => {
       bannerImage = null;
     }
 
-    // Update transportation
-    const update = db.prepare(`
-      UPDATE transportation
-      SET type = ?, company = ?, from_location = ?, to_location = ?,
-          departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
-          confirmation_code = ?, notes = ?, banner_image = ?
-      WHERE id = ?
-    `);
+    // Check if the new location_disabled columns exist
+    const tableInfo = db.prepare("PRAGMA table_info(transportation)").all();
+    const hasFromLocationDisabled = tableInfo.some(col => col.name === 'from_location_disabled');
+    const hasToLocationDisabled = tableInfo.some(col => col.name === 'to_location_disabled');
 
-    update.run(
-      type, company, from_location, to_location,
-      departure_date, departure_time, arrival_date, arrival_time,
-      confirmation_code, notes, bannerImage, transportId
-    );
+    // Update transportation - handle both old and new schema
+    if (hasFromLocationDisabled && hasToLocationDisabled) {
+      const update = db.prepare(`
+        UPDATE transportation
+        SET type = ?, company = ?, from_location = ?, to_location = ?,
+            departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
+            confirmation_code = ?, notes = ?, banner_image = ?,
+            from_latitude = ?, from_longitude = ?, to_latitude = ?, to_longitude = ?,
+            from_location_disabled = ?, to_location_disabled = ?
+        WHERE id = ?
+      `);
+      update.run(
+        type, company, from_location, to_location,
+        departure_date, departure_time, arrival_date, arrival_time,
+        confirmation_code, notes, bannerImage,
+        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
+        from_location_disabled ? 1 : 0, to_location_disabled ? 1 : 0,
+        transportId
+      );
+    } else {
+      const update = db.prepare(`
+        UPDATE transportation
+        SET type = ?, company = ?, from_location = ?, to_location = ?,
+            departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
+            confirmation_code = ?, notes = ?, banner_image = ?,
+            from_latitude = ?, from_longitude = ?, to_latitude = ?, to_longitude = ?
+        WHERE id = ?
+      `);
+      update.run(
+        type, company, from_location, to_location,
+        departure_date, departure_time, arrival_date, arrival_time,
+        confirmation_code, notes, bannerImage,
+        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
+        transportId
+      );
+    }
 
     // Get updated transportation
     const updatedTransportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(transportId);

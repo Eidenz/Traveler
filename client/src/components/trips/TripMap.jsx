@@ -75,6 +75,33 @@ const TripMap = ({
       }
     });
 
+    // Add transportation from/to locations with coordinates (if not disabled)
+    transportation.forEach(t => {
+      // Add from_location
+      if (t.from_latitude && t.from_longitude && !t.from_location_disabled) {
+        points.push({
+          id: `transport-from-${t.id}`,
+          type: 'transport-from',
+          transportType: t.type,
+          name: t.from_location,
+          lat: parseFloat(t.from_latitude),
+          lng: parseFloat(t.from_longitude),
+          data: t,
+        });
+      }
+      // Add to_location
+      if (t.to_latitude && t.to_longitude && !t.to_location_disabled) {
+        points.push({
+          id: `transport-to-${t.id}`,
+          type: 'transport-to',
+          transportType: t.type,
+          name: t.to_location,
+          lat: parseFloat(t.to_latitude),
+          lng: parseFloat(t.to_longitude),
+          data: t,
+        });
+      }
+    });
 
     // Merge with geocoded points (from text locations)
     geocodedPoints.forEach(geoPoint => {
@@ -85,7 +112,61 @@ const TripMap = ({
     });
 
     return points;
-  }, [trip, activities, lodging, geocodedPoints]);
+  }, [trip, activities, lodging, transportation, geocodedPoints]);
+
+  // Helper to calculate distance between two points in km (Haversine formula)
+  const calculateDistance = useCallback((lat1, lng1, lat2, lng2) => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, []);
+
+  // Get points for zoom calculation - filters out distant outliers
+  // This prevents the map from zooming out too far when there are distant departure points
+  const getPointsForZoom = useCallback(() => {
+    const allPoints = getMapPoints();
+
+    if (allPoints.length === 0) return [];
+
+    // Exclude transport-from (departure) points from zoom calculation by default
+    // These are often far from the actual trip destination
+    let zoomPoints = allPoints.filter(p => p.type !== 'transport-from');
+
+    // If we still have points, use them
+    if (zoomPoints.length > 0) {
+      // If trip has coordinates, use it as reference to filter outliers
+      if (trip?.latitude && trip?.longitude) {
+        const tripLat = parseFloat(trip.latitude);
+        const tripLng = parseFloat(trip.longitude);
+
+        // Calculate distances from trip location
+        const distances = zoomPoints.map(p => calculateDistance(tripLat, tripLng, p.lat, p.lng));
+        distances.sort((a, b) => a - b);
+
+        // Use 75th percentile as threshold (more aggressive than median)
+        const percentile75 = distances[Math.floor(distances.length * 0.75)];
+
+        // If we have a significant spread, filter out distant outliers
+        if (distances[distances.length - 1] > percentile75 * 5) {
+          const threshold = percentile75 * 3;
+          zoomPoints = zoomPoints.filter(p =>
+            calculateDistance(tripLat, tripLng, p.lat, p.lng) <= threshold
+          );
+        }
+      }
+
+      return zoomPoints.length > 0 ? zoomPoints : allPoints.filter(p => p.type !== 'transport-from');
+    }
+
+    // Fallback: if filtering removed everything or no non-transport points, return all points
+    // But try to at least exclude transport-from
+    return allPoints.filter(p => p.type !== 'transport-from');
+  }, [getMapPoints, trip, calculateDistance]);
 
   // Get center point - prioritize trip location, then average of points, then world view
   const getCenter = useCallback(() => {
@@ -158,6 +239,32 @@ const TripMap = ({
         }
       });
 
+      // Check transportation from/to locations
+      transportation.forEach(t => {
+        // From location - skip if disabled
+        if (t.from_location && !t.from_latitude && !t.from_longitude && !t.from_location_disabled) {
+          itemsToGeocode.push({
+            id: `transport-from-${t.id}`,
+            type: 'transport-from',
+            transportType: t.type,
+            location: t.from_location,
+            name: t.from_location,
+            data: t
+          });
+        }
+        // To location - skip if disabled
+        if (t.to_location && !t.to_latitude && !t.to_longitude && !t.to_location_disabled) {
+          itemsToGeocode.push({
+            id: `transport-to-${t.id}`,
+            type: 'transport-to',
+            transportType: t.type,
+            location: t.to_location,
+            name: t.to_location,
+            data: t
+          });
+        }
+      });
+
       // Geocode all items
       if (itemsToGeocode.length > 0) {
         const results = [];
@@ -178,7 +285,7 @@ const TripMap = ({
     };
 
     geocodeLocations();
-  }, [trip, activities, lodging, hasToken]);
+  }, [trip, activities, lodging, transportation, hasToken]);
 
   // Initialize map
   useEffect(() => {
@@ -270,6 +377,22 @@ const TripMap = ({
     } else if (point.type === 'lodging') {
       bgColor = '#10b981';
       content = '🏨';
+    } else if (point.type === 'transport-from' || point.type === 'transport-to') {
+      // Transportation markers
+      const transportType = point.transportType?.toLowerCase() || 'other';
+      // Icon based on transport type
+      const transportIcons = {
+        flight: '✈️',
+        train: '🚂',
+        bus: '🚌',
+        car: '🚗',
+        ship: '🚢',
+        ferry: '⛴',
+        other: '🚐'
+      };
+      content = transportIcons[transportType] || transportIcons.other;
+      // From locations use orange, to locations use blue
+      bgColor = point.type === 'transport-from' ? '#f97316' : '#3b82f6';
     }
 
     el.innerHTML = `
@@ -308,7 +431,7 @@ const TripMap = ({
         margin-bottom: 8px;
         color: #1f2937;
       ">
-        ${point.stepNumber ? `Step ${point.stepNumber}: ` : ''}${point.name}
+        ${point.stepNumber ? `Step ${point.stepNumber}: ` : ''}${point.type === 'transport-from' ? 'From: ' : ''}${point.type === 'transport-to' ? 'To: ' : ''}${point.name}
       </div>
     `;
 
@@ -408,6 +531,73 @@ const TripMap = ({
       }
     }
 
+    // Get transportation route lines (from each from_location to its to_location)
+    const transportRoutes = [];
+    const transportPoints = points.filter(p => p.type === 'transport-from');
+    transportPoints.forEach(fromPoint => {
+      const transportId = fromPoint.data?.id;
+      if (transportId) {
+        const toPoint = points.find(p => p.id === `transport-to-${transportId}`);
+        if (toPoint) {
+          transportRoutes.push([[fromPoint.lng, fromPoint.lat], [toPoint.lng, toPoint.lat]]);
+        }
+      }
+    });
+
+    // Update or create transport route source/layer
+    const transportRouteSource = map.current.getSource('transport-routes');
+    const transportRouteFeatures = transportRoutes.map(coords => ({
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: coords
+      }
+    }));
+
+    if (transportRouteFeatures.length > 0) {
+      const transportRouteData = {
+        type: 'FeatureCollection',
+        features: transportRouteFeatures
+      };
+
+      if (transportRouteSource) {
+        transportRouteSource.setData(transportRouteData);
+      } else {
+        try {
+          map.current.addSource('transport-routes', {
+            type: 'geojson',
+            data: transportRouteData
+          });
+          map.current.addLayer({
+            id: 'transport-routes',
+            type: 'line',
+            source: 'transport-routes',
+            layout: {
+              'line-join': 'round',
+              'line-cap': 'round'
+            },
+            paint: {
+              'line-color': '#3b82f6',
+              'line-width': 2,
+              'line-opacity': 0.5
+            }
+          });
+        } catch (e) {
+          console.warn('Error adding transport route layer:', e);
+        }
+      }
+    } else if (transportRouteSource) {
+      try {
+        if (map.current.getLayer('transport-routes')) {
+          map.current.removeLayer('transport-routes');
+        }
+        map.current.removeSource('transport-routes');
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
     // Update existing markers or add new ones
     const existingMarkersMap = new Map();
     markersRef.current.forEach((item) => {
@@ -473,10 +663,31 @@ const TripMap = ({
     markersRef.current = newMarkers;
 
     // Fit bounds to show all markers - ONLY on initial load
+    // Use filtered points to avoid zooming out too far for distant departure points
     if (points.length > 0 && !initialFitDoneRef.current) {
-      const coordinates = points.map(p => [p.lng, p.lat]);
+      const zoomPoints = getPointsForZoom();
+      const coordinates = zoomPoints.map(p => [p.lng, p.lat]);
 
-      if (coordinates.length === 1) {
+      if (coordinates.length === 0) {
+        // Fallback to all points if filtering removed everything
+        const allCoords = points.map(p => [p.lng, p.lat]);
+        if (allCoords.length === 1) {
+          map.current.flyTo({
+            center: allCoords[0],
+            zoom: 13,
+            duration: 1000,
+          });
+        } else {
+          const bounds = allCoords.reduce((bounds, coord) => {
+            return bounds.extend(coord);
+          }, new mapboxgl.LngLatBounds(allCoords[0], allCoords[0]));
+          map.current.fitBounds(bounds, {
+            padding: { top: 80, bottom: 80, left: 80, right: 80 },
+            maxZoom: 14,
+            duration: 1000,
+          });
+        }
+      } else if (coordinates.length === 1) {
         map.current.flyTo({
           center: coordinates[0],
           zoom: 13,
@@ -496,7 +707,7 @@ const TripMap = ({
 
       initialFitDoneRef.current = true;
     }
-  }, [getMapPoints, isLoaded, selectedActivityId, onActivityClick, createMarkerElement]);
+  }, [getMapPoints, getPointsForZoom, isLoaded, selectedActivityId, onActivityClick, createMarkerElement]);
 
   // Handle style change
   const toggleMapStyle = () => {
@@ -522,10 +733,10 @@ const TripMap = ({
   const handleCenter = () => {
     if (!map.current) return;
 
-    const points = getMapPoints();
-    if (points.length === 0) return;
+    const zoomPoints = getPointsForZoom();
+    if (zoomPoints.length === 0) return;
 
-    const coordinates = points.map(p => [p.lng, p.lat]);
+    const coordinates = zoomPoints.map(p => [p.lng, p.lat]);
 
     if (coordinates.length === 1) {
       map.current.flyTo({
@@ -612,20 +823,25 @@ const TripMap = ({
       {compact ? (
         // Compact inline legend for mobile - positioned higher with text labels
         <div className="absolute bottom-6 left-2 right-2 flex items-center justify-center">
-          <div className="flex items-center gap-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md text-xs">
+          <div className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-full px-2 py-1.5 shadow-md text-xs">
             <div className="flex items-center gap-1">
-              <span className="text-sm">🎯</span>
+              <span className="text-xs">🎯</span>
               <span className="text-gray-600 dark:text-gray-300">Trip</span>
             </div>
             <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <div className="flex items-center gap-1">
-              <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center text-white text-[10px] font-semibold">1</div>
+              <div className="w-3.5 h-3.5 rounded-full bg-violet-500 flex items-center justify-center text-white text-[8px] font-semibold">1</div>
               <span className="text-gray-600 dark:text-gray-300">Activity</span>
             </div>
             <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <div className="flex items-center gap-1">
-              <span className="text-sm">🏨</span>
+              <span className="text-xs">🏨</span>
               <span className="text-gray-600 dark:text-gray-300">Stay</span>
+            </div>
+            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <div className="flex items-center gap-1">
+              <span className="text-xs">✈️</span>
+              <span className="text-gray-600 dark:text-gray-300">Transport</span>
             </div>
           </div>
         </div>
@@ -644,6 +860,14 @@ const TripMap = ({
             <div className="flex items-center gap-2">
               <span className="text-base">🏨</span>
               <span className="text-gray-600 dark:text-gray-300">Lodging</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-white text-xs">✈️</div>
+              <span className="text-gray-600 dark:text-gray-300">Transport (From)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">✈️</div>
+              <span className="text-gray-600 dark:text-gray-300">Transport (To)</span>
             </div>
           </div>
         </div>
