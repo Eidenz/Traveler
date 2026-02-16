@@ -16,6 +16,13 @@ const getTripMembersForNotification = (tripId, excludeUserId) => {
   `).all(tripId, excludeUserId);
 };
 
+// Helper to convert location_disabled value to integer (0 or 1)
+// Handles boolean, string ("true"/"false", "1"/"0"), and number inputs
+const toDisabledInt = (value) => {
+  if (value === true || value === 'true' || value === '1') return 1;
+  return 0;
+};
+
 
 /**
  * Get all transportation for a trip
@@ -144,7 +151,7 @@ const createTransportation = (req, res) => {
         departure_date, departure_time, arrival_date, arrival_time,
         confirmation_code, notes, bannerImage,
         from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
-        from_location_disabled ? 1 : 0, to_location_disabled ? 1 : 0
+        toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled)
       );
     } else {
       insert = db.prepare(`
@@ -288,7 +295,7 @@ const updateTransportation = (req, res) => {
         departure_date, departure_time, arrival_date, arrival_time,
         confirmation_code, notes, bannerImage,
         from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
-        from_location_disabled ? 1 : 0, to_location_disabled ? 1 : 0,
+        toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled),
         transportId
       );
     } else {

@@ -103,7 +103,12 @@ export const transportAPI = {
     const formData = new FormData();
     for (const key in transportData) {
       if (transportData[key] !== null && transportData[key] !== undefined) {
-        formData.append(key, transportData[key]);
+        // Convert boolean values to '0' or '1' strings for proper handling
+        if (typeof transportData[key] === 'boolean') {
+          formData.append(key, transportData[key] ? '1' : '0');
+        } else {
+          formData.append(key, transportData[key]);
+        }
       }
     }
     // Ensure trip_id is included for middleware
@@ -123,7 +128,12 @@ export const transportAPI = {
         if (key === 'remove_banner' && transportData[key]) {
           formData.append('remove_banner', 'true');
         } else if (key !== 'remove_banner') {
-          formData.append(key, transportData[key]);
+          // Convert boolean values to '0' or '1' strings for proper handling
+          if (typeof transportData[key] === 'boolean') {
+            formData.append(key, transportData[key] ? '1' : '0');
+          } else {
+            formData.append(key, transportData[key]);
+          }
         }
       }
     }
