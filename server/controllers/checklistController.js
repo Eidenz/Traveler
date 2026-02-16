@@ -247,7 +247,7 @@ const updateUserItemStatus = async (req, res) => {
               is_complete: collectiveStatus === 'complete'
             }
           }
-        });
+        }, userId); // Exclude the user who made the change
       }
 
       return res.status(200).json({
@@ -324,8 +324,8 @@ const createChecklist = (req, res) => {
       location: trip.location
     });
 
-    // Emit socket event for real-time update
-    emitToTrip(tripId, 'checklist:created', checklist);
+    // Emit socket event for real-time update (exclude sender)
+    emitToTrip(tripId, 'checklist:created', checklist, userId);
 
     return res.status(201).json({
       message: 'Checklist created successfully',
@@ -350,6 +350,7 @@ const updateChecklist = (req, res) => {
 
     const { checklistId } = req.params;
     const { name } = req.body;
+    const userId = req.user.id;
 
     // Check if checklist exists
     const checklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(checklistId);
@@ -374,8 +375,8 @@ const updateChecklist = (req, res) => {
       WHERE c.id = ?
     `).get(checklistId);
 
-    // Emit socket event for real-time update
-    emitToTrip(checklist.trip_id, 'checklist:updated', updatedChecklist);
+    // Emit socket event for real-time update (exclude sender)
+    emitToTrip(checklist.trip_id, 'checklist:updated', updatedChecklist, userId);
 
     return res.status(200).json({
       message: 'Checklist updated successfully',
@@ -393,6 +394,7 @@ const updateChecklist = (req, res) => {
 const deleteChecklist = (req, res) => {
   try {
     const { checklistId } = req.params;
+    const userId = req.user.id;
 
     // Check if checklist exists
     const checklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(checklistId);
@@ -405,8 +407,8 @@ const deleteChecklist = (req, res) => {
     // Delete checklist (will cascade to delete items and user statuses)
     db.prepare('DELETE FROM checklists WHERE id = ?').run(checklistId);
 
-    // Emit socket event for real-time update
-    emitToTrip(tripId, 'checklist:deleted', checklistId);
+    // Emit socket event for real-time update (exclude sender)
+    emitToTrip(tripId, 'checklist:deleted', checklistId, userId);
 
     return res.status(200).json({
       message: 'Checklist deleted successfully'
@@ -430,6 +432,7 @@ const createChecklistItem = (req, res) => {
 
     const { checklistId } = req.params;
     const { description, note } = req.body;
+    const userId = req.user.id;
 
     // Check if checklist exists
     const checklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(checklistId);
@@ -451,8 +454,8 @@ const createChecklistItem = (req, res) => {
     // Recalculate user and collective statuses after adding item
     // (No explicit user status added here, handled by updateUserItemStatus)
 
-    // Emit socket event for real-time update
-    emitToTrip(checklist.trip_id, 'checklistItem:created', { checklistId, item });
+    // Emit socket event for real-time update (exclude sender)
+    emitToTrip(checklist.trip_id, 'checklistItem:created', { checklistId, item }, userId);
 
     return res.status(201).json({
       message: 'Checklist item created successfully',
@@ -553,6 +556,7 @@ const updateChecklistItem = (req, res) => {
 const deleteChecklistItem = (req, res) => {
   try {
     const { itemId } = req.params;
+    const userId = req.user.id;
 
     // Check if item exists
     const item = db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(itemId);
@@ -566,9 +570,9 @@ const deleteChecklistItem = (req, res) => {
     // Delete item (will cascade delete user statuses)
     db.prepare('DELETE FROM checklist_items WHERE id = ?').run(itemId);
 
-    // Emit socket event for real-time update
+    // Emit socket event for real-time update (exclude sender)
     if (checklist) {
-      emitToTrip(checklist.trip_id, 'checklistItem:deleted', { checklistId: item.checklist_id, itemId });
+      emitToTrip(checklist.trip_id, 'checklistItem:deleted', { checklistId: item.checklist_id, itemId }, userId);
     }
 
     return res.status(200).json({

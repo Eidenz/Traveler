@@ -362,11 +362,26 @@ function getIO() {
 }
 
 /**
- * Emit an event to all users in a trip room
+ * Emit an event to all users in a trip room, optionally excluding a specific user
+ * @param {string} tripId - The trip ID
+ * @param {string} event - The event name
+ * @param {*} data - The data to emit
+ * @param {string} excludeUserId - Optional user ID to exclude from receiving the event
  */
-function emitToTrip(tripId, event, data) {
+function emitToTrip(tripId, event, data, excludeUserId = null) {
     if (io) {
-        io.to(`trip:${tripId}`).emit(event, data);
+        const roomName = `trip:${tripId}`;
+        const room = io.sockets.adapter.rooms.get(roomName);
+
+        if (!room) return;
+
+        // Emit to each socket in the room, excluding the specified user
+        for (const socketId of room) {
+            const socket = io.sockets.sockets.get(socketId);
+            if (socket && socket.userId !== excludeUserId) {
+                socket.emit(event, data);
+            }
+        }
     }
 }
 
