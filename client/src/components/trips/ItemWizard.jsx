@@ -1339,6 +1339,8 @@ const ItemWizard = ({
                                         onChange={(date) => handleChange('arrival_date', date)}
                                         dateFormat="MMM d, yyyy"
                                         placeholderText={t('transportation.arrivalDatePlaceholder', 'Same day')}
+                                        openToDate={formData.arrival_date || formData.departure_date}
+                                        minDate={formData.departure_date}
                                         className={`w-full px-4 py-3 rounded-xl border ${errors.arrival_date || warnings.arrival_date
                                             ? 'border-amber-500 focus:ring-amber-500'
                                             : 'border-gray-200 dark:border-gray-600 focus:ring-blue-500'

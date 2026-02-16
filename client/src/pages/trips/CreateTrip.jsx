@@ -128,8 +128,8 @@ const CreateTrip = () => {
         
         const formattedData = {
           ...formData,
-          start_date: formData.start_date.toISOString().split('T')[0],
-          end_date: formData.end_date.toISOString().split('T')[0],
+          start_date: dayjs(formData.start_date).format('YYYY-MM-DD'),
+          end_date: dayjs(formData.end_date).format('YYYY-MM-DD'),
         };
         
         const tripFormData = new FormData();
