@@ -534,7 +534,9 @@ const TripTimeline = ({
             if (depDate.isBefore(tripStart, 'day')) {
               // And arrives during or after the trip (not a transport that ends before trip)
               const arrDate = t.arrival_date ? dayjs(t.arrival_date) : depDate;
-              return arrDate.isSameOrAfter(tripStart.subtract(1, 'day'), 'day');
+              // Show in pre-trip only if it arrives before the trip starts
+              // (if it arrives on a trip day, it will appear in that day's section instead)
+              return arrDate.isSameOrAfter(tripStart.subtract(1, 'day'), 'day') && arrDate.isBefore(tripStart, 'day');
             }
             return false;
           });
