@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import {
   Plus, MapPin, Clock, Calendar, Ticket, FileText,
-  ChevronDown, ChevronRight, Plane, Bed, Coffee
+  ChevronDown, ChevronRight, Plane, Train, Bus, Car, Ship, MoreHorizontal, Bed, Coffee
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
@@ -11,6 +11,18 @@ import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+
+// Get the appropriate icon component for a transport type
+const getTransportIcon = (type, className) => {
+  switch (type?.toLowerCase()) {
+    case 'flight': return <Plane className={className} />;
+    case 'train': return <Train className={className} />;
+    case 'bus': return <Bus className={className} />;
+    case 'car': return <Car className={className} />;
+    case 'ship': case 'ferry': return <Ship className={className} />;
+    default: return <MoreHorizontal className={className} />;
+  }
+};
 
 // Activity card component
 const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
@@ -90,11 +102,11 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
     className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors overflow-hidden"
   >
     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
-      <Plane className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+      {getTransportIcon(transport.type, "w-4 h-4 text-blue-600 dark:text-blue-400")}
     </div>
     <div className="flex-1 min-w-0">
       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-        {transport.from_location} → {transport.to_location}
+        {transport.company || `${transport.from_location} → ${transport.to_location}`}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
         {transport.departure_time || transport.type || 'Transport'}
@@ -210,7 +222,10 @@ const TimelineIcon = ({ type, items, onClick, tooltip }) => {
       title={tooltip}
     >
       {isTransport ? (
-        <Plane className={`w-3.5 h-3.5 ${getIconColor()}`} />
+        getTransportIcon(
+          Array.isArray(items) ? items[0]?.type : items?.type,
+          `w-3.5 h-3.5 ${getIconColor()}`
+        )
       ) : (
         <Bed className={`w-3.5 h-3.5 ${getIconColor()}`} />
       )}
@@ -247,10 +262,10 @@ const TransportPicker = ({ transports, onSelect, onClose }) => {
           }}
           className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center gap-2 transition-colors"
         >
-          <Plane className="w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+          {getTransportIcon(transport.type, "w-4 h-4 text-blue-500 dark:text-blue-400 flex-shrink-0")}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-              {transport.from_location} → {transport.to_location}
+              {transport.company || `${transport.from_location} → ${transport.to_location}`}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {transport.departure_time || transport.type || 'Transport'}
@@ -546,7 +561,7 @@ const TripTimeline = ({
           return (
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <Plane className="w-4 h-4 text-blue-500" />
+                {getTransportIcon(preTripTransports[0]?.type, "w-4 h-4 text-blue-500")}
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                   {t('transport.preTrip', 'Pre-trip transportation')}
                 </span>
