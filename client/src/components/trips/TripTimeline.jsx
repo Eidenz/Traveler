@@ -24,6 +24,19 @@ const getTransportIcon = (type, className) => {
   }
 };
 
+// Format transport time range, adding dates when departure/arrival are on different days
+const formatTransportTime = (transport) => {
+  if (!transport.departure_time) return transport.type || 'Transport';
+  if (!transport.arrival_time) return transport.departure_time;
+
+  const sameDay = !transport.arrival_date || transport.departure_date === transport.arrival_date;
+  if (sameDay) return `${transport.departure_time} → ${transport.arrival_time}`;
+
+  const depDay = dayjs(transport.departure_date).format('D MMM');
+  const arrDay = dayjs(transport.arrival_date).format('D MMM');
+  return `(${depDay}) ${transport.departure_time} → (${arrDay}) ${transport.arrival_time}`;
+};
+
 // Activity card component
 const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
   const { t } = useTranslation();
@@ -109,9 +122,7 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
         {transport.company || `${transport.from_location} → ${transport.to_location}`}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        {transport.departure_time && transport.arrival_time
-          ? `${transport.departure_time} → ${transport.arrival_time}`
-          : transport.departure_time || transport.type || 'Transport'}
+        {formatTransportTime(transport)}
       </p>
     </div>
     {transport.has_documents > 0 && (
