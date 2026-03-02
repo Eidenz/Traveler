@@ -26,7 +26,7 @@ const handleUpload = (req, res, next) => {
       console.error('Multer Error:', err);
       let message = 'File upload error.';
       if (err.code === 'LIMIT_FILE_SIZE') {
-        message = 'File is too large. Maximum size allowed is 10MB.';
+        message = 'File is too large. Maximum size allowed is 50MB.';
       }
       // Add more specific Multer error codes here if needed
       return res.status(400).json({ message: message, code: err.code });
