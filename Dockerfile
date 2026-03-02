@@ -21,7 +21,7 @@ RUN cd client && npm install
 COPY . .
 
 # Rewrite .env for production with placeholder for runtime injection
-RUN printf "VITE_API_URL=/api\nVITE_BASE_URL=\nVITE_MAPBOX_TOKEN=MAPBOX_TOKEN_PLACEHOLDER" > ./client/.env
+RUN printf "VITE_API_URL=/api\nVITE_BASE_URL=\nVITE_BACKEND_URL=\nVITE_MAPBOX_TOKEN=MAPBOX_TOKEN_PLACEHOLDER" > ./client/.env
 
 # Create needed directories
 RUN mkdir -p server/uploads/documents server/uploads/trips server/uploads/profiles server/db/data
