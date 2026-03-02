@@ -20,6 +20,7 @@ if (isNative()) {
   import('@capacitor/status-bar').then(({ StatusBar, Style }) => {
     StatusBar.setStyle({ style: Style.Dark });
     StatusBar.setBackgroundColor({ color: '#0f1419' });
+    StatusBar.setOverlaysWebView({ overlay: false });
   });
 
   import('@capacitor/app').then(({ App: CapApp }) => {
