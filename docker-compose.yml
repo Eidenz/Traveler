@@ -24,6 +24,3 @@ services:
       - VITE_MAPBOX_TOKEN=your_mapbox_token_here
       - VITE_BACKEND_URL=http://traveler.myapp.com
     restart: unless-stopped
-    # Override the default command to build client and start server in production mode
-    command: >
-      sh -c "cd client && npm run build && cd .. && node server/index.js"
