@@ -109,7 +109,9 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
         {transport.company || `${transport.from_location} → ${transport.to_location}`}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        {transport.departure_time || transport.type || 'Transport'}
+        {transport.departure_time && transport.arrival_time
+          ? `${transport.departure_time} → ${transport.arrival_time}`
+          : transport.departure_time || transport.type || 'Transport'}
       </p>
     </div>
     {transport.has_documents > 0 && (
@@ -268,7 +270,9 @@ const TransportPicker = ({ transports, onSelect, onClose }) => {
               {transport.company || `${transport.from_location} → ${transport.to_location}`}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {transport.departure_time || transport.type || 'Transport'}
+              {transport.departure_time && transport.arrival_time
+                ? `${transport.departure_time} → ${transport.arrival_time}`
+                : transport.departure_time || transport.type || 'Transport'}
             </p>
           </div>
         </button>
