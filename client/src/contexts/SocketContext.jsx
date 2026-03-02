@@ -5,13 +5,18 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { getBackendUrl, isNative } from '@/utils/platform';
 
 const SocketContext = createContext(null);
 
 // Get the socket URL
+// In Capacitor native, use absolute backend URL
 // In development, Vite proxies /socket.io to the backend
 // In production, we connect to the same origin where the app is served
 const getSocketUrl = () => {
+    if (isNative()) {
+        return getBackendUrl();
+    }
     // If VITE_API_URL is set and we're in production, extract the base URL
     const apiUrl = import.meta.env.VITE_API_URL;
     if (apiUrl && import.meta.env.PROD) {

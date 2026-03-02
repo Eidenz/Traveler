@@ -6,6 +6,12 @@
 /* Enhanced base styles for the new design */
 @layer base {
   :root {
+    /* Safe area insets for iOS PWA / Capacitor */
+    --sat: env(safe-area-inset-top);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+    --sar: env(safe-area-inset-right);
+
     /* Core design tokens */
     --accent: #e63946;
     --accent-soft: #fef1f2;

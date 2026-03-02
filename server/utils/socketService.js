@@ -16,7 +16,9 @@ const tripRooms = new Map(); // tripId -> Map of { odId, userName, userId }
 function initializeSocket(httpServer) {
     io = new Server(httpServer, {
         cors: {
-            origin: ['https://eidenz.moe', 'http://localhost:3000', 'https://traveler.eidenz.moe', 'https://hub.eidenz.moe'],
+            origin: process.env.CORS_ORIGINS
+                ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+                : ['http://localhost:3000', 'capacitor://localhost', 'https://localhost'],
             methods: ['GET', 'POST'],
             credentials: true
         },

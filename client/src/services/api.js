@@ -1,7 +1,10 @@
 // client/src/services/api.js
 import axios from 'axios';
+import { getBackendUrl, isNative } from '@/utils/platform';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api'; // Use relative path for production
+const API_URL = isNative()
+  ? `${getBackendUrl()}/api`
+  : (import.meta.env.VITE_API_URL || '/api');
 
 // Create axios instance
 const api = axios.create({

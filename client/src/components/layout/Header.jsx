@@ -81,7 +81,7 @@ const Header = () => {
   };
 
   return (
-    <header className="h-14 bg-nav px-4 md:px-6 flex items-center justify-between flex-shrink-0">
+    <header className="h-14 bg-nav px-4 md:px-6 flex items-center justify-between flex-shrink-0" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Left side - Logo & Search */}
       <div className="flex items-center gap-4 md:gap-8">
         {/* Logo */}

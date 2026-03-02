@@ -1,4 +1,5 @@
 // client/src/utils/imageUtils.js
+import { getBackendUrl, isNative } from '@/utils/platform';
 
 /**
  * Get the correct URL for an image path
@@ -7,18 +8,24 @@
  */
 export const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    
+
     // If the path already starts with http, return it as is
     if (imagePath.startsWith('http')) {
       return imagePath;
     }
-    
+
+    // In Capacitor native, always use absolute backend URL
+    if (isNative()) {
+      const base = getBackendUrl();
+      return `${base}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;
+    }
+
     // In development, we can use the relative path because of Vite's proxy configuration
     if (import.meta.env.DEV) {
       // Make sure we're dealing with a path that starts with /uploads
       return imagePath.startsWith('/uploads') ? imagePath : `/uploads${imagePath}`;
     }
-    
+
     // In production, use the base URL
     const baseUrl = import.meta.env.VITE_BASE_URL || '';
     return `${baseUrl}${imagePath.startsWith('/') ? imagePath : `/${imagePath}`}`;

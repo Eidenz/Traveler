@@ -94,9 +94,13 @@ app.use(helmet({
 }));
 app.use(morgan('dev'));
 
-// Updated CORS configuration
+// CORS configuration — origins from CORS_ORIGINS env var (comma-separated)
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:3000', 'capacitor://localhost', 'https://localhost'];
+
 app.use(cors({
-  origin: ['https://eidenz.moe', 'http://localhost:3000', 'https://traveler.eidenz.moe', 'https://hub.eidenz.moe'],
+  origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

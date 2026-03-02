@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Traveler</string>
+    <string name="title_activity_main">Traveler</string>
+    <string name="package_name">com.eidenz.traveler</string>
+    <string name="custom_url_scheme">com.eidenz.traveler</string>
+</resources>
