@@ -29,14 +29,18 @@ router.get('/', (req, res) => {
     // Match /trip/public/:token
     const publicTripMatch = parsedUrl.pathname.match(/^\/trip\/public\/([^/]+)$/);
 
+    // Derive baseUrl from the url param's origin to ensure correct protocol
+    // behind reverse proxies (req.protocol may be 'http' even when accessed via HTTPS)
+    const baseUrl = parsedUrl.origin;
+
     if (tripMatch) {
       const tripId = tripMatch[1];
-      return handleTrip(req, res, tripId, url);
+      return handleTrip(res, tripId, url, baseUrl);
     }
 
     if (publicTripMatch) {
       const token = publicTripMatch[1];
-      return handlePublicTrip(req, res, token, url);
+      return handlePublicTrip(res, token, url, baseUrl);
     }
 
     return res.status(404).json({ error: 'Resource not found' });
@@ -46,7 +50,7 @@ router.get('/', (req, res) => {
   }
 });
 
-function handleTrip(req, res, tripId, originalUrl) {
+function handleTrip(res, tripId, originalUrl, baseUrl) {
   const trip = db.prepare(`
     SELECT t.id, t.name, t.description, t.location, t.start_date, t.end_date, t.cover_image,
       (SELECT COUNT(*) FROM trip_members WHERE trip_id = t.id) as member_count,
@@ -58,10 +62,10 @@ function handleTrip(req, res, tripId, originalUrl) {
     return res.status(404).json({ error: 'Trip not found' });
   }
 
-  return res.json(buildTripOEmbed(trip, originalUrl, req));
+  return res.json(buildTripOEmbed(trip, originalUrl, baseUrl));
 }
 
-function handlePublicTrip(req, res, token, originalUrl) {
+function handlePublicTrip(res, token, originalUrl, baseUrl) {
   const trip = db.prepare(`
     SELECT t.id, t.name, t.description, t.location, t.start_date, t.end_date, t.cover_image,
       (SELECT COUNT(*) FROM trip_members WHERE trip_id = t.id) as member_count,
@@ -73,11 +77,10 @@ function handlePublicTrip(req, res, token, originalUrl) {
     return res.status(404).json({ error: 'Trip not found' });
   }
 
-  return res.json(buildTripOEmbed(trip, originalUrl, req));
+  return res.json(buildTripOEmbed(trip, originalUrl, baseUrl));
 }
 
-function buildTripOEmbed(trip, originalUrl, req) {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+function buildTripOEmbed(trip, originalUrl, baseUrl) {
 
   let thumbnailUrl = getFallbackImageUrl('trip');
   if (trip.cover_image) {
