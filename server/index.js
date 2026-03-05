@@ -155,18 +155,20 @@ if (process.env.NODE_ENV === 'production') {
       const pageTitle = trip.name;
       const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
       const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
-      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const fullUrl = `${protocol}://${host}${req.originalUrl}`;
 
       let fullImageUrl = getFallbackImageUrl('trip'); // Use a default fallback
       if (trip.cover_image) {
         // Handle both external URLs and local paths
         fullImageUrl = trip.cover_image.startsWith('http')
           ? trip.cover_image
-          : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
+          : `${protocol}://${host}${trip.cover_image}`;
       }
 
       // Construct meta tags
-      const oembedUrl = `${req.protocol}://${req.get('host')}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
+      const oembedUrl = `${protocol}://${host}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
       const metaTags = `
         <title>${pageTitle}</title>
         <meta name="description" content="${pageDescription}">
@@ -201,16 +203,18 @@ if (process.env.NODE_ENV === 'production') {
       const pageTitle = trip.name;
       const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
       const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
-      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+      const protocol = req.get('x-forwarded-proto') || req.protocol;
+      const host = req.get('host');
+      const fullUrl = `${protocol}://${host}${req.originalUrl}`;
 
       let fullImageUrl = getFallbackImageUrl('trip');
       if (trip.cover_image) {
         fullImageUrl = trip.cover_image.startsWith('http')
           ? trip.cover_image
-          : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
+          : `${protocol}://${host}${trip.cover_image}`;
       }
 
-      const oembedUrl = `${req.protocol}://${req.get('host')}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
+      const oembedUrl = `${protocol}://${host}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
       const metaTags = `
         <title>${pageTitle}</title>
         <meta name="description" content="${pageDescription}">
