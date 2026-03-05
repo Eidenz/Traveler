@@ -25,6 +25,7 @@ const checklistRoutes = require('./routes/checklists');
 const budgetRoutes = require('./routes/budgets');
 const personalBudgetRoutes = require('./routes/personalBudgets');
 const brainstormRoutes = require('./routes/brainstorm');
+const oembedRoutes = require('./routes/oembed');
 
 // Database initialization
 const { initializeDatabase, db } = require('./db/database'); // Added db export
@@ -125,6 +126,7 @@ app.use('/api/checklists', checklistRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/personal-budgets', personalBudgetRoutes);
 app.use('/api/brainstorm', brainstormRoutes);
+app.use('/api/oembed', oembedRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {
@@ -164,6 +166,7 @@ if (process.env.NODE_ENV === 'production') {
       }
 
       // Construct meta tags
+      const oembedUrl = `${req.protocol}://${req.get('host')}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
       const metaTags = `
         <title>${pageTitle}</title>
         <meta name="description" content="${pageDescription}">
@@ -173,6 +176,7 @@ if (process.env.NODE_ENV === 'production') {
         <meta property="og:url" content="${fullUrl}">
         <meta property="og:type" content="website">
         <meta name="twitter:card" content="summary_large_image">
+        <link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${pageTitle}" />
       `;
 
       htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
@@ -180,6 +184,50 @@ if (process.env.NODE_ENV === 'production') {
     } catch (err) {
       console.error('SSR Meta Tag Error (Trip):', err);
       next(); // Fallback to SPA on error
+    }
+  });
+
+  // SSR for public trip share links
+  app.get('/trip/public/:token', async (req, res, next) => {
+    try {
+      const { token } = req.params;
+      const trip = db.prepare('SELECT name, description, location, start_date, end_date, cover_image FROM trips WHERE public_share_token = ?').get(token);
+
+      if (!trip) return next();
+
+      const indexPath = path.join(frontendBuildPath, 'index.html');
+      let htmlData = fs.readFileSync(indexPath, 'utf8');
+
+      const pageTitle = trip.name;
+      const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
+      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
+      const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+      let fullImageUrl = getFallbackImageUrl('trip');
+      if (trip.cover_image) {
+        fullImageUrl = trip.cover_image.startsWith('http')
+          ? trip.cover_image
+          : `${req.protocol}://${req.get('host')}${trip.cover_image}`;
+      }
+
+      const oembedUrl = `${req.protocol}://${req.get('host')}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
+      const metaTags = `
+        <title>${pageTitle}</title>
+        <meta name="description" content="${pageDescription}">
+        <meta property="og:title" content="${pageTitle}">
+        <meta property="og:description" content="${pageDescription}">
+        <meta property="og:image" content="${fullImageUrl}">
+        <meta property="og:url" content="${fullUrl}">
+        <meta property="og:type" content="website">
+        <meta name="twitter:card" content="summary_large_image">
+        <link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${pageTitle}" />
+      `;
+
+      htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
+      res.header('Content-Type', 'text/html').send(htmlData);
+    } catch (err) {
+      console.error('SSR Meta Tag Error (Public Trip):', err);
+      next();
     }
   });
 
