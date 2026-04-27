@@ -26,6 +26,7 @@ const budgetRoutes = require('./routes/budgets');
 const personalBudgetRoutes = require('./routes/personalBudgets');
 const brainstormRoutes = require('./routes/brainstorm');
 const oembedRoutes = require('./routes/oembed');
+const apiKeyRoutes = require('./routes/apiKeys');
 
 // Database initialization
 const { initializeDatabase, db } = require('./db/database'); // Added db export
@@ -127,6 +128,7 @@ app.use('/api/budgets', budgetRoutes);
 app.use('/api/personal-budgets', personalBudgetRoutes);
 app.use('/api/brainstorm', brainstormRoutes);
 app.use('/api/oembed', oembedRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
 
 // Serve static files from the React app in production
 if (process.env.NODE_ENV === 'production') {

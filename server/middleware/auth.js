@@ -1,10 +1,62 @@
 // server/middleware/auth.js
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { db } = require('../db/database');
 const { isValidTripId } = require('../utils/idGenerator');
 
+const API_KEY_PREFIX = 'trv_';
+const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+const hashApiKey = (rawKey) =>
+  crypto.createHash('sha256').update(rawKey).digest('hex');
+
 /**
- * Middleware to authenticate JWT tokens
+ * Authenticate a request using an API key. API keys are read-only —
+ * any non-GET request is rejected so a leaked key cannot mutate state.
+ */
+const authenticateWithApiKey = (rawKey, req, res, next) => {
+  try {
+    const keyHash = hashApiKey(rawKey);
+    const keyRow = db.prepare(
+      'SELECT id, user_id, expires_at FROM api_keys WHERE key_hash = ?'
+    ).get(keyHash);
+
+    if (!keyRow) {
+      return res.status(401).json({ message: 'Invalid API key' });
+    }
+
+    if (keyRow.expires_at && new Date(keyRow.expires_at).getTime() < Date.now()) {
+      return res.status(401).json({ message: 'API key expired' });
+    }
+
+    if (!READ_ONLY_METHODS.has(req.method)) {
+      return res.status(403).json({ message: 'API keys are read-only' });
+    }
+
+    const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(keyRow.user_id);
+    if (!user) {
+      return res.status(401).json({ message: 'User no longer exists' });
+    }
+
+    // Best-effort touch — failure here must not block the request.
+    try {
+      db.prepare('UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?').run(keyRow.id);
+    } catch (e) {
+      console.error('Failed to update api_key last_used_at:', e);
+    }
+
+    req.user = user;
+    req.authMethod = 'apikey';
+    req.apiKeyId = keyRow.id;
+    return next();
+  } catch (error) {
+    console.error('API key auth error:', error);
+    return res.status(401).json({ message: 'Invalid API key' });
+  }
+};
+
+/**
+ * Middleware to authenticate JWT tokens or API keys (auto-detected by prefix).
  */
 const authenticate = (req, res, next) => {
   try {
@@ -15,18 +67,23 @@ const authenticate = (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    
-    // Verify token
+
+    if (token.startsWith(API_KEY_PREFIX)) {
+      return authenticateWithApiKey(token, req, res, next);
+    }
+
+    // Verify JWT
     const { userId } = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Check if user exists
     const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId);
     if (!user) {
       return res.status(401).json({ message: 'User no longer exists' });
     }
-    
+
     // Add user to request object
     req.user = user;
+    req.authMethod = 'jwt';
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -38,6 +95,18 @@ const authenticate = (req, res, next) => {
 };
 
 /**
+ * Middleware that rejects API-key auth — for sensitive routes that must
+ * only be accessible from a real logged-in session (password change,
+ * account deletion, managing API keys themselves, etc.).
+ */
+const requireSessionAuth = (req, res, next) => {
+  if (req.authMethod !== 'jwt') {
+    return res.status(403).json({ message: 'This endpoint requires a logged-in session' });
+  }
+  next();
+};
+
+/**
  * Middleware to check if user has access to a trip
  */
 const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
@@ -45,7 +114,7 @@ const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
     try {
       // Look for tripId in URL params, query params, or request body
       let tripId = req.params.tripId || req.query.tripId || (req.body && req.body.trip_id);
-      
+
       // If we have a checklistId but no tripId, try to get the tripId from the checklist
       if (!tripId && req.params.checklistId) {
         const checklistId = req.params.checklistId;
@@ -57,21 +126,21 @@ const checkTripAccess = (roles = ['owner', 'editor', 'viewer']) => {
           req.body.trip_id = tripId;
         }
       }
-      
+
       if (!tripId) {
         return res.status(400).json({ message: 'Trip ID is required' });
       }
-      
+
       // Validate trip ID format
      if (!isValidTripId(tripId)) {
        return res.status(400).json({ message: 'Invalid trip ID format' });
      }
-      
+
       const userId = req.user.id;
 
       // Check if user has access to this trip
       const tripMember = db.prepare(`
-        SELECT role FROM trip_members 
+        SELECT role FROM trip_members
         WHERE trip_id = ? AND user_id = ?
       `).get(tripId, userId);
 
@@ -104,7 +173,10 @@ const requireOwnerAccess = (req, res, next) => {
 
 module.exports = {
   authenticate,
+  requireSessionAuth,
   checkTripAccess,
   requireEditAccess,
-  requireOwnerAccess
+  requireOwnerAccess,
+  hashApiKey,
+  API_KEY_PREFIX,
 };

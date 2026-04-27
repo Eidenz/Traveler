@@ -59,6 +59,13 @@ export const authAPI = {
   resetPassword: (token, passwordData) => api.post(`/auth/reset-password/${token}`, passwordData), // Added
 };
 
+// API Key API
+export const apiKeyAPI = {
+  list: () => api.get('/api-keys'),
+  create: (data) => api.post('/api-keys', data),
+  revoke: (id) => api.delete(`/api-keys/${id}`),
+};
+
 // User API
 export const userAPI = {
   getProfile: () => api.get('/users/profile'),

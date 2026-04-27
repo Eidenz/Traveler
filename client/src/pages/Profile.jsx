@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Modal from '../components/ui/Modal';
+import ApiKeysSection from '../components/profile/ApiKeysSection';
 import { userAPI } from '../services/api';
 import useAuthStore from '../stores/authStore';
 import toast from 'react-hot-toast';
@@ -416,6 +417,9 @@ const Profile = () => {
               </div>
             </form>
           </div>
+
+          {/* API Keys */}
+          <ApiKeysSection />
 
           {/* Danger Zone */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-red-200 dark:border-red-900/50 overflow-hidden">

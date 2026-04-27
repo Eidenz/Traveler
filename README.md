@@ -97,6 +97,36 @@ These variables must be available at build time (or runtime for Docker).
 | `VITE_MAPBOX_TOKEN` | Mapbox public token for map views | **Yes** (if using maps) |
 | `VITE_API_URL` | Backend API URL (for local dev) | No (defaults to `/api`) |
 
+## API Keys (Programmatic Access)
+
+You can generate **read-only API keys** from the *Profile* page to query your own data from external tools (dashboards, widgets, scripts) without exposing your session token.
+
+* Keys are prefixed with `trv_` and shown only once at creation — store them somewhere safe.
+* Send the key in the `Authorization` header:
+  ```
+  Authorization: Bearer trv_<your-key>
+  ```
+* Keys are limited to `GET` / `HEAD` requests. Any write (POST/PUT/PATCH/DELETE) is rejected.
+* Keys cannot manage account settings, change passwords, or create/revoke other API keys.
+* You can set an optional expiry, and revoke a key at any time from the Profile page.
+
+Common read endpoints useful for widgets:
+
+| Endpoint | Description |
+| :--- | :--- |
+| `GET /api/auth/me` | Current user |
+| `GET /api/trips` | All trips you can see |
+| `GET /api/trips/:id` | A trip with members, transport, lodging, activities |
+| `GET /api/budgets/trip/:id` | Trip budget + expenses |
+| `GET /api/personal-budgets/trip/:id` | Your personal budget for a trip |
+| `GET /api/checklists/trip/:id` | Trip checklists |
+| `GET /api/brainstorm/trip/:id` | Brainstorm items |
+
+Example:
+```bash
+curl -H "Authorization: Bearer trv_…" https://your-host/api/trips
+```
+
 ## License
 
 MIT License.
