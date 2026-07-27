@@ -1,11 +1,16 @@
 // client/public/serviceWorker.js
 
 // Increment this version to force cache refresh
-const CACHE_NAME = 'traveler-v3';
+// Bump on deploy to purge previously cached assets (old caches are
+// deleted in the activate handler).
+const CACHE_NAME = 'traveler-v4';
 
 // Core app shell files to pre-cache for offline support
+// NOTE: '/' is deliberately NOT precached. index.html references hashed asset
+// filenames, so a precached copy goes stale the moment a new build ships and
+// leaves users on an unstyled/broken page until a hard refresh. It is cached
+// on first successful navigation instead (network-first, see below).
 const PRECACHE_URLS = [
-  '/',
   '/offline.html',
   '/manifest.json',
   '/logo.svg'
@@ -72,7 +77,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Skip cross-origin requests
-  if (!url.origin.startsWith(self.location.origin)) {
+  // Exact match: a prefix test would also accept e.g. https://app.example.com.evil.net
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -121,8 +127,10 @@ async function networkFirstWithCacheFallback(request) {
       return cachedResponse;
     }
 
-    // No cache, return offline page
-    return caches.match('/offline.html');
+    // No cache, return offline page. The precache is fault-tolerant, so
+    // offline.html may be missing — never respondWith(undefined).
+    return (await caches.match('/offline.html')) ||
+      new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
   }
 }
 

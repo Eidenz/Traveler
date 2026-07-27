@@ -12,9 +12,9 @@ const ProtectedRoute = ({ children }) => {
   useEffect(() => {
     const checkOfflineData = async () => {
       if (!isAuthenticated && !navigator.onLine && !loading) {
-        const hasOfflineData = await checkOfflineMode();
+        // If offline data exists, checkOfflineMode updates the auth state
+        await checkOfflineMode();
         setCheckingOfflineMode(false);
-        // If offline mode was entered, authentication state will be updated
       } else {
         setCheckingOfflineMode(false);
       }

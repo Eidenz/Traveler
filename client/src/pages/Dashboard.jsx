@@ -8,12 +8,11 @@ import {
 import Button from '../components/ui/Button';
 import StatusBadge from '../components/ui/StatusBadge';
 import { tripAPI } from '../services/api';
-import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
-import { getAllOfflineTrips, getTripOffline } from '../utils/offlineStorage';
+import { getAllOfflineTrips } from '../utils/offlineStorage';
 import useAuthStore from '../stores/authStore';
 
 dayjs.extend(relativeTime);

@@ -44,7 +44,9 @@ export const SocketProvider = ({ children }) => {
     // Initialize socket connection
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!token) {
+        // A public share viewer has no token but does have a publicToken —
+        // bailing out on a missing token alone made real-time dead on public links.
+        if (!token && !publicToken) {
             return;
         }
 
@@ -69,13 +71,15 @@ export const SocketProvider = ({ children }) => {
             setIsConnected(true);
             reconnectAttempts.current = 0;
 
-            // Rejoin current trip room if we were in one
-            if (currentTripId) {
-                newSocket.emit('trip:join', currentTripId);
+            // Rejoin current trip room if we were in one.
+            // Uses the ref, not the state captured by this effect's closure —
+            // that value is always the mount-time null, so rejoin never fired.
+            if (currentTripIdRef.current) {
+                newSocket.emit('trip:join', currentTripIdRef.current);
             }
         });
 
-        newSocket.on('disconnect', (reason) => {
+        newSocket.on('disconnect', () => {
             setIsConnected(false);
             setRoomMembers([]);
         });

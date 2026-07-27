@@ -1,5 +1,5 @@
 // client/src/components/trips/PDFViewerModal.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Download, FileText, RotateCw, ZoomIn, ZoomOut, ExternalLink } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';

@@ -3,13 +3,17 @@ const sqlite3 = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure db directory exists
-const dbDir = path.join(__dirname, 'data');
+// Database location — DB_PATH lets tests (and alternative deployments) point
+// at a different file instead of the bundled db/data directory
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(__dirname, 'data', 'travel-companion.db');
+
+const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const dbPath = path.join(dbDir, 'travel-companion.db');
 const db = sqlite3(dbPath);
 
 /**

@@ -12,8 +12,6 @@ const DocumentsModal = ({
   isOpen,
   onClose,
   documents = [],
-  referenceType,
-  referenceId,
   tripId,
   isOfflineMode = false,
   onDocumentsChange, // Callback to refresh documents after delete

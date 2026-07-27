@@ -9,11 +9,9 @@ import Input from '../ui/Input';
 import { checklistAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import useAuthStore from '../../stores/authStore';
 
 const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChange, isOfflineMode = false }) => {
   const { t } = useTranslation();
-  const { user } = useAuthStore();
 
   const [internalChecklists, setInternalChecklists] = useState([]);
   // Use external checklists if provided, otherwise use internal state

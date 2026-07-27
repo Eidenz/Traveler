@@ -116,7 +116,7 @@ const DocumentsList = ({ tripId, trip }) => {
     const [currentPdfBlob, setCurrentPdfBlob] = useState(null);
     const [currentPdfName, setCurrentPdfName] = useState('');
     const [currentDocumentId, setCurrentDocumentId] = useState(null);
-    const [viewLoading, setViewLoading] = useState(false);
+    const [, setViewLoading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(null);
 
     // Upload State
@@ -272,7 +272,7 @@ const DocumentsList = ({ tripId, trip }) => {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(downloadUrl);
-        } catch (error) {
+        } catch {
             toast.error(t('errors.downloadFailed', 'Download failed'));
         }
     };
@@ -297,7 +297,7 @@ const DocumentsList = ({ tripId, trip }) => {
             } else {
                 handleDownload(doc.id, doc.file_name);
             }
-        } catch (error) {
+        } catch {
             toast.error(t('errors.viewFailed', 'Could not view document'));
         } finally {
             setViewLoading(false);

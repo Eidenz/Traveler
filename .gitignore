@@ -2,3 +2,5 @@
 node_modules
 server/uploads
 server/db/data
+SECURITY.md
+SECURITY-FIXES.md

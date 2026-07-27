@@ -79,55 +79,42 @@ const storage = multer.diskStorage({
     cb(null, typeDir);
   },
   filename: function (req, file, cb) {
-    // Create unique filename
+    // Create unique filename. Only the extension from the original name is kept
+    // (the filter has already restricted it to a safe allow-list) — the rest is
+    // server-generated so a crafted name can never influence the stored path.
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     cb(null, file.fieldname + '-' + uniqueSuffix + ext);
   }
 });
 
 // File filter to restrict file types
+//
+// The extension allow-list is authoritative and the stored file always keeps a
+// listed extension (see `storage.filename`). Accepting on *either* extension or
+// mimetype would let `evil.html` in under a spoofed `image/png` type and get it
+// served back as HTML from this origin — i.e. stored XSS.
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt', ...IMAGE_EXTENSIONS];
+
+const isAllowedExtension = (filename, allowed) =>
+  allowed.includes(path.extname(filename).toLowerCase());
+
 const fileFilter = (req, file, cb) => {
-  // Define allowed file types
-  const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
-  const allowedDocumentTypes = /pdf|doc|docx|txt/;
+  const isImageField = ['profile_image', 'cover_image', 'banner_image'].includes(file.fieldname);
+  const isDocumentField = file.fieldname === 'document' || req.originalUrl.includes('/documents');
 
-  // Check file type
-  const extname = path.extname(file.originalname).toLowerCase();
-  const mimetype = file.mimetype;
+  const allowed = isImageField
+    ? IMAGE_EXTENSIONS
+    : isDocumentField
+      ? DOCUMENT_EXTENSIONS
+      : DOCUMENT_EXTENSIONS; // default: same set as documents
 
-  // Check field name for profile images
-  if (file.fieldname === 'profile_image') {
-    if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
-      return cb(null, true);
-    }
-  }
-  // Check field name for trip cover images
-  else if (file.fieldname === 'cover_image') {
-    if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
-      return cb(null, true);
-    }
-  }
-  // Check field name for banner images
-  else if (file.fieldname === 'banner_image') {
-    if (allowedImageTypes.test(extname) || mimetype.startsWith('image/')) {
-      return cb(null, true);
-    }
-  }
-  // Check field name and mimetype for documents
-  else if (file.fieldname === 'document' || req.originalUrl.includes('/documents')) {
-    if (allowedDocumentTypes.test(extname) || mimetype.includes('pdf') ||
-      mimetype.includes('word') || mimetype.includes('text')) {
-      return cb(null, true);
-    }
-  }
-  // Default case - accept images and PDFs
-  else if ((allowedImageTypes.test(extname) || mimetype.startsWith('image/')) ||
-    (allowedDocumentTypes.test(extname) || mimetype.includes('pdf'))) {
+  if (isAllowedExtension(file.originalname, allowed)) {
     return cb(null, true);
   }
 
-  cb(new Error('Invalid file type. Only allowed file types are accepted.'), false);
+  cb(new Error(`Invalid file type. Allowed: ${allowed.join(', ')}`), false);
 };
 
 // Configure multer with our options

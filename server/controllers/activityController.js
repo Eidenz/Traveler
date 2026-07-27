@@ -1,5 +1,6 @@
 // server/controllers/activityController.js
 const { db } = require('../db/database');
+const { authorizeTrip } = require('../utils/tripAuth');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -47,6 +48,10 @@ const getActivity = (req, res) => {
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
+
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, activity.trip_id, req.user.id, 'view')) return;
 
     // Get documents - filter personal documents to only show to uploader
     const documents = db.prepare(`
@@ -175,6 +180,10 @@ const updateActivity = (req, res) => {
       return res.status(404).json({ message: 'Activity not found' });
     }
 
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, activity.trip_id, req.user.id, 'edit')) return;
+
     // Check trip dates
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(activity.trip_id);
     if (!trip) {
@@ -259,6 +268,10 @@ const deleteActivity = (req, res) => {
     if (!activity) {
       return res.status(404).json({ message: 'Activity not found' });
     }
+
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, activity.trip_id, req.user.id, 'edit')) return;
 
     // Get associated documents
     const documents = db.prepare(`

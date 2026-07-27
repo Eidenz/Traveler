@@ -12,7 +12,9 @@ services:
       - ./data/db:/app/server/db/data
     environment:
       - NODE_ENV=production
-      - JWT_SECRET=your-session-secret
+      # Required. Generate with: openssl rand -hex 32
+      # Set it in a .env file next to this compose file, or export it before `docker compose up`.
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET to a random 32+ character secret}
       - PORT=5000
       - EMAIL_HOST=your_smtp_host
       - EMAIL_PORT=465

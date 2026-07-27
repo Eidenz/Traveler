@@ -78,7 +78,7 @@ const Register = () => {
         await register(registerData);
         toast.success(t('auth.registerSuccess'));
         navigate('/dashboard');
-      } catch (error) {
+      } catch {
         // Error handled by auth store
       }
     }

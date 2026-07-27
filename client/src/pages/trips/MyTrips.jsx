@@ -278,7 +278,7 @@ const MyTrips = () => {
         setTrips(trips.filter(trip => trip.id !== selectedTripId));
         try {
           await removeTripOffline(selectedTripId);
-        } catch (err) { /* ignore */ }
+        } catch { /* ignore */ }
         toast.success(t('trips.deleteSuccess'));
       }
       

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Plus, Minus, Layers, Navigation, MapPin } from 'lucide-react';
-import { geocodeLocation, batchGeocode } from '../../utils/geocoding';
+import { geocodeLocation } from '../../utils/geocoding';
 
 // Use environment variable for token
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
@@ -526,7 +526,7 @@ const TripMap = ({
           map.current.removeLayer('route');
         }
         map.current.removeSource('route');
-      } catch (e) {
+      } catch {
         // Ignore errors
       }
     }
@@ -593,7 +593,7 @@ const TripMap = ({
           map.current.removeLayer('transport-routes');
         }
         map.current.removeSource('transport-routes');
-      } catch (e) {
+      } catch {
         // Ignore errors
       }
     }

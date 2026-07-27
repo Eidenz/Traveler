@@ -1,5 +1,5 @@
 // client/src/components/brainstorm/BrainstormMap.jsx
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useTranslation } from 'react-i18next';
@@ -196,7 +196,7 @@ const BrainstormMap = ({
                     mapRef.current.removeLayer('brainstorm-route');
                 }
                 mapRef.current.removeSource('brainstorm-route');
-            } catch (e) {
+            } catch {
                 // Ignore errors
             }
         }

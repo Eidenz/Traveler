@@ -18,6 +18,9 @@ const DOCUMENTS_STORE = 'documents';
  * @returns {string|number} The normalized ID
  */
 const normalizeId = (id) => {
+  // Nothing to normalize (e.g. a document with no reference_id)
+  if (id === null || id === undefined) return id;
+
   // If it's already a string that starts with 'trip_', return as is
   if (typeof id === 'string' && id.startsWith('trip_')) {
     return id;

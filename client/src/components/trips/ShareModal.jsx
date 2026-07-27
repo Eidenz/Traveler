@@ -129,7 +129,7 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
                 : t('sharing.brainstormHidden', 'Brainstorming is now hidden from public link')
             );
             onUpdate?.();
-        } catch (error) {
+        } catch {
             setIsBrainstormPublic(previousValue);
             toast.error(t('errors.updateFailed', 'Failed to update settings'));
         }

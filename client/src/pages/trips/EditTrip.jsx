@@ -9,7 +9,7 @@ import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
+import { getImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 
 const EditTrip = () => {

@@ -84,7 +84,7 @@ const Login = () => {
         await login(formData);
         toast.success(t('auth.loginSuccess'));
         navigate('/dashboard');
-      } catch (error) {
+      } catch {
         // Error handled by auth store
       }
     }

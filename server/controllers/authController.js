@@ -37,7 +37,7 @@ const register = async (req, res) => {
     // Create JWT token
     const token = jwt.sign(
       { userId: result.lastInsertRowid },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -83,7 +83,7 @@ const login = async (req, res) => {
     // Create JWT token
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -220,13 +220,12 @@ const resetPassword = async (req, res) => {
     // Create JWT token
     const token = jwt.sign(
       { userId: user.id },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
      // Return user info without password or reset token info
     const { password: pass, resetPasswordToken: rpt, resetPasswordExpires: rpe, ...userInfo } = user;
-    userInfo.password = hashedPassword; // Update password in returned user info
 
     return res.status(200).json({
       message: 'Password reset successfully.',

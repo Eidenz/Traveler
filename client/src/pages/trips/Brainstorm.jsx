@@ -71,7 +71,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const hasMapboxToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
 
     // Get socket for room members display
-    const { isConnected, roomMembers, connectWithPublicToken } = useSocket();
+    const { connectWithPublicToken } = useSocket();
 
     // Connect with public token if present
     useEffect(() => {

@@ -8,6 +8,8 @@ const API_URL = isNative()
 
 // Create axios instance
 const api = axios.create({
+  // Without a timeout a hung backend leaves loading spinners up forever
+  timeout: 20000,
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',

@@ -1,6 +1,7 @@
 // server/controllers/budgetController.js
 
 const { db } = require('../db/database');
+const { authorizeTrip, getTripIdForExpense } = require('../utils/tripAuth');
 const { validationResult } = require('express-validator');
 const { emitToTrip } = require('../utils/socketService');
 
@@ -121,6 +122,9 @@ const updateBudget = (req, res) => {
       return res.status(404).json({ message: 'Budget not found' });
     }
 
+    // Authorize against the budget's own trip (route middleware trusts a client-supplied id)
+    if (!authorizeTrip(res, budget.trip_id, req.user.id, 'edit')) return;
+
     // Update budget
     const update = db.prepare(`
       UPDATE budgets
@@ -165,6 +169,9 @@ const addExpense = (req, res) => {
     if (!budget) {
       return res.status(404).json({ message: 'Budget not found' });
     }
+
+    // Authorize against the budget's own trip (route middleware trusts a client-supplied id)
+    if (!authorizeTrip(res, budget.trip_id, req.user.id, 'edit')) return;
 
     // Insert expense
     const insert = db.prepare(`
@@ -214,6 +221,9 @@ const updateExpense = (req, res) => {
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
     }
+
+    // Authorize against the expense's own trip (route middleware trusts a client-supplied id)
+    if (!authorizeTrip(res, getTripIdForExpense(expense.id), req.user.id, 'edit')) return;
 
     // Get budget to find trip_id
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(expense.budget_id);
@@ -270,6 +280,9 @@ const deleteExpense = (req, res) => {
       return res.status(404).json({ message: 'Expense not found' });
     }
 
+    // Authorize against the expense's own trip (route middleware trusts a client-supplied id)
+    if (!authorizeTrip(res, getTripIdForExpense(expense.id), req.user.id, 'edit')) return;
+
     const budgetId = expense.budget_id;
 
     // Get budget to find trip_id
@@ -309,6 +322,9 @@ const deleteBudget = (req, res) => {
     if (!budget) {
       return res.status(404).json({ message: 'Budget not found' });
     }
+
+    // Authorize against the budget's own trip (route middleware trusts a client-supplied id)
+    if (!authorizeTrip(res, budget.trip_id, req.user.id, 'edit')) return;
 
     // Store tripId before deletion
     const tripId = budget.trip_id;

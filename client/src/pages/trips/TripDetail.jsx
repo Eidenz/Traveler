@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import dayjs from 'dayjs';
 
 // API and stores
 import { tripAPI, transportAPI, lodgingAPI, activityAPI, checklistAPI, documentAPI } from '../../services/api';
@@ -197,28 +196,12 @@ const TripDetail = () => {
     }
   }), []);
 
-  // Initialize real-time updates
+  // Initialize real-time updates. Creates/updates are broadcast by the server
+  // on write, so only the delete emitters are needed here.
   const {
-    isConnected: isRealtimeConnected,
-    emitActivityCreate,
-    emitActivityUpdate,
     emitActivityDelete,
-    emitLodgingCreate,
-    emitLodgingUpdate,
     emitLodgingDelete,
-    emitTransportCreate,
-    emitTransportUpdate,
     emitTransportDelete,
-    emitTripUpdate,
-    emitMemberAdd,
-    emitMemberRemove,
-    emitMemberRoleChange,
-    emitChecklistCreate,
-    emitChecklistUpdate,
-    emitChecklistDelete,
-    emitChecklistItemToggle,
-    emitChecklistItemCreate,
-    emitChecklistItemDelete
   } = useRealtimeUpdates(tripId, realtimeHandlers);
 
   // Fetch trip data
@@ -267,7 +250,7 @@ const TripDetail = () => {
           setLodging(offlineTrip.lodging || []);
           setActivities(offlineTrip.activities || []);
           setChecklists(offlineTrip.checklists || []);
-          toast.info(t('offline.usingOfflineData', 'Using offline data'), {
+          toast(t('offline.usingOfflineData', 'Using offline data'), {
             icon: <WifiOff size={16} />,
           });
           return;
@@ -1240,12 +1223,6 @@ const TripDetail = () => {
         isOpen={isDocumentsModalOpen}
         onClose={() => setIsDocumentsModalOpen(false)}
         documents={currentDocuments}
-        referenceType={currentReferenceType}
-        referenceId={
-          currentReferenceType === 'transport' ? selectedTransportId :
-            currentReferenceType === 'lodging' ? selectedLodgingId :
-              selectedActivityId
-        }
         tripId={tripId}
         isOfflineMode={!navigator.onLine && isAvailableOffline}
         onDocumentsChange={refreshDocuments}

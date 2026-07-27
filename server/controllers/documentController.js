@@ -287,12 +287,26 @@ const getDocument = (req, res) => {
 const deleteDocument = (req, res) => {
   try {
     const { documentId } = req.params;
-    // Permission is already checked by requireEditAccess middleware in the route
+    const userId = req.user.id;
 
     // Get document to find file path
-    const document = db.prepare('SELECT file_path, file_type FROM documents WHERE id = ?').get(documentId);
+    const document = db.prepare(
+      'SELECT file_path, file_type, reference_type, reference_id, is_personal, uploaded_by FROM documents WHERE id = ?'
+    ).get(documentId);
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // *** Permission Check ***
+    // The route middleware resolves the trip from the client-supplied tripId,
+    // so authorization must be re-checked against this document's own trip.
+    if (!checkDocumentPermission(userId, document.reference_type, document.reference_id, ['owner', 'editor'])) {
+      return res.status(403).json({ message: 'Access Denied: You do not have permission to delete this document.' });
+    }
+
+    // *** Personal Document Check - only the uploader can delete their own personal document ***
+    if (document.is_personal && document.uploaded_by !== userId) {
+      return res.status(403).json({ message: 'Access Denied: This is a personal document.' });
     }
 
     // Delete file from filesystem (link documents have no file on disk)
@@ -408,8 +422,26 @@ const viewDocument = (req, res) => {
       return res.status(404).json({ message: 'File not found on server.' });
     }
 
-    // Set Content-Type header based on the stored file type
-    res.setHeader('Content-Type', document.file_type);
+    // Derive the Content-Type from the stored extension rather than the
+    // client-supplied mimetype, so a mislabelled upload can't be served back as
+    // HTML/script on this origin. Anything not inline-safe is forced to download.
+    const INLINE_TYPES = {
+      '.pdf': 'application/pdf',
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.txt': 'text/plain',
+    };
+    const contentType = INLINE_TYPES[path.extname(filePath).toLowerCase()];
+
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (!contentType) {
+      return res.download(filePath, document.file_name);
+    }
+
+    res.setHeader('Content-Type', contentType);
     // Use sendFile for potentially better handling than piping
     return res.sendFile(filePath);
   } catch (error) {

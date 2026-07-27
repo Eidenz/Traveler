@@ -36,11 +36,31 @@ const { sendEmail } = require('./utils/emailService'); // Added
 const { getUserById } = require('./controllers/tripController'); // Added
 const { getFallbackImageUrl } = require('./utils/ssrUtils');
 
+// Escape values interpolated into server-rendered HTML meta tags.
+// Without this a trip named `</title><script>...</script>` executes for anyone
+// who opens the trip or its public share link.
+const escapeHtml = (value) => String(value ?? '').replace(
+  /[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+);
+
 // Email Queue Service
 const { initializeEmailQueue, startEmailQueueProcessor } = require('./utils/emailQueueService');
 
 // Weather Service
 const { getWeatherForTrip } = require('./utils/weatherService');
+
+// Refuse to start without a real signing secret — tokens signed with a weak or
+// default secret can be forged, which would let anyone impersonate any account.
+const INSECURE_SECRETS = ['your-secret-key', 'your-session-secret', 'secret', 'changeme'];
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 ||
+  INSECURE_SECRETS.includes(process.env.JWT_SECRET)) {
+  console.error(
+    '\nFATAL: JWT_SECRET must be set to a unique random value of at least 32 characters.\n' +
+    'Generate one with:  openssl rand -hex 32\n'
+  );
+  process.exit(1);
+}
 
 // Initialize express app
 const app = express();
@@ -101,19 +121,38 @@ const corsOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
   : ['http://localhost:3000', 'capacitor://localhost', 'https://localhost'];
 
-app.use(cors({
+const corsOptions = {
   origin: corsOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
-app.options('*', cors()); // Handle preflight requests
+};
+
+app.use(cors(corsOptions));
+// Preflight must use the same restrictive options — a bare cors() here would
+// answer every preflight with Access-Control-Allow-Origin: *
+app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files - provide access to uploads directory
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+//
+// Uploaded documents (tickets, passports, booking confirmations) must NOT be
+// publicly readable: they are served only through /api/documents/:id/view|download,
+// which enforces trip membership and the personal-document rule.
+app.use('/uploads/documents', (req, res) => {
+  res.status(403).json({ message: 'Documents must be accessed through the API' });
+});
+
+// Remaining uploads are user-visible images (avatars, covers, banners) rendered
+// in <img> tags without auth headers. nosniff stops a mislabelled file from
+// being interpreted as HTML/script on this origin.
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  },
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -156,7 +195,7 @@ if (process.env.NODE_ENV === 'production') {
       // Prepare data for meta tags
       const pageTitle = trip.name;
       const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
-      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
+      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160);
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       const host = req.get('host');
       const fullUrl = `${protocol}://${host}${req.originalUrl}`;
@@ -172,15 +211,15 @@ if (process.env.NODE_ENV === 'production') {
       // Construct meta tags
       const oembedUrl = `${protocol}://${host}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
       const metaTags = `
-        <title>${pageTitle}</title>
-        <meta name="description" content="${pageDescription}">
-        <meta property="og:title" content="${pageTitle}">
-        <meta property="og:description" content="${pageDescription}">
-        <meta property="og:image" content="${fullImageUrl}">
-        <meta property="og:url" content="${fullUrl}">
+        <title>${escapeHtml(pageTitle)}</title>
+        <meta name="description" content="${escapeHtml(pageDescription)}">
+        <meta property="og:title" content="${escapeHtml(pageTitle)}">
+        <meta property="og:description" content="${escapeHtml(pageDescription)}">
+        <meta property="og:image" content="${escapeHtml(fullImageUrl)}">
+        <meta property="og:url" content="${escapeHtml(fullUrl)}">
         <meta property="og:type" content="website">
         <meta name="twitter:card" content="summary_large_image">
-        <link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${pageTitle}" />
+        <link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembedUrl)}" title="${escapeHtml(pageTitle)}" />
       `;
 
       htmlData = htmlData.replace('</head>', `${metaTags}</head>`);
@@ -204,7 +243,7 @@ if (process.env.NODE_ENV === 'production') {
 
       const pageTitle = trip.name;
       const tripDates = `${new Date(trip.start_date).toLocaleDateString()} - ${new Date(trip.end_date).toLocaleDateString()}`;
-      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160).replace(/"/g, '\"');
+      const pageDescription = (trip.description || `A trip to ${trip.location || 'an amazing place'} from ${tripDates}.`).substring(0, 160);
       const protocol = req.get('x-forwarded-proto') || req.protocol;
       const host = req.get('host');
       const fullUrl = `${protocol}://${host}${req.originalUrl}`;
@@ -218,15 +257,15 @@ if (process.env.NODE_ENV === 'production') {
 
       const oembedUrl = `${protocol}://${host}/api/oembed?url=${encodeURIComponent(fullUrl)}&format=json`;
       const metaTags = `
-        <title>${pageTitle}</title>
-        <meta name="description" content="${pageDescription}">
-        <meta property="og:title" content="${pageTitle}">
-        <meta property="og:description" content="${pageDescription}">
-        <meta property="og:image" content="${fullImageUrl}">
-        <meta property="og:url" content="${fullUrl}">
+        <title>${escapeHtml(pageTitle)}</title>
+        <meta name="description" content="${escapeHtml(pageDescription)}">
+        <meta property="og:title" content="${escapeHtml(pageTitle)}">
+        <meta property="og:description" content="${escapeHtml(pageDescription)}">
+        <meta property="og:image" content="${escapeHtml(fullImageUrl)}">
+        <meta property="og:url" content="${escapeHtml(fullUrl)}">
         <meta property="og:type" content="website">
         <meta name="twitter:card" content="summary_large_image">
-        <link rel="alternate" type="application/json+oembed" href="${oembedUrl}" title="${pageTitle}" />
+        <link rel="alternate" type="application/json+oembed" href="${escapeHtml(oembedUrl)}" title="${escapeHtml(pageTitle)}" />
       `;
 
       htmlData = htmlData.replace('</head>', `${metaTags}</head>`);

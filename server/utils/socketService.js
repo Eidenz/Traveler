@@ -33,7 +33,7 @@ function initializeSocket(httpServer) {
 
         if (token) {
             try {
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
                 socket.userId = decoded.userId; // JWT stores userId, not id
 
                 // Look up user name and avatar from database
@@ -71,6 +71,20 @@ function initializeSocket(httpServer) {
             next(new Error('Authentication required'));
         }
     });
+
+    /**
+     * Guard for client-relayed events.
+     *
+     * These handlers re-broadcast whatever the client sends to `trip:<data.tripId>`.
+     * Without a check, any authenticated socket — including a public share guest —
+     * could push forged events (member removals, checklist toggles, expenses) into
+     * any other trip's room. A socket may only relay into a room it actually joined.
+     */
+    const canRelay = (socket, data) => {
+        if (!data || !data.tripId) return false;
+        if (socket.isPublic) return false; // public viewers are read-only
+        return socket.rooms.has(`trip:${data.tripId}`);
+    };
 
     // Connection handler
     io.on('connection', (socket) => {
@@ -172,18 +186,22 @@ function initializeSocket(httpServer) {
 
         // Brainstorm events
         socket.on('brainstorm:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstorm:created', data.item);
         });
 
         socket.on('brainstorm:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstorm:updated', data.item);
         });
 
         socket.on('brainstorm:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstorm:deleted', data.itemId);
         });
 
         socket.on('brainstorm:move', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstorm:moved', {
                 itemId: data.itemId,
                 position_x: data.position_x,
@@ -193,90 +211,111 @@ function initializeSocket(httpServer) {
 
         // Brainstorm group events
         socket.on('brainstormGroup:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstormGroup:created', data.group);
         });
 
         socket.on('brainstormGroup:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstormGroup:updated', data.group);
         });
 
         socket.on('brainstormGroup:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('brainstormGroup:deleted', data.groupId);
         });
 
         // Trip data events (activities, lodging, transport)
         socket.on('activity:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('activity:created', data.activity);
         });
 
         socket.on('activity:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('activity:updated', data.activity);
         });
 
         socket.on('activity:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('activity:deleted', data.activityId);
         });
 
         socket.on('lodging:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('lodging:created', data.lodging);
         });
 
         socket.on('lodging:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('lodging:updated', data.lodging);
         });
 
         socket.on('lodging:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('lodging:deleted', data.lodgingId);
         });
 
         socket.on('transport:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('transport:created', data.transport);
         });
 
         socket.on('transport:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('transport:updated', data.transport);
         });
 
         socket.on('transport:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('transport:deleted', data.transportId);
         });
 
         // Trip info update
         socket.on('trip:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('trip:updated', data.trip);
         });
 
         // Budget events
         socket.on('budget:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('budget:updated', data.budget);
         });
 
         socket.on('expense:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('expense:created', data.expense);
         });
 
         socket.on('expense:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('expense:updated', data.expense);
         });
 
         socket.on('expense:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('expense:deleted', data.expenseId);
         });
 
         // Checklist events
         socket.on('checklist:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklist:created', data.checklist);
         });
 
         socket.on('checklist:update', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklist:updated', data.checklist);
         });
 
         socket.on('checklist:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklist:deleted', data.checklistId);
         });
 
         socket.on('checklistItem:toggle', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklistItem:toggled', {
                 checklistId: data.checklistId,
                 itemId: data.itemId,
@@ -285,6 +324,7 @@ function initializeSocket(httpServer) {
         });
 
         socket.on('checklistItem:create', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklistItem:created', {
                 checklistId: data.checklistId,
                 item: data.item
@@ -292,6 +332,7 @@ function initializeSocket(httpServer) {
         });
 
         socket.on('checklistItem:delete', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('checklistItem:deleted', {
                 checklistId: data.checklistId,
                 itemId: data.itemId
@@ -300,14 +341,17 @@ function initializeSocket(httpServer) {
 
         // Member events
         socket.on('member:add', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('member:added', data.member);
         });
 
         socket.on('member:remove', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('member:removed', data.userId);
         });
 
         socket.on('member:roleChange', (data) => {
+            if (!canRelay(socket, data)) return;
             socket.to(`trip:${data.tripId}`).emit('member:roleChanged', {
                 userId: data.userId,
                 role: data.role

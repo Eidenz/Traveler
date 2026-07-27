@@ -4,6 +4,19 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Reject non-http(s) URLs — a stored `javascript:` URL would execute in every
+ * viewer's session when rendered as a link.
+ */
+const isSafeUrl = (url) => {
+    if (url === undefined || url === null || url === '') return true;
+    try {
+        return ['http:', 'https:'].includes(new URL(url).protocol);
+    } catch {
+        return false;
+    }
+};
+
+/**
  * Helper to check if user has edit access to an item's trip
  */
 const checkItemEditAccess = (itemId, userId) => {
@@ -90,6 +103,10 @@ const createBrainstormItem = async (req, res) => {
             priority
         } = req.body;
 
+        if (!isSafeUrl(url)) {
+            return res.status(400).json({ message: 'Only http(s) links are allowed' });
+        }
+
         // Validate type
         const validTypes = ['place', 'note', 'image', 'link', 'idea'];
         if (!validTypes.includes(type)) {
@@ -165,6 +182,10 @@ const updateBrainstormItem = async (req, res) => {
             priority,
             remove_image
         } = req.body;
+
+        if (!isSafeUrl(url)) {
+            return res.status(400).json({ message: 'Only http(s) links are allowed' });
+        }
 
         // Get existing item
         const existingItem = db.prepare('SELECT * FROM brainstorm_items WHERE id = ?').get(itemId);
@@ -269,9 +290,27 @@ const updateItemPosition = async (req, res) => {
 /**
  * Batch update positions (for multiple items moved)
  */
+const MAX_BATCH_POSITIONS = 500;
+
 const batchUpdatePositions = async (req, res) => {
     try {
         const { positions } = req.body; // Array of { id, position_x, position_y }
+
+        if (!Array.isArray(positions)) {
+            return res.status(400).json({ message: 'positions must be an array' });
+        }
+        if (positions.length > MAX_BATCH_POSITIONS) {
+            return res.status(400).json({ message: `Too many positions (max ${MAX_BATCH_POSITIONS})` });
+        }
+
+        // Every item must belong to a trip the caller can edit — this endpoint
+        // takes bare item ids, so authorization has to be per item.
+        for (const item of positions) {
+            const access = checkItemEditAccess(item.id, req.user.id);
+            if (!access.allowed) {
+                return res.status(access.status).json({ message: access.error });
+            }
+        }
 
         const updateStmt = db.prepare(`
       UPDATE brainstorm_items SET
@@ -340,9 +379,14 @@ const getPublicBrainstormItems = async (req, res) => {
         const { token } = req.params;
 
         // Find trip by public share token
-        const trip = db.prepare('SELECT id FROM trips WHERE public_share_token = ?').get(token);
+        const trip = db.prepare('SELECT id, is_brainstorm_public FROM trips WHERE public_share_token = ?').get(token);
         if (!trip) {
             return res.status(404).json({ message: 'Trip not found or not shared publicly' });
+        }
+
+        // Brainstorming is only exposed publicly when the owner opted in
+        if (!trip.is_brainstorm_public) {
+            return res.status(403).json({ message: 'Brainstorming is not shared publicly for this trip' });
         }
 
         const items = db.prepare(`
@@ -437,11 +481,8 @@ const updateBrainstormGroup = async (req, res) => {
             return res.status(404).json({ message: 'Group not found' });
         }
 
-        // Check edit access
-        const access = checkItemEditAccess(group.id, userId); // Reusing checkItemEditAccess logic requires slight adjustment or check trip ID directly
-        // checkItemEditAccess queries 'brainstorm_items'. We need to check 'brainstorm_groups' or just use the trip_id.
-
-        // Let's do a direct check for trip access since group logic is similar
+        // Check edit access against the group's own trip
+        // (checkItemEditAccess resolves brainstorm_items, so it can't be reused here)
         const tripMember = db.prepare(`
             SELECT role FROM trip_members 
             WHERE trip_id = ? AND user_id = ?

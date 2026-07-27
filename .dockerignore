@@ -5,9 +5,18 @@ npm-debug.log*
 **/npm-debug.log*
 .git
 .gitignore
-.env* # Exclude all .env files
-db/data # Exclude the live DB directory (managed by volume)
-client/dist # Exclude build output if copied before build step
+
+# Exclude all .env files (docker only treats a line STARTING with # as a
+# comment — an inline "# ..." would become part of the pattern and match nothing)
+**/.env
+**/.env.*
+
+# Exclude the live DB directory (managed by volume)
+**/db/data
+
+# Exclude build output if copied before build step
+client/dist
+
 *.dockerignore
 Dockerfile*
 docker-compose*

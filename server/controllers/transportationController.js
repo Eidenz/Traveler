@@ -1,5 +1,6 @@
 // server/controllers/transportationController.js
 const { db } = require('../db/database');
+const { authorizeTrip } = require('../utils/tripAuth');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -65,6 +66,10 @@ const getTransportation = (req, res) => {
     if (!transportation) {
       return res.status(404).json({ message: 'Transportation not found' });
     }
+
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, transportation.trip_id, req.user.id, 'view')) return;
 
     // Get documents - filter personal documents to only show to uploader
     const documents = db.prepare(`
@@ -241,6 +246,10 @@ const updateTransportation = (req, res) => {
       return res.status(404).json({ message: 'Transportation not found' });
     }
 
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, transportation.trip_id, req.user.id, 'edit')) return;
+
     // Handle banner image if uploaded
     let bannerImage = transportation.banner_image;
 
@@ -344,6 +353,10 @@ const deleteTransportation = (req, res) => {
     if (!transportation) {
       return res.status(404).json({ message: 'Transportation not found' });
     }
+
+    // Authorize against the trip that owns this record — the route middleware
+    // resolves the trip from a client-supplied id, which must not be trusted here.
+    if (!authorizeTrip(res, transportation.trip_id, req.user.id, 'edit')) return;
 
     // Get associated documents
     const documents = db.prepare(`

@@ -51,30 +51,35 @@ const useAuthStore = create((set, get) => ({
 
   // Check if offline mode should be enabled
   checkOfflineMode: async () => {
-    // Only check if not already authenticated or already in offline mode
-    if (!get().isAuthenticated || !get().isOfflineMode) {
-      try {
-        const offlineTrips = await getAllOfflineTrips();
-        if (offlineTrips && offlineTrips.length > 0) {
-          console.log('Entering offline mode, found trips:', offlineTrips.length);
-          // We have offline data, enter offline mode
-          set({ 
-            isOfflineMode: true,
-            // Create a temporary offline user
-            user: { 
-              id: 'offline-user',
-              name: 'Offline User',
-              email: 'offline@example.com'
-            },
-            isAuthenticated: true // Treat as authenticated
-          });
-          return true;
-        }
-      } catch (error) {
-        console.error('Error checking offline trips:', error);
-      }
+    // Only enter offline mode for a signed-out user. Running this while a real
+    // user is authenticated would replace them with the placeholder offline user
+    // and silently make every trip read-only.
+    if (get().isAuthenticated || get().isOfflineMode) {
+      return get().isOfflineMode;
     }
-    return get().isOfflineMode; // Return current state if already in offline mode
+
+    try {
+      const offlineTrips = await getAllOfflineTrips();
+      if (offlineTrips && offlineTrips.length > 0) {
+        console.log('Entering offline mode, found trips:', offlineTrips.length);
+        // We have offline data, enter offline mode
+        set({
+          isOfflineMode: true,
+          // Create a temporary offline user
+          user: {
+            id: 'offline-user',
+            name: 'Offline User',
+            email: 'offline@example.com'
+          },
+          isAuthenticated: true // Treat as authenticated
+        });
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking offline trips:', error);
+    }
+
+    return get().isOfflineMode;
   },
 
   // Exit offline mode
