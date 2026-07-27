@@ -254,6 +254,7 @@ export const documentAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
+  createLinkDocument: (data) => api.post('/documents/link', data),
   getDocument: (documentId) => api.get(`/documents/${documentId}`),
   downloadDocument: (documentId) => api.get(`/documents/${documentId}/download`, {
     responseType: 'blob',

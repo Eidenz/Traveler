@@ -4,6 +4,7 @@ const multer = require('multer');
 const fs = require('fs');
 const {
   uploadDocument,
+  createLinkDocument,
   getDocument,
   deleteDocument,
   downloadDocument,
@@ -71,6 +72,24 @@ router.post(
     }
     // Proceed to controller if everything is okay
     uploadDocument(req, res, next); // Call the actual controller function
+  }
+);
+
+// Create a link document (URL instead of a file)
+router.post(
+  '/link',
+  [
+    body('reference_type').isIn(['trip', 'transport', 'transportation', 'lodging', 'activity'])
+      .withMessage('Valid reference type is required'),
+    body('reference_id').notEmpty().withMessage('Valid reference ID is required'),
+    body('url').notEmpty().withMessage('URL is required')
+  ],
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    createLinkDocument(req, res, next);
   }
 );
 

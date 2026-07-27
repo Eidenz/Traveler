@@ -303,7 +303,14 @@
     "personalDescription": "Only visible to you",
     "makePersonal": "Make personal",
     "noSharedDocuments": "No shared documents",
-    "noPersonalDocuments": "No personal documents"
+    "noPersonalDocuments": "No personal documents",
+    "addLink": "Add Link",
+    "open": "Open",
+    "linkAdded": "Link added",
+    "invalidUrl": "Invalid URL",
+    "linkUrlPlaceholder": "https://example.com/my-ticket",
+    "linkTitlePlaceholder": "Title (optional, e.g. \"Shinkansen QR code\")",
+    "newLinks": "New links to add"
   },
   "offline": {
     "saveOffline": "Save Offline",

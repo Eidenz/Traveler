@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
-    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download
+    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download, Link2
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -42,8 +42,12 @@ const ItemWizard = ({
     const [bannerImagePreview, setBannerImagePreview] = useState(null);
     const [existingBannerImage, setExistingBannerImage] = useState(null);
     const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
+    const [documentLinks, setDocumentLinks] = useState([]); // Array of {url, title, isPersonal} for NEW link documents
     const [existingDocuments, setExistingDocuments] = useState([]); // Existing documents from the server
     const [deletingDocId, setDeletingDocId] = useState(null);
+    const [showLinkInput, setShowLinkInput] = useState(false);
+    const [linkUrlInput, setLinkUrlInput] = useState('');
+    const [linkTitleInput, setLinkTitleInput] = useState('');
     const [errors, setErrors] = useState({});
     const [warnings, setWarnings] = useState({});
 
@@ -419,6 +423,61 @@ const ItemWizard = ({
         setDocumentFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    // Queue a link document to be created on save
+    const addDocumentLink = () => {
+        if (!linkUrlInput.trim()) return;
+
+        // Auto-prepend https:// when the protocol is missing
+        let url = linkUrlInput.trim();
+        if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+        }
+        try {
+            new URL(url);
+        } catch {
+            toast.error(t('documents.invalidUrl', 'Invalid URL'));
+            return;
+        }
+
+        setDocumentLinks(prev => [...prev, { url, title: linkTitleInput.trim(), isPersonal: false }]);
+        setLinkUrlInput('');
+        setLinkTitleInput('');
+        setShowLinkInput(false);
+    };
+
+    // Update link privacy setting
+    const updateLinkPrivacy = (index, isPersonal) => {
+        setDocumentLinks(prev => prev.map((link, i) =>
+            i === index ? { ...link, isPersonal } : link
+        ));
+    };
+
+    // Remove queued link from list
+    const removeDocumentLink = (index) => {
+        setDocumentLinks(prev => prev.filter((_, i) => i !== index));
+    };
+
+    // Upload queued files and create queued link documents for the saved item
+    const savePendingDocuments = async (referenceType, referenceId) => {
+        for (const doc of documentFiles) {
+            const docData = new FormData();
+            docData.append('document', doc.file);
+            docData.append('reference_type', referenceType);
+            docData.append('reference_id', referenceId);
+            docData.append('is_personal', doc.isPersonal ? 'true' : 'false');
+            await documentAPI.uploadDocument(docData);
+        }
+        for (const link of documentLinks) {
+            await documentAPI.createLinkDocument({
+                url: link.url,
+                title: link.title,
+                reference_type: referenceType,
+                reference_id: referenceId,
+                is_personal: link.isPersonal,
+            });
+        }
+    };
+
     // Delete an existing document from the server
     const deleteExistingDocument = async (documentId) => {
         if (!confirm(t('common.confirmDelete'))) return;
@@ -604,16 +663,8 @@ const ItemWizard = ({
                     toast.success(t('activities.createSuccess', 'Activity added successfully'));
                 }
 
-                // Upload documents if any selected
-                const refId = isEditMode ? itemId : response.data.activity.id;
-                for (const doc of documentFiles) {
-                    const docData = new FormData();
-                    docData.append('document', doc.file);
-                    docData.append('reference_type', 'activity');
-                    docData.append('reference_id', refId);
-                    docData.append('is_personal', doc.isPersonal ? 'true' : 'false');
-                    await documentAPI.uploadDocument(docData);
-                }
+                // Upload documents / create links if any queued
+                await savePendingDocuments('activity', isEditMode ? itemId : response.data.activity.id);
             } else if (type === 'lodging') {
                 formattedData.check_in = formData.check_in ? dayjs(formData.check_in).format('YYYY-MM-DD') : null;
                 formattedData.check_out = formData.check_out ? dayjs(formData.check_out).format('YYYY-MM-DD') : null;
@@ -627,16 +678,8 @@ const ItemWizard = ({
                     toast.success(t('lodging.createSuccess', 'Lodging added successfully'));
                 }
 
-                // Upload documents if any selected
-                const refId = isEditMode ? itemId : response.data.lodging.id;
-                for (const doc of documentFiles) {
-                    const docData = new FormData();
-                    docData.append('document', doc.file);
-                    docData.append('reference_type', 'lodging');
-                    docData.append('reference_id', refId);
-                    docData.append('is_personal', doc.isPersonal ? 'true' : 'false');
-                    await documentAPI.uploadDocument(docData);
-                }
+                // Upload documents / create links if any queued
+                await savePendingDocuments('lodging', isEditMode ? itemId : response.data.lodging.id);
             } else if (type === 'transport') {
                 formattedData.departure_date = formData.departure_date ? dayjs(formData.departure_date).format('YYYY-MM-DD') : null;
                 formattedData.arrival_date = formData.arrival_date
@@ -652,16 +695,8 @@ const ItemWizard = ({
                     toast.success(t('transportation.createSuccess', 'Transportation added successfully'));
                 }
 
-                // Upload documents if any selected
-                const refId = isEditMode ? itemId : response.data.transportation.id;
-                for (const doc of documentFiles) {
-                    const docData = new FormData();
-                    docData.append('document', doc.file);
-                    docData.append('reference_type', 'transportation');
-                    docData.append('reference_id', refId);
-                    docData.append('is_personal', doc.isPersonal ? 'true' : 'false');
-                    await documentAPI.uploadDocument(docData);
-                }
+                // Upload documents / create links if any queued
+                await savePendingDocuments('transportation', isEditMode ? itemId : response.data.transportation.id);
             }
 
             if (onSuccess) onSuccess();
@@ -1438,7 +1473,7 @@ const ItemWizard = ({
                     {/* Documents Section */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {t('documents.title', 'Documents')} {(existingDocuments.length + documentFiles.length) > 0 && `(${existingDocuments.length + documentFiles.length})`}
+                            {t('documents.title', 'Documents')} {(existingDocuments.length + documentFiles.length + documentLinks.length) > 0 && `(${existingDocuments.length + documentFiles.length + documentLinks.length})`}
                         </label>
 
                         {/* Existing documents (already uploaded to server) */}
@@ -1454,8 +1489,12 @@ const ItemWizard = ({
                                         }`}>
                                         {/* Top row: icon, filename, delete */}
                                         <div className="flex items-center gap-2">
-                                            <FileText className={`w-5 h-5 flex-shrink-0 ${doc.is_personal ? 'text-amber-500' : 'text-green-500'
-                                                }`} />
+                                            {doc.file_type === 'link' ? (
+                                                <Link2 className="w-5 h-5 flex-shrink-0 text-sky-500" />
+                                            ) : (
+                                                <FileText className={`w-5 h-5 flex-shrink-0 ${doc.is_personal ? 'text-amber-500' : 'text-green-500'
+                                                    }`} />
+                                            )}
                                             <span className="text-sm font-medium truncate flex-1 text-gray-900 dark:text-white">{doc.file_name}</span>
 
                                             {/* Delete button */}
@@ -1526,6 +1565,46 @@ const ItemWizard = ({
                             </div>
                         )}
 
+                        {/* New link documents to create */}
+                        {documentLinks.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    {t('documents.newLinks', 'New links to add')}
+                                </p>
+                                {documentLinks.map((link, index) => (
+                                    <div key={index} className="flex items-center gap-2 p-3 bg-sky-50 dark:bg-sky-900/10 rounded-xl border border-sky-200 dark:border-sky-800">
+                                        <Link2 className="w-5 h-5 text-sky-500 flex-shrink-0" />
+                                        <span className="text-sm font-medium truncate flex-1" title={link.url}>
+                                            {link.title || link.url}
+                                        </span>
+
+                                        {/* Privacy toggle for this link */}
+                                        <button
+                                            type="button"
+                                            onClick={() => updateLinkPrivacy(index, !link.isPersonal)}
+                                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${link.isPersonal
+                                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                                }`}
+                                            title={link.isPersonal ? t('budget.personal', 'Personal') : t('budget.shared', 'Shared')}
+                                        >
+                                            {link.isPersonal ? <Lock className="w-3 h-3" /> : <Users className="w-3 h-3" />}
+                                            <span className="hidden sm:inline">{link.isPersonal ? t('budget.personal', 'Personal') : t('budget.shared', 'Shared')}</span>
+                                        </button>
+
+                                        {/* Remove button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeDocumentLink(index)}
+                                            className="p-1 hover:bg-sky-100 dark:hover:bg-sky-800 rounded-full"
+                                        >
+                                            <X className="w-4 h-4 text-gray-500" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         {/* Add document button - always visible */}
                         <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
                             <Upload className="w-6 h-6 text-gray-400 mb-1" />
@@ -1543,6 +1622,56 @@ const ItemWizard = ({
                                 className="hidden"
                             />
                         </label>
+
+                        {/* Add link */}
+                        {showLinkInput ? (
+                            <div className="mt-2 p-3 bg-sky-50 dark:bg-sky-900/10 rounded-xl border border-sky-200 dark:border-sky-800 space-y-2">
+                                <input
+                                    type="url"
+                                    value={linkUrlInput}
+                                    onChange={(e) => setLinkUrlInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDocumentLink(); } }}
+                                    placeholder={t('documents.linkUrlPlaceholder', 'https://example.com/my-ticket')}
+                                    autoFocus
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-2 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                                />
+                                <input
+                                    type="text"
+                                    value={linkTitleInput}
+                                    onChange={(e) => setLinkTitleInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDocumentLink(); } }}
+                                    placeholder={t('documents.linkTitlePlaceholder', 'Title (optional, e.g. "Shinkansen QR code")')}
+                                    className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-2 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowLinkInput(false); setLinkUrlInput(''); setLinkTitleInput(''); }}
+                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                    >
+                                        {t('common.cancel', 'Cancel')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={addDocumentLink}
+                                        disabled={!linkUrlInput.trim()}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+                                    >
+                                        <Link2 className="w-3.5 h-3.5" />
+                                        {t('documents.addLink', 'Add Link')}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setShowLinkInput(true)}
+                                className="mt-2 w-full flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-sm text-gray-500 dark:text-gray-400 hover:border-sky-400 hover:text-sky-500 dark:hover:border-sky-500 transition-colors"
+                            >
+                                <Link2 className="w-4 h-4" />
+                                {t('documents.addLink', 'Add Link')}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

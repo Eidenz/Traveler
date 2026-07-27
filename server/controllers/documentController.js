@@ -58,6 +58,14 @@ const checkDocumentPermission = (userId, reference_type, reference_id, requiredR
 };
 
 
+// Normalize a reference id for storage in the TEXT column.
+// JSON bodies deliver numeric ids as JS numbers, which SQLite would
+// otherwise stringify as '3.0' and break equality lookups.
+const normalizeRefId = (reference_id) => {
+  if (typeof reference_id === 'number') return String(Math.trunc(reference_id));
+  return reference_id;
+};
+
 // Helper to get trip_id from reference
 const getTripIdFromReference = (reference_type, reference_id) => {
   if (reference_type === 'trip') return reference_id;
@@ -182,6 +190,68 @@ const uploadDocument = async (req, res) => { // Make async if needed later
 };
 
 /**
+ * Create a link document (a URL saved as a document, e.g. a live QR code page).
+ * Stored with file_type 'link' and no file on disk.
+ */
+const createLinkDocument = (req, res) => {
+  try {
+    const { reference_type, reference_id, url, title, is_personal } = req.body;
+    const userId = req.user.id;
+
+    // Validate URL (http/https only)
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ message: 'Invalid URL' });
+    }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ message: 'Only http(s) links are allowed' });
+    }
+
+    const validReferenceTypes = ['trip', 'transport', 'transportation', 'lodging', 'activity'];
+    if (!validReferenceTypes.includes(reference_type)) {
+      return res.status(400).json({ message: 'Invalid reference type' });
+    }
+
+    // *** Permission Check ***
+    if (!checkDocumentPermission(userId, reference_type, reference_id, ['owner', 'editor'])) {
+      return res.status(403).json({ message: 'Access Denied: You do not have permission to add documents for this item.' });
+    }
+
+    // Resolve trip_id
+    const tripId = getTripIdFromReference(reference_type, reference_id);
+    if (!tripId) {
+      return res.status(400).json({ message: 'Could not resolve trip for this document.' });
+    }
+
+    const file_name = (title && title.trim()) || parsedUrl.hostname;
+    const isPersonal = is_personal === 'true' || is_personal === '1' || is_personal === true ? 1 : 0;
+    const dbReferenceType = reference_type === 'transport' ? 'transportation' : reference_type;
+
+    const insert = db.prepare(`
+      INSERT INTO documents (
+        reference_type, reference_id, trip_id, file_path, file_name, file_type, url, uploaded_by, is_personal
+      ) VALUES (?, ?, ?, '', ?, 'link', ?, ?, ?)
+    `);
+
+    const result = insert.run(
+      dbReferenceType, normalizeRefId(reference_id), tripId, file_name, url, userId, isPersonal
+    );
+
+    const document = db.prepare('SELECT * FROM documents WHERE id = ?').get(result.lastInsertRowid);
+
+    return res.status(201).json({
+      message: 'Link document created successfully',
+      document
+    });
+  } catch (error) {
+    console.error('Create link document error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
  * Get a document's metadata
  */
 const getDocument = (req, res) => {
@@ -220,23 +290,25 @@ const deleteDocument = (req, res) => {
     // Permission is already checked by requireEditAccess middleware in the route
 
     // Get document to find file path
-    const document = db.prepare('SELECT file_path FROM documents WHERE id = ?').get(documentId);
+    const document = db.prepare('SELECT file_path, file_type FROM documents WHERE id = ?').get(documentId);
     if (!document) {
       return res.status(404).json({ message: 'Document not found' });
     }
 
-    // Delete file from filesystem
-    const filePath = path.join(__dirname, '..', document.file_path);
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      } else {
-        console.warn(`Document file not found for deletion: ${filePath}`);
+    // Delete file from filesystem (link documents have no file on disk)
+    if (document.file_type !== 'link' && document.file_path) {
+      const filePath = path.join(__dirname, '..', document.file_path);
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        } else {
+          console.warn(`Document file not found for deletion: ${filePath}`);
+        }
+      } catch (err) {
+        console.error(`Error deleting document file ${filePath}:`, err);
+        // Decide if you want to proceed with DB deletion even if file deletion fails
+        // return res.status(500).json({ message: 'Error deleting document file.' });
       }
-    } catch (err) {
-      console.error(`Error deleting document file ${filePath}:`, err);
-      // Decide if you want to proceed with DB deletion even if file deletion fails
-      // return res.status(500).json({ message: 'Error deleting document file.' });
     }
 
 
@@ -280,6 +352,11 @@ const downloadDocument = (req, res) => {
       return res.status(403).json({ message: 'Access Denied: This is a personal document.' });
     }
 
+    // Link documents have no file to download
+    if (document.file_type === 'link') {
+      return res.status(400).json({ message: 'This document is a link and has no file.', url: document.url });
+    }
+
     const filePath = path.join(__dirname, '..', document.file_path);
     if (!fs.existsSync(filePath)) {
       console.error(`Document file not found for download: ${filePath}`);
@@ -318,6 +395,11 @@ const viewDocument = (req, res) => {
     // *** Personal Document Check - only uploader can access personal documents ***
     if (document.is_personal && document.uploaded_by !== userId) {
       return res.status(403).json({ message: 'Access Denied: This is a personal document.' });
+    }
+
+    // Link documents have no file to view inline
+    if (document.file_type === 'link') {
+      return res.status(400).json({ message: 'This document is a link and has no file.', url: document.url });
     }
 
     const filePath = path.join(__dirname, '..', document.file_path);
@@ -364,7 +446,7 @@ const getDocumentsByReference = (req, res) => {
     const dbReferenceType = reference_type === 'transport' ? 'transportation' : reference_type;
 
     const documents = db.prepare(`
-      SELECT id, file_name, file_type, created_at, uploaded_by, is_personal
+      SELECT id, file_name, file_type, url, created_at, uploaded_by, is_personal
       FROM documents
       WHERE reference_type = ? AND reference_id = ?
         AND (is_personal = 0 OR is_personal IS NULL OR uploaded_by = ?)
@@ -435,7 +517,7 @@ const updateDocument = (req, res) => {
     }
     if (reference_id) {
       updateFields.push('reference_id = ?');
-      params.push(reference_id);
+      params.push(normalizeRefId(reference_id));
     }
     if (is_personal !== undefined) {
       updateFields.push('is_personal = ?');
@@ -496,6 +578,7 @@ const getAllTripDocuments = (req, res) => {
 
 module.exports = {
   uploadDocument,
+  createLinkDocument,
   getDocument,
   deleteDocument,
   downloadDocument,

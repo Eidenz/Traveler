@@ -1,6 +1,6 @@
 // client/src/components/trips/DocumentsModal.jsx
 import React, { useState, useMemo } from 'react';
-import { FileText, Download, Eye, Info, ExternalLink, X, Lock, Users, Trash2 } from 'lucide-react';
+import { FileText, Download, Eye, Info, ExternalLink, X, Lock, Users, Trash2, Link2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import PDFViewerModal from './PDFViewerModal';
@@ -44,6 +44,14 @@ const DocumentsModal = ({
   const handleViewDocument = async (doc) => {
     try {
       setIsLoading(true);
+
+      // Link documents open in a new tab
+      if (doc.file_type === 'link') {
+        if (doc.url) {
+          window.open(doc.url, '_blank', 'noopener,noreferrer');
+        }
+        return;
+      }
 
       // Only PDF files can be viewed in the viewer
       if (doc.file_type && doc.file_type.includes('pdf')) {
@@ -142,29 +150,39 @@ const DocumentsModal = ({
   };
 
   const getFileTypeIcon = (fileType, isPersonal = false) => {
+    const isLink = fileType === 'link';
+
     const bgColor = isPersonal
       ? 'bg-amber-100 dark:bg-amber-900/30'
-      : fileType && fileType.includes('pdf')
-        ? 'bg-red-100 dark:bg-red-900/30'
-        : fileType && (fileType.includes('doc') || fileType.includes('word'))
-          ? 'bg-blue-100 dark:bg-blue-900/30'
-          : fileType && fileType.includes('image')
-            ? 'bg-green-100 dark:bg-green-900/30'
-            : 'bg-purple-100 dark:bg-purple-900/30';
+      : isLink
+        ? 'bg-sky-100 dark:bg-sky-900/30'
+        : fileType && fileType.includes('pdf')
+          ? 'bg-red-100 dark:bg-red-900/30'
+          : fileType && (fileType.includes('doc') || fileType.includes('word'))
+            ? 'bg-blue-100 dark:bg-blue-900/30'
+            : fileType && fileType.includes('image')
+              ? 'bg-green-100 dark:bg-green-900/30'
+              : 'bg-purple-100 dark:bg-purple-900/30';
 
     const iconColor = isPersonal
       ? 'text-amber-600 dark:text-amber-400'
-      : fileType && fileType.includes('pdf')
-        ? 'text-red-600 dark:text-red-400'
-        : fileType && (fileType.includes('doc') || fileType.includes('word'))
-          ? 'text-blue-600 dark:text-blue-400'
-          : fileType && fileType.includes('image')
-            ? 'text-green-600 dark:text-green-400'
-            : 'text-purple-600 dark:text-purple-400';
+      : isLink
+        ? 'text-sky-600 dark:text-sky-400'
+        : fileType && fileType.includes('pdf')
+          ? 'text-red-600 dark:text-red-400'
+          : fileType && (fileType.includes('doc') || fileType.includes('word'))
+            ? 'text-blue-600 dark:text-blue-400'
+            : fileType && fileType.includes('image')
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-purple-600 dark:text-purple-400';
 
     return (
       <div className={`p-2 rounded-lg ${bgColor} relative`}>
-        <FileText className={`h-5 w-5 ${iconColor}`} />
+        {isLink ? (
+          <Link2 className={`h-5 w-5 ${iconColor}`} />
+        ) : (
+          <FileText className={`h-5 w-5 ${iconColor}`} />
+        )}
         {isPersonal && (
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
             <Lock className="w-2.5 h-2.5 text-white" />
@@ -204,24 +222,37 @@ const DocumentsModal = ({
 
       {/* Actions row */}
       <div className="flex items-center gap-2 mt-3 pl-11">
-        {canPreview(doc.file_type) && (
+        {doc.file_type === 'link' ? (
           <button
             disabled={isLoading}
             onClick={() => handleViewDocument(doc)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-lg hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors disabled:opacity-50"
           >
-            <Eye size={16} />
-            <span className="hidden sm:inline">{t('documents.view')}</span>
+            <ExternalLink size={16} />
+            <span>{t('documents.open', 'Open')}</span>
           </button>
+        ) : (
+          <>
+            {canPreview(doc.file_type) && (
+              <button
+                disabled={isLoading}
+                onClick={() => handleViewDocument(doc)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                <Eye size={16} />
+                <span className="hidden sm:inline">{t('documents.view')}</span>
+              </button>
+            )}
+            <button
+              disabled={isLoading}
+              onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
+            >
+              <Download size={16} />
+              <span className="hidden sm:inline">{t('documents.download')}</span>
+            </button>
+          </>
         )}
-        <button
-          disabled={isLoading}
-          onClick={() => handleDownloadDocument(doc.id, doc.file_name)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors disabled:opacity-50"
-        >
-          <Download size={16} />
-          <span className="hidden sm:inline">{t('documents.download')}</span>
-        </button>
         {canEdit && !isOfflineMode && (
           <button
             disabled={isLoading}

@@ -706,6 +706,12 @@ const TripDetail = () => {
           const documents = response.data.documents || [];
           for (const doc of documents) {
             try {
+              // Link documents have no file — store metadata only
+              if (doc.file_type === 'link') {
+                await saveDocumentOffline({ ...doc, trip_id: tripId }, null);
+                docCount++;
+                continue;
+              }
               const blobResponse = await documentAPI.viewDocumentAsBlob(doc.id);
               await saveDocumentOffline({ ...doc, trip_id: tripId }, blobResponse.data);
               docCount++;

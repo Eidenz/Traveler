@@ -1,6 +1,6 @@
 // client/src/components/trips/DocumentPanel.jsx
 import React, { useState, useMemo, useRef } from 'react';
-import { FileText, Download, Eye, ChevronLeft, Image, File, Lock, Users, Upload, Plus, X, Trash2 } from 'lucide-react';
+import { FileText, Download, Eye, ChevronLeft, Image, File, Lock, Users, Upload, Plus, X, Trash2, Link2, ExternalLink } from 'lucide-react';
 import { documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,11 @@ const DocumentPanel = ({
     const [uploadFile, setUploadFile] = useState(null);
     const [isPersonalDocument, setIsPersonalDocument] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+
+    // Link document state
+    const [showLinkForm, setShowLinkForm] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
+    const [linkTitle, setLinkTitle] = useState('');
 
     // Split documents into shared and personal
     const { sharedDocs, personalDocs } = useMemo(() => {
@@ -133,10 +138,64 @@ const DocumentPanel = ({
         }
     };
 
+    // Handle link document creation
+    const handleCreateLink = async () => {
+        if (!linkUrl.trim() || !referenceType || !referenceId) return;
+
+        // Auto-prepend https:// when the protocol is missing
+        let url = linkUrl.trim();
+        if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+        }
+        try {
+            new URL(url);
+        } catch {
+            toast.error(t('documents.invalidUrl', 'Invalid URL'));
+            return;
+        }
+
+        try {
+            setIsUploading(true);
+            await documentAPI.createLinkDocument({
+                url,
+                title: linkTitle.trim(),
+                reference_type: referenceType,
+                reference_id: referenceId,
+                is_personal: isPersonalDocument,
+            });
+            toast.success(t('documents.linkAdded', 'Link added'));
+            cancelLink();
+            if (onDocumentsChange) {
+                onDocumentsChange();
+            }
+        } catch (error) {
+            console.error('Error creating link document:', error);
+            toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('documents.title').toLowerCase() }));
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    // Cancel link form
+    const cancelLink = () => {
+        setLinkUrl('');
+        setLinkTitle('');
+        setIsPersonalDocument(false);
+        setShowLinkForm(false);
+    };
+
     // Handle viewing a document
     const handleViewDocument = async (doc) => {
         try {
             setIsLoading(true);
+
+            // Link documents open in a new tab
+            if (doc.file_type === 'link') {
+                if (doc.url) {
+                    window.open(doc.url, '_blank', 'noopener,noreferrer');
+                }
+                return;
+            }
 
             // Only PDF files can be viewed in the viewer
             if (doc.file_type && doc.file_type.includes('pdf')) {
@@ -215,7 +274,9 @@ const DocumentPanel = ({
     };
 
     const getFileIcon = (fileType) => {
-        if (fileType && fileType.includes('pdf')) {
+        if (fileType === 'link') {
+            return <Link2 className="w-8 h-8 text-sky-500" />;
+        } else if (fileType && fileType.includes('pdf')) {
             return <FileText className="w-8 h-8 text-red-500" />;
         } else if (fileType && (fileType.includes('doc') || fileType.includes('word'))) {
             return <FileText className="w-8 h-8 text-blue-500" />;
@@ -229,10 +290,20 @@ const DocumentPanel = ({
         if (isPersonal) {
             return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800';
         }
+        if (fileType === 'link') return 'bg-sky-50 dark:bg-sky-900/20 border-sky-100 dark:border-sky-800';
         if (fileType && fileType.includes('pdf')) return 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800';
         if (fileType && (fileType.includes('doc') || fileType.includes('word'))) return 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800';
         if (fileType && fileType.includes('image')) return 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800';
         return 'bg-purple-50 dark:bg-purple-900/20 border-purple-100 dark:border-purple-800';
+    };
+
+    // Displayed hostname for a link document
+    const getLinkHost = (url) => {
+        try {
+            return new URL(url).hostname;
+        } catch {
+            return url;
+        }
     };
 
     const closePreview = () => {
@@ -275,13 +346,15 @@ const DocumentPanel = ({
                     <h3 className="font-medium text-gray-900 dark:text-white truncate pr-8">
                         {doc.file_name}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {new Date(doc.created_at).toLocaleDateString()}
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                        {doc.file_type === 'link'
+                            ? getLinkHost(doc.url)
+                            : new Date(doc.created_at).toLocaleDateString()}
                     </p>
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 mt-3">
-                        {canPreview(doc.file_type) && (
+                        {doc.file_type === 'link' ? (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -290,21 +363,37 @@ const DocumentPanel = ({
                                 disabled={isLoading}
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                             >
-                                <Eye className="w-3.5 h-3.5" />
-                                {t('documents.view', 'View')}
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                {t('documents.open', 'Open')}
                             </button>
+                        ) : (
+                            <>
+                                {canPreview(doc.file_type) && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleViewDocument(doc);
+                                        }}
+                                        disabled={isLoading}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        {t('documents.view', 'View')}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownloadDocument(doc.id, doc.file_name);
+                                    }}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    {t('documents.download', 'Download')}
+                                </button>
+                            </>
                         )}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadDocument(doc.id, doc.file_name);
-                            }}
-                            disabled={isLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-                        >
-                            <Download className="w-3.5 h-3.5" />
-                            {t('documents.download', 'Download')}
-                        </button>
                         {canEdit && (
                             <button
                                 onClick={(e) => {
@@ -381,7 +470,14 @@ const DocumentPanel = ({
                                 className="hidden"
                             />
                             <button
-                                onClick={() => fileInputRef.current?.click()}
+                                onClick={() => { cancelUpload(); setShowLinkForm(true); }}
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                            >
+                                <Link2 className="w-4 h-4" />
+                                {t('documents.addLink', 'Add Link')}
+                            </button>
+                            <button
+                                onClick={() => { cancelLink(); fileInputRef.current?.click(); }}
                                 className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors text-sm font-medium"
                             >
                                 <Plus className="w-4 h-4" />
@@ -391,6 +487,96 @@ const DocumentPanel = ({
                     )}
                 </div>
             </div>
+
+            {/* Link Form */}
+            {showLinkForm && (
+                <div className="px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 bg-sky-50 dark:bg-sky-900/20 rounded-lg">
+                            <div className="flex items-center gap-3">
+                                <Link2 className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+                                <span className="text-sm font-medium">{t('documents.addLink', 'Add Link')}</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={cancelLink}
+                                className="p-1 rounded-full hover:bg-sky-100 dark:hover:bg-sky-800"
+                            >
+                                <X className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+                            </button>
+                        </div>
+
+                        <input
+                            type="url"
+                            value={linkUrl}
+                            onChange={(e) => setLinkUrl(e.target.value)}
+                            placeholder={t('documents.linkUrlPlaceholder', 'https://example.com/my-ticket')}
+                            autoFocus
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                        />
+                        <input
+                            type="text"
+                            value={linkTitle}
+                            onChange={(e) => setLinkTitle(e.target.value)}
+                            placeholder={t('documents.linkTitlePlaceholder', 'Title (optional, e.g. "Shinkansen QR code")')}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2.5 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                        />
+
+                        {/* Personal/Shared Toggle */}
+                        <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                            <button
+                                type="button"
+                                onClick={() => setIsPersonalDocument(false)}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${!isPersonalDocument
+                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    }`}
+                            >
+                                <Users className="w-4 h-4" />
+                                <span>{t('budget.shared', 'Shared')}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsPersonalDocument(true)}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${isPersonalDocument
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
+                                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                    }`}
+                            >
+                                <Lock className="w-4 h-4" />
+                                <span>{t('budget.personal', 'Personal')}</span>
+                            </button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {isPersonalDocument
+                                ? t('documents.personalDescription', 'Only visible to you')
+                                : t('documents.sharedDescription', 'Visible to all trip members')
+                            }
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={cancelLink}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            >
+                                {t('common.cancel', 'Cancel')}
+                            </button>
+                            <button
+                                onClick={handleCreateLink}
+                                disabled={isUploading || !linkUrl.trim()}
+                                className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
+                                {isUploading ? (
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Link2 className="w-4 h-4" />
+                                )}
+                                {t('documents.addLink', 'Add Link')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Upload Form */}
             {showUploadForm && uploadFile && (
@@ -500,7 +686,7 @@ const DocumentPanel = ({
                             </button>
                         </div>
                     </div>
-                ) : documents.length === 0 && !showUploadForm ? (
+                ) : documents.length === 0 && !showUploadForm && !showLinkForm ? (
                     // Empty state
                     <div className="flex flex-col items-center justify-center h-full text-center">
                         <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />

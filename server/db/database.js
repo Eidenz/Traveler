@@ -305,6 +305,7 @@ function initializeDatabase() {
       await runPublicShareMigration(); // Add public share token migration
       await runPersonalDocumentsMigration(); // Add personal documents migration
       await runPersonalChecklistsMigration(); // Add personal checklists migration
+      await runLinkDocumentsMigration(); // Add url field for link documents
       await runDocumentsTripIdMigration(); // Add trip_id to documents
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
       await runBrainstormPublicShareMigration(); // Add public brainstorm share setting
@@ -420,6 +421,30 @@ async function runPersonalDocumentsMigration() {
     console.log('Personal documents field migration completed');
   } catch (error) {
     console.error('Error running personal documents migration:', error);
+  }
+}
+
+/**
+ * Migration for link documents (documents that are a URL instead of a file)
+ */
+async function runLinkDocumentsMigration() {
+  try {
+    migrateField('documents', 'url', 'TEXT');
+
+    // Repair reference_ids stored as '3.0' (numeric ids sent as JSON numbers
+    // were bound as doubles and stringified by the TEXT column)
+    const repaired = db.prepare(`
+      UPDATE documents
+      SET reference_id = CAST(CAST(reference_id AS INTEGER) AS TEXT)
+      WHERE reference_id LIKE '%.0' AND reference_id NOT LIKE 'trip_%'
+    `).run();
+    if (repaired.changes > 0) {
+      console.log(`Repaired ${repaired.changes} document reference_id values`);
+    }
+
+    console.log('Link documents field migration completed');
+  } catch (error) {
+    console.error('Error running link documents migration:', error);
   }
 }
 

@@ -303,7 +303,14 @@
     "personalDescription": "Visible uniquement par vous",
     "makePersonal": "Rendre personnel",
     "noSharedDocuments": "Aucun document partagé",
-    "noPersonalDocuments": "Aucun document personnel"
+    "noPersonalDocuments": "Aucun document personnel",
+    "addLink": "Ajouter un lien",
+    "open": "Ouvrir",
+    "linkAdded": "Lien ajouté",
+    "invalidUrl": "URL invalide",
+    "linkUrlPlaceholder": "https://exemple.com/mon-billet",
+    "linkTitlePlaceholder": "Titre (optionnel, ex. \"QR code Shinkansen\")",
+    "newLinks": "Nouveaux liens à ajouter"
   },
   "offline": {
     "saveOffline": "Enreg. hors ligne",

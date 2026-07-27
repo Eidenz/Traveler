@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { documentAPI, activityAPI, transportAPI, lodgingAPI } from '../../services/api';
-import { FileText, Download, Eye, Image, File, Lock, Users, Briefcase, Map, Home, Plus, X, Trash2, Link as LinkIcon, AlertCircle, Search, ChevronDown } from 'lucide-react';
+import { FileText, Download, Eye, Image, File, Lock, Users, Briefcase, Map, Home, Plus, X, Trash2, Link as LinkIcon, ExternalLink, AlertCircle, Search, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import PDFViewerModal from '../../components/trips/PDFViewerModal';
@@ -124,6 +124,11 @@ const DocumentsList = ({ tripId, trip }) => {
     const [uploadFile, setUploadFile] = useState(null);
     const [isPersonal, setIsPersonal] = useState(false);
 
+    // Link Document State
+    const [showLinkForm, setShowLinkForm] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
+    const [linkTitle, setLinkTitle] = useState('');
+
     // Linking State
     const [linkingDoc, setLinkingDoc] = useState(null); // Document being linked
     const [linkCategory, setLinkCategory] = useState('activity');
@@ -205,6 +210,44 @@ const DocumentsList = ({ tripId, trip }) => {
         }
     };
 
+    const handleCreateLink = async () => {
+        if (!linkUrl.trim()) return;
+
+        // Auto-prepend https:// when the protocol is missing
+        let url = linkUrl.trim();
+        if (!/^https?:\/\//i.test(url)) {
+            url = `https://${url}`;
+        }
+        try {
+            new URL(url);
+        } catch {
+            toast.error(t('documents.invalidUrl', 'Invalid URL'));
+            return;
+        }
+
+        try {
+            setUploading(true);
+            await documentAPI.createLinkDocument({
+                url,
+                title: linkTitle.trim(),
+                reference_type: 'trip', // General trip docs, linkable afterwards
+                reference_id: tripId,
+                is_personal: isPersonal,
+            });
+            toast.success(t('documents.linkAdded', 'Link added'));
+            setShowLinkForm(false);
+            setLinkUrl('');
+            setLinkTitle('');
+            setIsPersonal(false);
+            fetchDocuments();
+        } catch (error) {
+            console.error('Create link error:', error);
+            toast.error(error.response?.data?.message || t('errors.saveFailed', 'Failed to add link'));
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const handleDelete = async (docId) => {
         if (!confirm(t('common.confirmDelete', 'Are you sure you want to delete this document?'))) return;
         try {
@@ -237,7 +280,11 @@ const DocumentsList = ({ tripId, trip }) => {
     const handleView = async (doc) => {
         try {
             setViewLoading(true);
-            if (doc.file_type && doc.file_type.includes('pdf')) {
+            if (doc.file_type === 'link') {
+                if (doc.url) {
+                    window.open(doc.url, '_blank', 'noopener,noreferrer');
+                }
+            } else if (doc.file_type && doc.file_type.includes('pdf')) {
                 const response = await documentAPI.viewDocumentAsBlob(doc.id);
                 setCurrentPdfBlob(response.data);
                 setCurrentPdfName(doc.file_name);
@@ -292,6 +339,7 @@ const DocumentsList = ({ tripId, trip }) => {
     };
 
     const getFileIcon = (fileType) => {
+        if (fileType === 'link') return <LinkIcon className="w-8 h-8 text-sky-500" />;
         if (fileType && fileType.includes('pdf')) return <FileText className="w-8 h-8 text-red-500" />;
         if (fileType && (fileType.includes('doc') || fileType.includes('word'))) return <FileText className="w-8 h-8 text-blue-500" />;
         if (fileType && fileType.includes('image')) return <Image className="w-8 h-8 text-green-500" />;
@@ -310,21 +358,31 @@ const DocumentsList = ({ tripId, trip }) => {
                     ) : <></>}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900 dark:text-white truncate" title={doc.file_name}>
+                    <h4 className="font-medium text-gray-900 dark:text-white truncate" title={doc.file_type === 'link' ? doc.url : doc.file_name}>
                         {doc.file_name}
                     </h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                        {new Date(doc.created_at).toLocaleDateString()}
+                    <p className="text-xs text-gray-500 mt-1 truncate">
+                        {doc.file_type === 'link'
+                            ? (() => { try { return new URL(doc.url).hostname; } catch { return doc.url; } })()
+                            : new Date(doc.created_at).toLocaleDateString()}
                     </p>
                     <div className="flex items-center gap-2 mt-3">
-                        {(doc.file_type.includes('pdf') || doc.file_type.includes('image')) && (
-                            <button onClick={() => handleView(doc)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="View">
-                                <Eye className="w-4 h-4" />
+                        {doc.file_type === 'link' ? (
+                            <button onClick={() => handleView(doc)} className="p-1.5 hover:bg-sky-50 dark:hover:bg-sky-900/20 rounded text-sky-500" title={t('documents.open', 'Open')}>
+                                <ExternalLink className="w-4 h-4" />
                             </button>
+                        ) : (
+                            <>
+                                {(doc.file_type.includes('pdf') || doc.file_type.includes('image')) && (
+                                    <button onClick={() => handleView(doc)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="View">
+                                        <Eye className="w-4 h-4" />
+                                    </button>
+                                )}
+                                <button onClick={() => handleDownload(doc.id, doc.file_name)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Download">
+                                    <Download className="w-4 h-4" />
+                                </button>
+                            </>
                         )}
-                        <button onClick={() => handleDownload(doc.id, doc.file_name)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-500" title="Download">
-                            <Download className="w-4 h-4" />
-                        </button>
 
                         {/* Only allow linking if it is unlinked OR allows moving. Currently focusing on unlinked. */}
                         {isUnlinked && (
@@ -444,7 +502,7 @@ const DocumentsList = ({ tripId, trip }) => {
                             Organize your files. Unlinked files will appear in the top section.
                         </p>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -452,7 +510,14 @@ const DocumentsList = ({ tripId, trip }) => {
                             className="hidden"
                         />
                         <button
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={() => { setUploadFile(null); setShowLinkForm(true); }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
+                        >
+                            <LinkIcon className="w-5 h-5" />
+                            {t('documents.addLink', 'Add Link')}
+                        </button>
+                        <button
+                            onClick={() => { setShowLinkForm(false); fileInputRef.current?.click(); }}
                             className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors font-medium shadow-lg shadow-accent/20"
                         >
                             <Plus className="w-5 h-5" />
@@ -460,6 +525,56 @@ const DocumentsList = ({ tripId, trip }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* Link Form */}
+                {showLinkForm && (
+                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700 animate-fade-in-up">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <LinkIcon className="w-5 h-5 text-sky-500 flex-shrink-0 hidden sm:block" />
+                            <input
+                                type="url"
+                                value={linkUrl}
+                                onChange={(e) => setLinkUrl(e.target.value)}
+                                placeholder={t('documents.linkUrlPlaceholder', 'https://example.com/my-ticket')}
+                                autoFocus
+                                className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                            />
+                            <input
+                                type="text"
+                                value={linkTitle}
+                                onChange={(e) => setLinkTitle(e.target.value)}
+                                placeholder={t('documents.linkTitlePlaceholder', 'Title (optional)')}
+                                className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 text-sm focus:ring-2 focus:ring-accent focus:border-accent outline-none"
+                            />
+                            <div className="flex items-center gap-3 justify-end">
+                                <button
+                                    onClick={() => setIsPersonal(!isPersonal)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isPersonal
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                        : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                                        }`}
+                                >
+                                    {isPersonal ? <Lock className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
+                                    {isPersonal ? t('budget.personal', 'Personal') : t('budget.shared', 'Shared')}
+                                </button>
+                                <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
+                                <button
+                                    onClick={() => { setShowLinkForm(false); setLinkUrl(''); setLinkTitle(''); setIsPersonal(false); }}
+                                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-2"
+                                >
+                                    {t('common.cancel', 'Cancel')}
+                                </button>
+                                <button
+                                    onClick={handleCreateLink}
+                                    disabled={uploading || !linkUrl.trim()}
+                                    className="px-4 py-1.5 bg-accent text-white rounded-lg hover:bg-accent-hover text-sm font-medium disabled:opacity-50"
+                                >
+                                    {uploading ? t('common.saving', 'Saving...') : t('documents.addLink', 'Add Link')}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Upload Confirmation */}
                 {uploadFile && (
