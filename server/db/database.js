@@ -144,6 +144,7 @@ function initializeDatabase() {
           trip_id TEXT NOT NULL,
           name TEXT NOT NULL,
           created_by INTEGER NOT NULL,
+          is_personal INTEGER DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (trip_id) REFERENCES trips (id) ON DELETE CASCADE,
           FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
@@ -303,6 +304,7 @@ function initializeDatabase() {
       await runEmailPreferenceMigration(); // Add email preference migration
       await runPublicShareMigration(); // Add public share token migration
       await runPersonalDocumentsMigration(); // Add personal documents migration
+      await runPersonalChecklistsMigration(); // Add personal checklists migration
       await runDocumentsTripIdMigration(); // Add trip_id to documents
       await runBrainstormPriorityMigration(); // Add priority field to brainstorm items
       await runBrainstormPublicShareMigration(); // Add public brainstorm share setting
@@ -418,6 +420,18 @@ async function runPersonalDocumentsMigration() {
     console.log('Personal documents field migration completed');
   } catch (error) {
     console.error('Error running personal documents migration:', error);
+  }
+}
+
+/**
+ * Migration for personal checklists field
+ */
+async function runPersonalChecklistsMigration() {
+  try {
+    migrateField('checklists', 'is_personal', 'INTEGER DEFAULT 0');
+    console.log('Personal checklists field migration completed');
+  } catch (error) {
+    console.error('Error running personal checklists migration:', error);
   }
 }
 

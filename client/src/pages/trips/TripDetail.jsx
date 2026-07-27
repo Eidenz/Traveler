@@ -9,11 +9,11 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
 // API and stores
-import { tripAPI, transportAPI, lodgingAPI, activityAPI, checklistAPI } from '../../services/api';
+import { tripAPI, transportAPI, lodgingAPI, activityAPI, checklistAPI, documentAPI } from '../../services/api';
 import useAuthStore from '../../stores/authStore';
 import {
   isTripAvailableOffline, saveTripOffline, removeTripOffline,
-  getDocumentsForReference, getTripOffline
+  saveDocumentOffline, getDocumentsForReference, getTripOffline
 } from '../../utils/offlineStorage';
 
 // Real-time collaboration
@@ -86,7 +86,8 @@ const TripDetail = () => {
   const [panelWidth, setPanelWidth] = useState(() => {
     // Try to load saved width from localStorage
     const saved = localStorage.getItem('tripPanelWidth');
-    return saved ? parseInt(saved, 10) : 480;
+    // Default wide enough for all four tabs to fit without scrolling
+    return saved ? parseInt(saved, 10) : 560;
   });
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
@@ -234,6 +235,14 @@ const TripDetail = () => {
 
   const fetchChecklists = async () => {
     try {
+      // When offline, checklists come from the offline snapshot in fetchTripData
+      if (!navigator.onLine) {
+        const offlineTrip = await getTripOffline(tripId);
+        if (offlineTrip) {
+          setChecklists(offlineTrip.checklists || []);
+          return;
+        }
+      }
       const response = await checklistAPI.getTripChecklists(tripId);
       setChecklists(response.data.checklists || []);
     } catch (error) {
@@ -257,6 +266,7 @@ const TripDetail = () => {
           setTransportation(offlineTrip.transportation || []);
           setLodging(offlineTrip.lodging || []);
           setActivities(offlineTrip.activities || []);
+          setChecklists(offlineTrip.checklists || []);
           toast.info(t('offline.usingOfflineData', 'Using offline data'), {
             icon: <WifiOff size={16} />,
           });
@@ -281,6 +291,7 @@ const TripDetail = () => {
           setTransportation(offlineTrip.transportation || []);
           setLodging(offlineTrip.lodging || []);
           setActivities(offlineTrip.activities || []);
+          setChecklists(offlineTrip.checklists || []);
           return;
         }
       }
@@ -663,6 +674,20 @@ const TripDetail = () => {
     } else {
       try {
         setIsSavingOffline(true);
+
+        // Snapshot checklists with their items so they can be browsed offline
+        let checklistsWithItems = checklists;
+        try {
+          checklistsWithItems = await Promise.all(
+            checklists.map(async (checklist) => {
+              const response = await checklistAPI.getChecklist(checklist.id);
+              return { ...checklist, items: response.data.items || [] };
+            })
+          );
+        } catch (error) {
+          console.error('Error fetching checklist items for offline save:', error);
+        }
+
         await saveTripOffline({
           id: tripId,
           ...trip,
@@ -670,9 +695,38 @@ const TripDetail = () => {
           transportation,
           lodging,
           activities,
+          checklists: checklistsWithItems,
         });
+
+        // Download every attached document (shared + own personal) into IndexedDB
+        let docCount = 0;
+        let docErrors = 0;
+        try {
+          const response = await documentAPI.getAllTripDocuments(tripId);
+          const documents = response.data.documents || [];
+          for (const doc of documents) {
+            try {
+              const blobResponse = await documentAPI.viewDocumentAsBlob(doc.id);
+              await saveDocumentOffline({ ...doc, trip_id: tripId }, blobResponse.data);
+              docCount++;
+            } catch (docError) {
+              docErrors++;
+              console.error(`Error saving document ${doc.id} offline:`, docError);
+            }
+          }
+        } catch (error) {
+          docErrors++;
+          console.error('Error fetching trip documents for offline save:', error);
+        }
+
         setIsAvailableOffline(true);
-        toast.success(t('offline.saved', 'Saved for offline use'));
+        if (docErrors > 0) {
+          toast.success(t('offline.savedPartialDocs', 'Saved for offline use ({{count}} documents, some could not be downloaded)', { count: docCount }));
+        } else if (docCount > 0) {
+          toast.success(t('offline.savedWithDocs', 'Saved for offline use with {{count}} documents', { count: docCount }));
+        } else {
+          toast.success(t('offline.saved', 'Saved for offline use'));
+        }
       } catch {
         toast.error(t('offline.saveFailed', 'Failed to save for offline'));
       } finally {
@@ -896,6 +950,7 @@ const TripDetail = () => {
                     canEdit={canEdit()}
                     checklists={checklists}
                     onChange={setChecklists}
+                    isOfflineMode={!navigator.onLine && isAvailableOffline}
                   />
                 </div>
               )}
@@ -1054,6 +1109,7 @@ const TripDetail = () => {
                   canEdit={canEdit()}
                   checklists={checklists}
                   onChange={setChecklists}
+                  isOfflineMode={!navigator.onLine && isAvailableOffline}
                 />
               </div>
             )}

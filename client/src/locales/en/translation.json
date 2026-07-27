@@ -315,7 +315,12 @@
     "availableOffline": "Available offline",
     "documentsCount": "documents saved for offline use",
     "usingOfflineData": "Using offline data",
-    "offline_mode_message": "You're currently in offline mode. Only trips saved for offline use are shown."
+    "offline_mode_message": "You're currently in offline mode. Only trips saved for offline use are shown.",
+    "saved": "Saved for offline use",
+    "savedWithDocs": "Saved for offline use with {{count}} documents",
+    "savedPartialDocs": "Saved for offline use ({{count}} documents, some could not be downloaded)",
+    "removed": "Removed from offline storage",
+    "checklistReadOnly": "Checklists are read-only while offline"
   },
   "sharing": {
     "shareTrip": "Share Trip",
@@ -452,7 +457,13 @@
     "complete": "complete",
     "progress": "Progress",
     "skipped": "skipped",
-    "unskipped": "unskipped"
+    "unskipped": "unskipped",
+    "shared": "Shared",
+    "personal": "Personal",
+    "sharedDescription": "Visible to all trip members",
+    "personalDescription": "Only visible to you",
+    "noShared": "No checklists yet",
+    "noPersonal": "No personal checklists yet"
   },
   "budget": {
     "title": "Trip Budget",

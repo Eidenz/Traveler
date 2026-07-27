@@ -36,9 +36,10 @@ function initializeSocket(httpServer) {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
                 socket.userId = decoded.userId; // JWT stores userId, not id
 
-                // Look up user name from database
-                const user = db.prepare('SELECT name FROM users WHERE id = ?').get(decoded.userId);
+                // Look up user name and avatar from database
+                const user = db.prepare('SELECT name, profile_image FROM users WHERE id = ?').get(decoded.userId);
                 socket.userName = user?.name || 'Anonymous';
+                socket.profileImage = user?.profile_image || null;
 
                 next();
             } catch (err) {
@@ -123,6 +124,7 @@ function initializeSocket(httpServer) {
                         socketId: socket.id,
                         userId: socket.userId,
                         userName: socket.userName,
+                        profileImage: socket.profileImage,
                         role: member.role
                     });
 
@@ -130,6 +132,7 @@ function initializeSocket(httpServer) {
                     socket.to(roomName).emit('user:joined', {
                         userId: socket.userId,
                         userName: socket.userName,
+                        profileImage: socket.profileImage,
                         role: member.role
                     });
 
@@ -141,6 +144,7 @@ function initializeSocket(httpServer) {
                         socketId: socket.id,
                         userId: socket.userId,
                         userName: socket.userName,
+                        profileImage: socket.profileImage,
                         role: member.role
                     });
                 }

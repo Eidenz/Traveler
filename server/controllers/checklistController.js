@@ -5,13 +5,52 @@ const { queueNotificationsForTripMembers } = require('../utils/emailQueueService
 const { emitToTrip } = require('../utils/socketService');
 
 /**
+ * Get the user's role on a trip (null if not a member)
+ */
+const getMemberRole = (tripId, userId) => {
+  const member = db.prepare('SELECT role FROM trip_members WHERE trip_id = ? AND user_id = ?').get(tripId, userId);
+  return member ? member.role : null;
+};
+
+/**
+ * Whether a user can modify a checklist (or its items).
+ * Personal checklists belong to their creator only; shared checklists
+ * require edit access on the trip.
+ */
+const canManageChecklist = (checklist, userId) => {
+  const role = getMemberRole(checklist.trip_id, userId);
+  if (!role) return false;
+  if (checklist.is_personal) return checklist.created_by === userId;
+  return role === 'owner' || role === 'editor';
+};
+
+/**
+ * Whether a user can see a checklist at all (personal ones are creator-only)
+ */
+const canViewChecklist = (checklist, userId) => {
+  if (!getMemberRole(checklist.trip_id, userId)) return false;
+  if (checklist.is_personal) return checklist.created_by === userId;
+  return true;
+};
+
+/**
+ * The set of users a checklist's completion is measured against:
+ * all trip members for shared checklists, just the creator for personal ones.
+ */
+const getChecklistAudience = (checklist) => {
+  if (checklist.is_personal) return [checklist.created_by];
+  return db.prepare('SELECT user_id FROM trip_members WHERE trip_id = ?')
+    .all(checklist.trip_id).map(m => m.user_id);
+};
+
+/**
  * Get all checklists for a trip
  */
 const getTripChecklists = (req, res) => {
   try {
     const { tripId } = req.params;
 
-    // Get checklists
+    // Get checklists (other members' personal checklists are hidden)
     const checklists = db.prepare(`
       SELECT c.*,
         u.name as creator_name,
@@ -21,8 +60,9 @@ const getTripChecklists = (req, res) => {
       FROM checklists c
       JOIN users u ON c.created_by = u.id
       WHERE c.trip_id = ?
+        AND (c.is_personal = 0 OR c.is_personal IS NULL OR c.created_by = ?)
       ORDER BY c.created_at DESC
-    `).all(req.user.id, tripId); // Added user id for user-specific completion
+    `).all(req.user.id, tripId, req.user.id); // Added user id for user-specific completion
 
     return res.status(200).json({ checklists });
   } catch (error) {
@@ -51,11 +91,13 @@ const getChecklist = (req, res) => {
       return res.status(404).json({ message: 'Checklist not found' });
     }
 
-    // Get trip members for this checklist's trip to calculate completion status
-    const tripMembers = db.prepare(`
-      SELECT user_id FROM trip_members
-      WHERE trip_id = (SELECT trip_id FROM checklists WHERE id = ?)
-    `).all(checklistId);
+    if (!canViewChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Users this checklist's completion is measured against
+    // (all trip members for shared, only the creator for personal)
+    const tripMembers = getChecklistAudience(checklist).map(id => ({ user_id: id }));
 
     // Get items
     const items = db.prepare(`
@@ -135,8 +177,17 @@ const updateUserItemStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status. Must be checked, skipped, or pending.' });
     }
 
-    // Get checklist ID for socket emission
-    const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(item.checklist_id);
+    // Get checklist for socket emission and personal-checklist checks
+    const checklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(item.checklist_id);
+    if (!checklist) {
+      return res.status(404).json({ message: 'Checklist not found' });
+    }
+
+    // Must be a member of the checklist's actual trip; personal checklists
+    // can only be interacted with by their creator
+    if (!canViewChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     // Begin transaction
     db.prepare('BEGIN TRANSACTION').run();
@@ -169,13 +220,8 @@ const updateUserItemStatus = async (req, res) => {
         WHERE cus.item_id = ?
       `).all(itemId);
 
-      // Get trip members for this checklist's trip
-      const tripMembers = db.prepare(`
-        SELECT tm.user_id FROM trip_members tm
-        JOIN checklists c ON tm.trip_id = c.trip_id
-        JOIN checklist_items ci ON c.id = ci.checklist_id
-        WHERE ci.id = ?
-      `).all(itemId).map(m => m.user_id);
+      // Users this item's completion is measured against
+      const tripMembers = getChecklistAudience(checklist);
 
       // Calculate collective status
       const totalMembers = tripMembers.length;
@@ -229,7 +275,8 @@ const updateUserItemStatus = async (req, res) => {
       const completionPercentage = totalMembers > 0 ? Math.round((actionedCount / totalMembers) * 100) : 0;
 
       // Emit socket event for real-time update (checked is true if status is 'checked')
-      if (checklist) {
+      // Personal checklists are not broadcast to other members
+      if (!checklist.is_personal) {
         emitToTrip(checklist.trip_id, 'checklistItem:toggled', {
           checklistId: item.checklist_id,
           itemId: itemId,
@@ -288,8 +335,9 @@ const createChecklist = (req, res) => {
     }
 
     const { tripId } = req.params;
-    const { name } = req.body;
+    const { name, is_personal } = req.body;
     const userId = req.user.id;
+    const isPersonal = is_personal === true || is_personal === 'true' || is_personal === 1 ? 1 : 0;
 
     // Check if trip exists
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
@@ -297,13 +345,18 @@ const createChecklist = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
+    // Shared checklists require edit access; any member can create personal ones
+    if (!isPersonal && !['owner', 'editor'].includes(req.userRole)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     // Insert checklist
     const insert = db.prepare(`
-      INSERT INTO checklists (trip_id, name, created_by)
-      VALUES (?, ?, ?)
+      INSERT INTO checklists (trip_id, name, created_by, is_personal)
+      VALUES (?, ?, ?, ?)
     `);
 
-    const result = insert.run(tripId, name, userId);
+    const result = insert.run(tripId, name, userId, isPersonal);
 
     // Get the created checklist
     const checklist = db.prepare(`
@@ -313,19 +366,22 @@ const createChecklist = (req, res) => {
       WHERE c.id = ?
     `).get(result.lastInsertRowid);
 
-    // Queue notification emails for other trip members (batched)
-    const updateData = {
-      checklistName: name,
-      checklistItemCount: 0 // Initially 0 items
-    };
+    // Personal checklists are private: no emails or broadcasts to other members
+    if (!isPersonal) {
+      // Queue notification emails for other trip members (batched)
+      const updateData = {
+        checklistName: name,
+        checklistItemCount: 0 // Initially 0 items
+      };
 
-    queueNotificationsForTripMembers(tripId, userId, 'checklist', updateData, {
-      name: trip.name,
-      location: trip.location
-    });
+      queueNotificationsForTripMembers(tripId, userId, 'checklist', updateData, {
+        name: trip.name,
+        location: trip.location
+      });
 
-    // Emit socket event for real-time update (exclude sender)
-    emitToTrip(tripId, 'checklist:created', checklist, userId);
+      // Emit socket event for real-time update (exclude sender)
+      emitToTrip(tripId, 'checklist:created', checklist, userId);
+    }
 
     return res.status(201).json({
       message: 'Checklist created successfully',
@@ -358,6 +414,10 @@ const updateChecklist = (req, res) => {
       return res.status(404).json({ message: 'Checklist not found' });
     }
 
+    if (!canManageChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     // Update checklist
     const update = db.prepare(`
       UPDATE checklists
@@ -376,7 +436,9 @@ const updateChecklist = (req, res) => {
     `).get(checklistId);
 
     // Emit socket event for real-time update (exclude sender)
-    emitToTrip(checklist.trip_id, 'checklist:updated', updatedChecklist, userId);
+    if (!checklist.is_personal) {
+      emitToTrip(checklist.trip_id, 'checklist:updated', updatedChecklist, userId);
+    }
 
     return res.status(200).json({
       message: 'Checklist updated successfully',
@@ -402,13 +464,19 @@ const deleteChecklist = (req, res) => {
       return res.status(404).json({ message: 'Checklist not found' });
     }
 
+    if (!canManageChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const tripId = checklist.trip_id;
 
     // Delete checklist (will cascade to delete items and user statuses)
     db.prepare('DELETE FROM checklists WHERE id = ?').run(checklistId);
 
     // Emit socket event for real-time update (exclude sender)
-    emitToTrip(tripId, 'checklist:deleted', checklistId, userId);
+    if (!checklist.is_personal) {
+      emitToTrip(tripId, 'checklist:deleted', checklistId, userId);
+    }
 
     return res.status(200).json({
       message: 'Checklist deleted successfully'
@@ -440,6 +508,10 @@ const createChecklistItem = (req, res) => {
       return res.status(404).json({ message: 'Checklist not found' });
     }
 
+    if (!canManageChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     // Insert item
     const insert = db.prepare(`
       INSERT INTO checklist_items (checklist_id, description, note)
@@ -455,7 +527,9 @@ const createChecklistItem = (req, res) => {
     // (No explicit user status added here, handled by updateUserItemStatus)
 
     // Emit socket event for real-time update (exclude sender)
-    emitToTrip(checklist.trip_id, 'checklistItem:created', { checklistId, item }, userId);
+    if (!checklist.is_personal) {
+      emitToTrip(checklist.trip_id, 'checklistItem:created', { checklistId, item }, userId);
+    }
 
     return res.status(201).json({
       message: 'Checklist item created successfully',
@@ -488,6 +562,11 @@ const updateChecklistItem = (req, res) => {
       return res.status(404).json({ message: 'Checklist item not found' });
     }
 
+    const parentChecklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(item.checklist_id);
+    if (!parentChecklist || !canManageChecklist(parentChecklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     // Update item description and note
     const update = db.prepare(`
       UPDATE checklist_items
@@ -511,8 +590,7 @@ const updateChecklistItem = (req, res) => {
     `).get(itemId);
 
     // Fetch user statuses and calculate completion (similar to getChecklist)
-    const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(item.checklist_id);
-    const tripMembers = db.prepare('SELECT user_id FROM trip_members WHERE trip_id = ?').all(checklist.trip_id);
+    const tripMembers = getChecklistAudience(parentChecklist).map(id => ({ user_id: id }));
     const userStatuses = db.prepare(`
         SELECT cus.*, u.name, u.profile_image
         FROM checklist_item_user_status cus
@@ -564,14 +642,17 @@ const deleteChecklistItem = (req, res) => {
       return res.status(404).json({ message: 'Checklist item not found' });
     }
 
-    // Get checklist for trip_id
-    const checklist = db.prepare('SELECT trip_id FROM checklists WHERE id = ?').get(item.checklist_id);
+    // Get checklist for trip_id and permission check
+    const checklist = db.prepare('SELECT * FROM checklists WHERE id = ?').get(item.checklist_id);
+    if (!checklist || !canManageChecklist(checklist, userId)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
 
     // Delete item (will cascade delete user statuses)
     db.prepare('DELETE FROM checklist_items WHERE id = ?').run(itemId);
 
     // Emit socket event for real-time update (exclude sender)
-    if (checklist) {
+    if (!checklist.is_personal) {
       emitToTrip(checklist.trip_id, 'checklistItem:deleted', { checklistId: item.checklist_id, itemId }, userId);
     }
 

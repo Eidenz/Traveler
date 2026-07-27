@@ -34,6 +34,17 @@ const normalizeId = (id) => {
 };
 
 /**
+ * Normalize a document reference type to a canonical value.
+ * The server stores 'transportation' while the UI queries with 'transport'.
+ *
+ * @param {string} referenceType - The reference type to normalize
+ * @returns {string} The canonical reference type
+ */
+const normalizeRefType = (referenceType) => {
+  return referenceType === 'transportation' ? 'transport' : referenceType;
+};
+
+/**
  * Initialize the IndexedDB database
  * @returns {Promise} A promise that resolves when the database is ready
  */
@@ -130,11 +141,12 @@ export const saveDocumentOffline = async (documentInfo, blob) => {
     const transaction = db.transaction([DOCUMENTS_STORE], 'readwrite');
     const store = transaction.objectStore(DOCUMENTS_STORE);
     
-    // Normalize IDs for storage
+    // Normalize IDs and reference type for storage
     const docToSave = {
       ...documentInfo,
       id: normalizeId(documentInfo.id),
       trip_id: normalizeId(documentInfo.trip_id),
+      reference_type: normalizeRefType(documentInfo.reference_type),
       reference_id: normalizeId(documentInfo.reference_id),
       blob: blob,
       offlineSavedAt: new Date().toISOString()
@@ -255,8 +267,8 @@ export const getDocumentsForReference = async (referenceType, referenceId) => {
     
     // Filter the documents by reference type and normalized ID
     // Using loose comparison with toString() to handle both string and numeric IDs
-    return allDocs.filter(doc => 
-      doc.reference_type === referenceType && 
+    return allDocs.filter(doc =>
+      normalizeRefType(doc.reference_type) === normalizeRefType(referenceType) &&
       normalizeId(doc.reference_id) === normalizedRefId
     );
   } catch (error) {

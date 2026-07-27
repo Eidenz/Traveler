@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   CheckSquare, Square, PlusCircle, Edit, Trash2,
-  ChevronDown, ChevronRight, Users, Circle, CheckCircle, XCircle
+  ChevronDown, ChevronRight, Users, Circle, CheckCircle, XCircle, Lock
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -11,13 +11,15 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../stores/authStore';
 
-const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChange }) => {
+const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChange, isOfflineMode = false }) => {
   const { t } = useTranslation();
   const { user } = useAuthStore();
 
   const [internalChecklists, setInternalChecklists] = useState([]);
   // Use external checklists if provided, otherwise use internal state
   const checklists = externalChecklists ?? internalChecklists;
+  // 'shared' checklists are visible to all members, 'personal' only to their creator
+  const [scope, setScope] = useState('shared');
   const [loading, setLoading] = useState(true);
   const [expandedChecklistId, setExpandedChecklistId] = useState(null);
   const [newChecklistName, setNewChecklistName] = useState('');
@@ -43,10 +45,14 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
     notifyChange(newChecklists);
   };
 
-  // Fetch checklists
+  // Fetch checklists (offline mode uses the pre-loaded snapshot instead)
   useEffect(() => {
+    if (isOfflineMode) {
+      setLoading(false);
+      return;
+    }
     fetchChecklists();
-  }, [tripId]);
+  }, [tripId, isOfflineMode]);
 
   const fetchChecklists = async () => {
     try {
@@ -103,7 +109,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
     }
 
     try {
-      const response = await checklistAPI.createChecklist(tripId, newChecklistName);
+      const response = await checklistAPI.createChecklist(tripId, newChecklistName, scope === 'personal');
       const newChecklist = response.data.checklist;
       updateChecklists(prev => [...prev, { ...newChecklist, items: [] }]);
       setExpandedChecklistId(newChecklist.id);
@@ -260,6 +266,10 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
   };
 
   const handleToggleStatus = async (checklistId, item) => {
+    if (isOfflineMode) {
+      toast.error(t('offline.checklistReadOnly', 'Checklists are read-only while offline'));
+      return;
+    }
     try {
       const newStatus = item.current_user_status === 'checked' ? 'pending' : 'checked';
       const response = await checklistAPI.updateUserItemStatus(item.id, newStatus, tripId);
@@ -300,6 +310,15 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
     return Math.round(totalCompletionPercentage / totalItems);
   };
 
+  // Split checklists by scope (the server only ever returns the user's own personal lists)
+  const sharedChecklists = checklists.filter(c => !c.is_personal);
+  const personalChecklists = checklists.filter(c => !!c.is_personal);
+  const visibleChecklists = scope === 'personal' ? personalChecklists : sharedChecklists;
+
+  // Anyone can manage their own personal checklists; shared ones need edit access.
+  // Everything is read-only while offline.
+  const canModify = !isOfflineMode && (scope === 'personal' || canEdit);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -310,8 +329,46 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
 
   return (
     <div className="space-y-3">
+      {/* Shared / Personal toggle */}
+      <div className="flex items-center gap-2 p-1.5 bg-gray-50 dark:bg-gray-900 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setScope('shared')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${scope === 'shared'
+            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>{t('checklists.shared', 'Shared')}</span>
+          {sharedChecklists.length > 0 && (
+            <span className="text-xs opacity-70">({sharedChecklists.length})</span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setScope('personal')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${scope === 'personal'
+            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500'
+            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+        >
+          <Lock className="w-4 h-4" />
+          <span>{t('checklists.personal', 'Personal')}</span>
+          {personalChecklists.length > 0 && (
+            <span className="text-xs opacity-70">({personalChecklists.length})</span>
+          )}
+        </button>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
+        {scope === 'personal'
+          ? t('checklists.personalDescription', 'Only visible to you')
+          : t('checklists.sharedDescription', 'Visible to all trip members')
+        }
+      </p>
+
       {/* Add Checklist Button */}
-      {canEdit && !showNewChecklistForm && (
+      {canModify && !showNewChecklistForm && (
         <button
           onClick={() => setShowNewChecklistForm(true)}
           className="w-full p-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-400 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all flex items-center justify-center gap-2"
@@ -322,7 +379,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
       )}
 
       {/* New Checklist Form */}
-      {canEdit && showNewChecklistForm && (
+      {canModify && showNewChecklistForm && (
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
           <form onSubmit={handleCreateChecklist} className="space-y-2">
             <Input
@@ -350,18 +407,27 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
       )}
 
       {/* Checklists */}
-      {checklists.length === 0 ? (
+      {visibleChecklists.length === 0 ? (
         <div className="text-center py-12">
-          <CheckSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No checklists yet</p>
-          {canEdit && (
+          {scope === 'personal' ? (
+            <Lock className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          ) : (
+            <CheckSquare className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          )}
+          <p className="text-gray-500 dark:text-gray-400">
+            {scope === 'personal'
+              ? t('checklists.noPersonal', 'No personal checklists yet')
+              : t('checklists.noShared', 'No checklists yet')
+            }
+          </p>
+          {canModify && (
             <Button onClick={() => setShowNewChecklistForm(true)} className="mt-4" size="sm">
               Add Checklist
             </Button>
           )}
         </div>
       ) : (
-        checklists.map(checklist => (
+        visibleChecklists.map(checklist => (
           <div
             key={checklist.id}
             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
@@ -410,7 +476,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
                       <h3 className="font-medium text-gray-900 dark:text-white">{checklist.name}</h3>
                     </div>
 
-                    {canEdit && (
+                    {canModify && (
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => {
@@ -454,7 +520,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
             {expandedChecklistId === checklist.id && (
               <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
                 {/* Add Item Button */}
-                {canEdit && newItemForm.checklistId !== checklist.id && (
+                {canModify && newItemForm.checklistId !== checklist.id && (
                   <button
                     onClick={() => setNewItemForm({ checklistId: checklist.id, description: '', note: '' })}
                     className="w-full px-3 py-2 text-left text-sm text-gray-500 hover:text-accent hover:bg-accent/5 transition-colors flex items-center gap-2"
@@ -465,7 +531,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
                 )}
 
                 {/* New Item Form */}
-                {canEdit && newItemForm.checklistId === checklist.id && (
+                {canModify && newItemForm.checklistId === checklist.id && (
                   <div className="p-3 border-b border-gray-200 dark:border-gray-700">
                     <form onSubmit={handleCreateItem} className="space-y-2">
                       <Input
@@ -546,7 +612,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
                               {item.note && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.note}</p>
                               )}
-                              {item.completion && item.completion.total_members > 0 && (
+                              {!checklist.is_personal && item.completion && item.completion.total_members > 0 && (
                                 <div className="flex items-center gap-2 mt-1">
                                   <Users className="w-3 h-3 text-gray-400" />
                                   <span className="text-xs text-gray-500">
@@ -556,7 +622,7 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
                               )}
                             </div>
 
-                            {canEdit && (
+                            {canModify && (
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <button
                                   onClick={() => {

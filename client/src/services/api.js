@@ -270,7 +270,7 @@ export const documentAPI = {
 export const checklistAPI = {
   getTripChecklists: (tripId) => api.get(`/checklists/trip/${tripId}`),
   getChecklist: (checklistId) => api.get(`/checklists/${checklistId}`),
-  createChecklist: (tripId, name) => api.post(`/checklists/trip/${tripId}`, { name }),
+  createChecklist: (tripId, name, isPersonal = false) => api.post(`/checklists/trip/${tripId}`, { name, is_personal: isPersonal }),
   updateChecklist: (checklistId, name, tripId) => api.put(`/checklists/${checklistId}`, { name, tripId }),
   deleteChecklist: (checklistId, tripId) => api.delete(`/checklists/${checklistId}?tripId=${tripId}`), // Pass tripId for auth
   createChecklistItem: (checklistId, itemData, tripId) => api.post(`/checklists/${checklistId}/items`, { ...itemData, trip_id: tripId }),

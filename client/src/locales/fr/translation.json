@@ -315,7 +315,12 @@
     "availableOffline": "Dispo. hors ligne",
     "documentsCount": "documents enregistrés pour une utilisation hors ligne",
     "usingOfflineData": "Utilisation des données hors ligne",
-    "offline_mode_message": "Vous êtes actuellement en mode hors ligne. Seuls les voyages enregistrés pour une utilisation hors ligne sont affichés."
+    "offline_mode_message": "Vous êtes actuellement en mode hors ligne. Seuls les voyages enregistrés pour une utilisation hors ligne sont affichés.",
+    "saved": "Sauvegardé pour une utilisation hors ligne",
+    "savedWithDocs": "Sauvegardé pour une utilisation hors ligne avec {{count}} documents",
+    "savedPartialDocs": "Sauvegardé pour une utilisation hors ligne ({{count}} documents, certains n'ont pas pu être téléchargés)",
+    "removed": "Retiré du stockage hors ligne",
+    "checklistReadOnly": "Les checklists sont en lecture seule hors ligne"
   },
   "sharing": {
     "shareTrip": "Partager le voyage",
@@ -452,7 +457,13 @@
     "complete": "terminé",
     "progress": "Progression",
     "skipped": "ignoré",
-    "unskipped": "non ignoré"
+    "unskipped": "non ignoré",
+    "shared": "Partagées",
+    "personal": "Personnelles",
+    "sharedDescription": "Visibles par tous les membres du voyage",
+    "personalDescription": "Visibles uniquement par vous",
+    "noShared": "Pas encore de checklists",
+    "noPersonal": "Pas encore de checklists personnelles"
   },
   "budget": {
     "title": "Budget de voyage",

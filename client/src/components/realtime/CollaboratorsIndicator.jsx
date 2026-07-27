@@ -5,6 +5,7 @@ import React from 'react';
 import { Users } from 'lucide-react';
 import { useTripSocket } from '../../contexts/SocketContext';
 import { useTranslation } from 'react-i18next';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const CollaboratorsIndicator = ({ tripId }) => {
     const { t } = useTranslation();
@@ -60,11 +61,19 @@ const CollaboratorsIndicator = ({ tripId }) => {
                 {otherMembers.map((member, index) => (
                     <div
                         key={member.userId}
-                        className={`w-7 h-7 rounded-full ${getColor(member.userName)} flex items-center justify-center text-white text-xs font-medium ring-2 ring-white dark:ring-gray-800`}
+                        className={`w-7 h-7 rounded-full ${getColor(member.userName)} flex items-center justify-center text-white text-xs font-medium ring-2 ring-white dark:ring-gray-800 overflow-hidden`}
                         style={{ zIndex: otherMembers.length - index }}
                         title={member.userName}
                     >
-                        {getInitials(member.userName)}
+                        {member.profileImage ? (
+                            <img
+                                src={getImageUrl(member.profileImage)}
+                                alt={member.userName}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            getInitials(member.userName)
+                        )}
                     </div>
                 ))}
 

@@ -135,11 +135,19 @@ const Header = () => {
               {otherCollaborators.map((collaborator, idx) => (
                 <div
                   key={collaborator.userId}
-                  className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(collaborator.userName)} flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-nav`}
+                  className={`w-6 h-6 rounded-full bg-gradient-to-br ${getAvatarColor(collaborator.userName)} flex items-center justify-center text-white text-[10px] font-medium ring-2 ring-nav overflow-hidden`}
                   style={{ zIndex: otherCollaborators.length - idx }}
                   title={collaborator.userName}
                 >
-                  {getInitials(collaborator.userName)}
+                  {collaborator.profileImage ? (
+                    <img
+                      src={getImageUrl(collaborator.profileImage)}
+                      alt={collaborator.userName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    getInitials(collaborator.userName)
+                  )}
                 </div>
               ))}
               {roomMembers.length > 5 && (
