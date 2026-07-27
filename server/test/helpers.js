@@ -13,17 +13,23 @@ let portCounter = 0;
 
 /**
  * Start a server backed by a fresh temporary database.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.rateLimitEnabled] run with NODE_ENV unset so the auth
+ *   rate limiters are active (they are skipped under NODE_ENV=test)
  * @returns {Promise<{baseUrl: string, stop: () => Promise<void>}>}
  */
-async function startServer() {
-  const port = 5100 + (portCounter++) + Math.floor(process.pid % 100) * 10;
+async function startServer(opts = {}) {
+  // Test files run in parallel processes, so spread ports by pid to avoid
+  // collisions, leaving room for several servers within one file.
+  const port = 20000 + ((process.pid % 4000) * 10) + (portCounter++);
   const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'traveler-test-'));
   const dbPath = path.join(dbDir, 'test.db');
 
   const child = spawn(process.execPath, [SERVER_ENTRY], {
     env: {
       ...process.env,
-      NODE_ENV: 'test',
+      NODE_ENV: opts.rateLimitEnabled ? 'ratelimit-test' : 'test',
       PORT: String(port),
       DB_PATH: dbPath,
       JWT_SECRET: 'test-secret-not-for-production-0123456789abcdef',

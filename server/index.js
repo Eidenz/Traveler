@@ -66,6 +66,20 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 ||
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Reverse proxy support. Auth rate limits are keyed by client IP, so behind a
+// proxy (nginx, Caddy, Cloudflare, a docker ingress) the real address only
+// arrives in X-Forwarded-For. Enable this by setting TRUST_PROXY:
+//   TRUST_PROXY=1            trust one proxy hop (typical)
+//   TRUST_PROXY=loopback     trust local proxies
+//   TRUST_PROXY=true         trust all hops (only behind a proxy you control)
+// Leave it unset when the app is exposed directly — trusting a forwarded header
+// that anyone can send would let a client spoof its IP and bypass the limits.
+if (process.env.TRUST_PROXY) {
+  const value = process.env.TRUST_PROXY;
+  app.set('trust proxy', /^\d+$/.test(value) ? Number(value) : value === 'true' ? true : value);
+  console.log(`Trusting proxy: ${value}`);
+}
+
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {

@@ -9,12 +9,23 @@ const {
   resetPassword 
 } = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
+const {
+  authLimiter,
+  loginLimiter,
+  registerLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter
+} = require('../middleware/rateLimit');
 
 const router = express.Router();
+
+// Broad limit across all auth endpoints; individual routes add tighter limits below
+router.use(authLimiter);
 
 // Register user
 router.post(
   '/register',
+  registerLimiter,
   [
     body('name').not().isEmpty().withMessage('Name is required'),
     body('email').isEmail().withMessage('Please include a valid email'),
@@ -26,6 +37,7 @@ router.post(
 // Login user
 router.post(
   '/login',
+  loginLimiter,
   [
     body('email').isEmail().withMessage('Please include a valid email'),
     body('password').exists().withMessage('Password is required')
@@ -39,6 +51,7 @@ router.get('/me', authenticate, getCurrentUser);
 // Forgot password
 router.post(
   '/forgot-password',
+  forgotPasswordLimiter,
   [body('email').isEmail().withMessage('Please include a valid email')],
   forgotPassword
 );
@@ -46,6 +59,7 @@ router.post(
 // Reset password
 router.post(
   '/reset-password/:token',
+  resetPasswordLimiter,
   [
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('confirm_password').custom((value, { req }) => {
