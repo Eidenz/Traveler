@@ -45,7 +45,7 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
             : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300'}`}
           >
             {allSettled && !iOwe
-              ? (<><CheckCircle2 className="w-3 h-3" />{t('budget.youAreSettled', "You're settled up")}</>)
+              ? (<><CheckCircle2 className="w-3 h-3" />{t('budget.groupSettled', 'Group settled')}</>)
               : `${t('budget.youOwe', 'You owe')} ${fmt(-((myBalance?.net) || 0))}`}
           </span>
         )}
@@ -70,7 +70,9 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
           ) : (
             <>
               <CheckCircle2 className="w-5 h-5" />
-              {t('budget.youAreSettled', "You're settled up")}
+              {allSettled
+                ? t('budget.groupSettled', 'Group settled')
+                : t('budget.youAreSettled', "You're settled up")}
             </>
           )}
         </div>

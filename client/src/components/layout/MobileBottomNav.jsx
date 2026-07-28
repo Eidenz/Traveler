@@ -110,8 +110,31 @@ const MobileBottomNav = () => {
           </NavLink>
         ))}
 
-        {/* Center add button - only show on dashboard */}
-        {location.pathname === '/' || location.pathname === '/trips' ? (
+        {/* Center slot: boosted Today inside a trip, add button on the trip
+            list, Brainstorm elsewhere */}
+        {currentTripId ? (
+          <NavLink
+            to={`/trips/${currentTripId}/today`}
+            className="flex flex-col items-center -mt-5"
+          >
+            <span
+              className={`
+                w-13 h-13 p-3.5
+                rounded-full shadow-lg shadow-amber-500/30
+                flex items-center justify-center text-white
+                transition-all duration-200 active:scale-95
+                ${location.pathname.endsWith('/today')
+                  ? 'bg-amber-500 ring-4 ring-amber-200 dark:ring-amber-900/60'
+                  : 'bg-amber-500 hover:bg-amber-400'}
+              `}
+            >
+              <Sun className="w-6 h-6" />
+            </span>
+            <span className={`text-[10px] font-medium mt-0.5 ${location.pathname.endsWith('/today') ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400'}`}>
+              {t('navigation.today', 'Today')}
+            </span>
+          </NavLink>
+        ) : location.pathname === '/' || location.pathname === '/trips' ? (
           <NavLink
             to="/trips/new"
             className="
@@ -136,14 +159,15 @@ const MobileBottomNav = () => {
           </NavLink>
         )}
 
-        {/* Today (inside a trip) / Calendar (elsewhere) */}
+        {/* Inside a trip the 4th slot is its brainstorm (Today took the
+            center); elsewhere Calendar as before */}
         {currentTripId ? (
           <NavLink
-            to={`/trips/${currentTripId}/today`}
-            className={`bottom-nav-item ${location.pathname.endsWith('/today') ? 'active' : ''}`}
+            to={`/trips/${currentTripId}/brainstorm`}
+            className={`bottom-nav-item ${location.pathname.endsWith('/brainstorm') ? 'active' : ''}`}
           >
-            <Sun className="w-5 h-5" />
-            <span>{t('navigation.today', 'Today')}</span>
+            <Lightbulb className="w-5 h-5" />
+            <span>{t('navigation.brainstorm', 'Brainstorm')}</span>
           </NavLink>
         ) : (
           <NavLink
