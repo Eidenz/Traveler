@@ -22,7 +22,7 @@ const linkHost = (url) => {
   }
 };
 
-const BoardItemCard = ({ item, selected, highlighted, dimmed }) => {
+const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
   const Icon = TYPE_ICONS[item.type] || StickyNote;
   const accent = item.color || null;
 
@@ -33,7 +33,8 @@ const BoardItemCard = ({ item, selected, highlighted, dimmed }) => {
           ? 'border-accent ring-2 ring-accent/60 shadow-md'
           : 'border-gray-200 dark:border-gray-700 hover:shadow-md'}
         ${highlighted ? 'board-item-pulse' : ''}
-        ${dimmed ? 'opacity-40' : ''}`}
+        ${dimmed ? 'opacity-40' : ''}
+        ${lifted ? 'scale-105 shadow-xl ring-2 ring-accent/50' : ''}`}
       style={accent ? { borderLeftWidth: 4, borderLeftColor: accent } : undefined}
     >
       {/* Image (lazy — hundreds of these can exist on one board) */}

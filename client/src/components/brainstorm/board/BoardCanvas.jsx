@@ -8,7 +8,8 @@
 //   wheel              pan · ctrl/pinch-wheel zooms at cursor
 //   two fingers        pinch zoom + pan
 //   drag on item       move item — moves the whole selection if selected
-//   drag group header  move group + all member items
+//                      (touch: hold ~300ms to lift, otherwise the finger pans)
+//   drag group header  move group + all member items (touch: hold to lift)
 //   click / tap        select (shift toggles) · double: edit item / quick-add
 //   corner handle      resize group
 //
@@ -48,6 +49,7 @@ const BoardCanvas = ({
   const containerRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [marquee, setMarquee] = useState(null); // screen-space {x1,y1,x2,y2}
+  const [liftedItemId, setLiftedItemId] = useState(null); // touch drag-armed cue
   const gesture = useRef(null);
   const pointers = useRef(new Map());
   const lastTap = useRef({ time: 0, key: null });
@@ -81,6 +83,8 @@ const BoardCanvas = ({
 
     // Second finger: whatever was happening becomes a pinch
     if (pointers.current.size === 2) {
+      if (gesture.current?.timer) clearTimeout(gesture.current.timer);
+      setLiftedItemId(null);
       const [a, b] = [...pointers.current.values()];
       gesture.current = {
         type: 'pinch',
@@ -135,6 +139,24 @@ const BoardCanvas = ({
       plan = { type: 'pan' };
     }
 
+    // Touch: item/group drags require a short hold, so a finger that starts
+    // moving right away pans the canvas instead of yanking a card around
+    const isDragPlan =
+      (plan.type === 'drag-items' && plan.dragIds.length > 0) || plan.type === 'drag-group';
+    if (e.pointerType === 'touch' && isDragPlan) {
+      const press = { type: 'touch-press', upgrade: plan, startScreen: p, last: p, moved: false };
+      press.timer = setTimeout(() => {
+        const g = gesture.current;
+        if (g === press && !g.moved) {
+          gesture.current = { ...plan, startScreen: g.last, last: g.last, moved: false };
+          if (plan.type === 'drag-items') setLiftedItemId(plan.itemId);
+          if (navigator.vibrate) navigator.vibrate(15);
+        }
+      }, 300);
+      gesture.current = press;
+      return;
+    }
+
     gesture.current = { ...plan, startScreen: p, last: p, moved: false };
   };
 
@@ -163,6 +185,16 @@ const BoardCanvas = ({
     const dy = p.y - g.last.y;
     const total = Math.hypot(p.x - g.startScreen.x, p.y - g.startScreen.y);
     if (!g.moved && total < DRAG_THRESHOLD) return;
+
+    // Finger moved before the hold fired: it's a pan, not a drag
+    if (g.type === 'touch-press') {
+      clearTimeout(g.timer);
+      gesture.current = { type: 'pan', startScreen: g.startScreen, last: g.last, moved: true };
+      store().panBy(dx, dy);
+      gesture.current.last = p;
+      return;
+    }
+
     g.moved = true;
     g.last = p;
 
@@ -172,6 +204,9 @@ const BoardCanvas = ({
       store().panBy(dx, dy);
     } else if (g.type === 'marquee') {
       setMarquee({ x1: g.startScreen.x, y1: g.startScreen.y, x2: p.x, y2: p.y });
+    } else if (g.type === 'drag-items' && g.dragIds.length === 0) {
+      // Read-only viewers: dragging over an item still pans the canvas
+      store().panBy(dx, dy);
     } else if (g.type === 'drag-items' && g.dragIds.length > 0) {
       const wdx = (p.x - g.startScreen.x) / zoom;
       const wdy = (p.y - g.startScreen.y) / zoom;
@@ -223,8 +258,28 @@ const BoardCanvas = ({
       return;
     }
     gesture.current = null;
+    setLiftedItemId(null);
     const p = localPoint(e);
     const st = store();
+
+    // A hold that never fired and never moved is a tap on its target
+    if (g.type === 'touch-press') {
+      clearTimeout(g.timer);
+      const up = g.upgrade;
+      if (up.type === 'drag-items') {
+        const now = Date.now();
+        const key = `item-${up.itemId}`;
+        const item = st.items.find((i) => i.id === up.itemId);
+        if (now - lastTap.current.time < DOUBLE_MS && lastTap.current.key === key) {
+          lastTap.current = { time: 0, key: null };
+          if (item) onEditItem?.(item);
+        } else {
+          lastTap.current = { time: now, key };
+          st.select([up.itemId]);
+        }
+      }
+      return;
+    }
 
     if (!g.moved) {
       // Click / tap
@@ -337,7 +392,7 @@ const BoardCanvas = ({
   return (
     <div
       ref={containerRef}
-      className="absolute inset-0 overflow-hidden touch-none bg-gray-100 dark:bg-gray-900 board-dot-grid"
+      className="absolute inset-0 overflow-hidden touch-none select-none bg-gray-100 dark:bg-gray-900 board-dot-grid"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -375,6 +430,7 @@ const BoardCanvas = ({
               selected={selectedIds.has(item.id)}
               highlighted={highlightId === item.id}
               dimmed={dimmedIds ? dimmedIds.has(item.id) : false}
+              lifted={liftedItemId === item.id}
             />
           </div>
         ))}
