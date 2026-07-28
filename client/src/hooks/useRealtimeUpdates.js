@@ -56,6 +56,10 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
             unsubscribers.push(subscribe('brainstorm:moved', handlers.onBrainstormMove));
         }
 
+        if (handlers.onBrainstormBatchMove) {
+            unsubscribers.push(subscribe('brainstorm:batchMoved', handlers.onBrainstormBatchMove));
+        }
+
         // Brainstorm group events
         if (handlers.onBrainstormGroupCreate) {
             unsubscribers.push(subscribe('brainstormGroup:created', handlers.onBrainstormGroupCreate));
@@ -180,6 +184,10 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
         emit('brainstorm:move', { itemId, position_x, position_y });
     }, [emit]);
 
+    const emitBrainstormBatchMove = useCallback((positions, group = null) => {
+        emit('brainstorm:batchMove', { positions, group });
+    }, [emit]);
+
     const emitBrainstormGroupCreate = useCallback((group) => {
         emit('brainstormGroup:create', { group });
     }, [emit]);
@@ -291,6 +299,7 @@ export const useRealtimeUpdates = (tripId, handlers = {}) => {
         emitBrainstormUpdate,
         emitBrainstormDelete,
         emitBrainstormMove,
+        emitBrainstormBatchMove,
         // Brainstorm group emitters
         emitBrainstormGroupCreate,
         emitBrainstormGroupUpdate,

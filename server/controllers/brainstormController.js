@@ -431,7 +431,12 @@ const getPublicBrainstormItems = async (req, res) => {
       ORDER BY bi.created_at DESC
     `).all(trip.id);
 
-        res.json({ items });
+        // Group rectangles are part of the board layout the owner chose to share
+        const groups = db.prepare(`
+      SELECT * FROM brainstorm_groups WHERE trip_id = ?
+    `).all(trip.id);
+
+        res.json({ items, groups });
     } catch (error) {
         console.error('Error fetching public brainstorm items:', error);
         res.status(500).json({ message: 'Failed to fetch brainstorm items' });

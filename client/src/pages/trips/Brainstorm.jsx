@@ -1,1008 +1,650 @@
 // client/src/pages/trips/Brainstorm.jsx
+// Brainstorm board page (rewritten): orchestrates the board store, the
+// BoardCanvas engine, the Mapbox side panel, realtime, and persistence.
+// Gesture handling lives in BoardCanvas; board state in brainstormStore.
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { hasMapbox } from '../../config/env';
-import toast from 'react-hot-toast';
 import {
-    ArrowLeft, Plus, MapPin, FileText, Image, Link2, Lightbulb,
-    Trash2, Edit3, GripVertical, X, ZoomIn, ZoomOut, Move, Map, Grid
+  ArrowLeft, Plus, FolderPlus, Search, ZoomIn, ZoomOut, Maximize,
+  Map as MapIcon, X, Trash2, Ungroup, Loader2
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+
 import { tripAPI, brainstormAPI } from '../../services/api';
-import BrainstormCanvas from '../../components/brainstorm/BrainstormCanvas';
-import BrainstormMap from '../../components/brainstorm/BrainstormMap';
-import BrainstormItemModal from '../../components/brainstorm/BrainstormItemModal';
-import Button from '../../components/ui/Button';
+import { hasMapbox } from '../../config/env';
+import { useSocket } from '../../contexts/SocketContext';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 import usePanelWidth from '../../hooks/usePanelWidth';
-import { useSocket } from '../../contexts/SocketContext';
+import useBrainstormStore, { screenToWorld, ITEM_W, ITEM_H } from '../../stores/brainstormStore';
 
-// Item type configuration
-const ITEM_TYPES = {
-    place: { icon: MapPin, color: 'teal', label: 'Place' },
-    note: { icon: FileText, color: 'amber', label: 'Note' },
-    image: { icon: Image, color: 'purple', label: 'Image' },
-    link: { icon: Link2, color: 'emerald', label: 'Link' },
-    idea: { icon: Lightbulb, color: 'rose', label: 'Quick Idea' },
-};
+import BoardCanvas from '../../components/brainstorm/board/BoardCanvas';
+import ColorPalette from '../../components/brainstorm/board/ColorPalette';
+import BrainstormMap from '../../components/brainstorm/BrainstormMap';
+import BrainstormItemModal from '../../components/brainstorm/BrainstormItemModal';
 
 const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
-    const { t } = useTranslation();
-    const { tripId: urlTripId, token } = useParams();
-    const tripId = propTripId || urlTripId;
-    const navigate = useNavigate();
-    const containerRef = useRef(null);
-    const mapRef = useRef(null); // Store map instance for external control
+  const { tripId: routeTripId, token } = useParams();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { connectWithPublicToken } = useSocket();
 
-    // State
-    const [trip, setTrip] = useState(null);
-    const [members, setMembers] = useState([]);
-    const [items, setItems] = useState([]);
-    const [groups, setGroups] = useState([]); // Visual groups
-    const [loading, setLoading] = useState(true);
-    const [isResizing, setIsResizing] = useState(false);
-    // Rendered width is viewport-clamped (edge always visible); the saved
-    // preference keeps its full value across monitor changes
-    const { panelWidth, setPanelWidth, persistPanelWidth } = usePanelWidth('brainstormPanelWidth', {
-        min: 400,
-        defaultWidth: 500,
-    });
+  const [trip, setTrip] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [modalDefaults, setModalDefaults] = useState({ type: 'idea', location: null, spawn: null });
+  const [colorTargetGroup, setColorTargetGroup] = useState(null);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
 
-    // Modal state
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const [modalDefaultType, setModalDefaultType] = useState('idea');
-    const [modalDefaultLocation, setModalDefaultLocation] = useState(null);
+  const requestedTripId = propTripId || routeTripId;
+  const tripId = requestedTripId || trip?.id;
+  const canvasContainerRef = useRef(null);
 
-    // Quick add menu state (for map clicks)
-    const [quickAddMenu, setQuickAddMenu] = useState(null);
+  // Store
+  const items = useBrainstormStore((s) => s.items);
+  const selectedIds = useBrainstormStore((s) => s.selectedIds);
+  const viewport = useBrainstormStore((s) => s.viewport);
+  const {
+    setBoard, upsertItem, removeItem, upsertGroup, removeGroup,
+    moveItemsLocal, select, clearSelection, zoomAt, zoomToFit, centerOn, setHighlight,
+  } = useBrainstormStore.getState();
 
-    // Canvas state
-    const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-    const [canvasZoom, setCanvasZoom] = useState(1);
+  // Desktop split between canvas and map
+  const { panelWidth, setPanelWidth, persistPanelWidth } = usePanelWidth('brainstormPanelWidth', {
+    min: 400,
+    defaultWidth: 640,
+  });
+  const [isResizing, setIsResizing] = useState(false);
 
-    // Mobile split view state - 3 states: 'canvas' (full canvas), 'split' (default), 'map' (full map)
-    const [mobileViewState, setMobileViewState] = useState('split'); // 'canvas' | 'split' | 'map'
-    const latchDragStartY = useRef(0);
-    const isDraggingLatch = useRef(false);
-    const mobileMapHeight = 280; // Height of mobile map in pixels
+  // ---- permissions -------------------------------------------------------
+  const user = useMemo(() => JSON.parse(localStorage.getItem('user') || '{}'), []);
+  const canEdit = !token && !!members.find(
+    (m) => m.id === user.id && (m.role === 'owner' || m.role === 'editor')
+  );
 
-    // Panel width constraints
-    const MIN_PANEL_WIDTH = 400;
+  // ---- data --------------------------------------------------------------
+  useEffect(() => {
+    if (token) connectWithPublicToken(token);
+  }, [token, connectWithPublicToken]);
 
-
-    // Check for Mapbox token
-    const hasMapboxToken = hasMapbox;
-
-    // Get socket for room members display
-    const { connectWithPublicToken } = useSocket();
-
-    // Connect with public token if present
-    useEffect(() => {
-        if (token) {
-            connectWithPublicToken(token);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      if (token) {
+        const tripRes = await tripAPI.getTripByPublicToken(token);
+        if (!tripRes.data.trip.is_brainstorm_public) {
+          toast.error(t('brainstorm.notPublic', 'Brainstorming is not public for this trip'));
+          navigate(`/trip/public/${token}`);
+          return;
         }
-    }, [token, connectWithPublicToken]);
-
-    // Real-time update handlers
-    const realtimeHandlers = useMemo(() => ({
-        onBrainstormCreate: (item) => {
-            setItems(prev => [item, ...prev]);
-        },
-        onBrainstormUpdate: (item) => {
-            setItems(prev => prev.map(i => i.id === item.id ? item : i));
-        },
-        onBrainstormDelete: (itemId) => {
-            setItems(prev => prev.filter(i => i.id !== itemId));
-        },
-        onBrainstormMove: ({ itemId, position_x, position_y }) => {
-            setItems(prev => prev.map(i =>
-                i.id === itemId ? { ...i, position_x, position_y } : i
-            ));
-        },
-        onBrainstormGroupCreate: (group) => {
-            setGroups(prev => [...prev, group]);
-        },
-        onBrainstormGroupUpdate: (group) => {
-            setGroups(prev => prev.map(g => g.id === group.id ? group : g));
-        },
-        onBrainstormGroupDelete: (groupId) => {
-            setGroups(prev => prev.filter(g => g.id !== groupId));
-        }
-    }), []);
-
-    // Initialize real-time updates
-    const {
-        emitBrainstormCreate,
-        emitBrainstormUpdate,
-        emitBrainstormDelete,
-        emitBrainstormMove,
-        emitBrainstormGroupCreate,
-        emitBrainstormGroupUpdate,
-        emitBrainstormGroupDelete
-    } = useRealtimeUpdates(tripId || trip?.id, realtimeHandlers);
-
-    // Fetch trip and brainstorm data
-    const fetchData = useCallback(async () => {
-        try {
-            setLoading(true);
-            if (token) {
-                // Public view fetch
-                const response = await tripAPI.getTripByPublicToken(token);
-                setTrip(response.data.trip);
-                setMembers(response.data.members || []);
-                // Ensure brainstorm items are included in the response or handle empty
-                setItems(response.data.brainstorm_items || []);
-
-                // Verify public access is allowed
-                if (!response.data.trip.is_brainstorm_public) {
-                    toast.error(t('brainstorm.notPublic', 'Brainstorming is not public for this trip'));
-                    navigate(`/trip/public/${token}`);
-                }
-            } else if (tripId) {
-                // Private view fetch
-                const [tripResponse, brainstormResponse, groupsResponse] = await Promise.all([
-                    tripAPI.getTripById(tripId),
-                    brainstormAPI.getBrainstormItems(tripId),
-                    brainstormAPI.getBrainstormGroups(tripId),
-                ]);
-
-                setTrip(tripResponse.data.trip);
-                setMembers(tripResponse.data.members);
-                setItems(brainstormResponse.data.items || []);
-                setGroups(groupsResponse.data.groups || []);
-            }
-        } catch (error) {
-            console.error('Error fetching data:', error);
-            toast.error(t('errors.failedFetch', 'Failed to load data'));
-            if (token) {
-                navigate(`/trip/public/${token}`);
-            } else {
-                navigate('/trips');
-            }
-        } finally {
-            setLoading(false);
-        }
-    }, [tripId, token, navigate, t]);
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // Permission helpers
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const canEdit = () => {
-        if (token) return false; // Always read-only for public view
-        if (!trip || !members || !user) return false;
-        const userMember = members.find(m => m.id === user.id);
-        return userMember && (userMember.role === 'owner' || userMember.role === 'editor');
-    };
-
-    // Panel resize handlers
-    const handleResizeStart = useCallback((e) => {
-        e.preventDefault();
-        setIsResizing(true);
-    }, []);
-
-    const handleResizeMove = useCallback((e) => {
-        if (!isResizing || !containerRef.current) return;
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const newWidth = e.clientX - containerRect.left;
-        // Allow resizing up to the full container width minus a safety buffer for the handle
-        const maxWidth = containerRect.width - 20;
-        const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), maxWidth);
-        setPanelWidth(clampedWidth);
-    }, [isResizing, MIN_PANEL_WIDTH, setPanelWidth]);
-
-    const handleResizeEnd = useCallback(() => {
-        if (isResizing) {
-            setIsResizing(false);
-            persistPanelWidth();
-        }
-    }, [isResizing, persistPanelWidth]);
-
-    useEffect(() => {
-        if (isResizing) {
-            document.addEventListener('mousemove', handleResizeMove);
-            document.addEventListener('mouseup', handleResizeEnd);
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-        }
-        return () => {
-            document.removeEventListener('mousemove', handleResizeMove);
-            document.removeEventListener('mouseup', handleResizeEnd);
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-        };
-    }, [isResizing, handleResizeMove, handleResizeEnd]);
-
-    // Handle map click to add location-based item
-    const handleMapClick = (lngLat, locationName) => {
-        setQuickAddMenu({
-            x: window.innerWidth / 2,
-            y: window.innerHeight / 2,
-            lngLat,
-            locationName,
-        });
-    };
-
-    // Handle quick add menu selection
-    const handleQuickAdd = (type) => {
-        setModalDefaultType(type);
-        if (quickAddMenu) {
-            setModalDefaultLocation({
-                latitude: quickAddMenu.lngLat.lat,
-                longitude: quickAddMenu.lngLat.lng,
-                location_name: quickAddMenu.locationName,
-            });
-        }
-        setQuickAddMenu(null);
-        setIsModalOpen(true);
-    };
-
-    // Handle floating button add
-    const handleFloatingAdd = (type = 'idea') => {
-        setModalDefaultType(type);
-        setModalDefaultLocation(null);
-        setEditingItem(null);
-        setIsModalOpen(true);
-    };
-
-    // Handle edit item
-    const handleEditItem = (item) => {
-        setEditingItem(item);
-        setModalDefaultType(item.type);
-        setIsModalOpen(true);
-    };
-
-    // Handle delete item
-    const handleDeleteItem = async (itemId) => {
-        try {
-            await brainstormAPI.deleteBrainstormItem(itemId, tripId);
-            setItems(prev => prev.filter(item => item.id !== itemId));
-            emitBrainstormDelete(itemId); // Broadcast to other users
-            toast.success(t('brainstorm.deleted', 'Item deleted'));
-        } catch (error) {
-            console.error('Error deleting item:', error);
-            toast.error(t('brainstorm.deleteFailed', 'Failed to delete item'));
-        }
-    };
-
-    // Handle position update
-    const handlePositionUpdate = async (itemId, position_x, position_y) => {
-        try {
-            await brainstormAPI.updateItemPosition(itemId, position_x, position_y, tripId);
-            setItems(prev => prev.map(item =>
-                item.id === itemId ? { ...item, position_x, position_y } : item
-            ));
-            emitBrainstormMove(itemId, position_x, position_y); // Broadcast to other users
-        } catch (error) {
-            console.error('Error updating position:', error);
-        }
-    };
-
-    // Handle modal save
-    const handleModalSave = async (itemData) => {
-        try {
-            if (editingItem && !editingItem.prefill) {
-                const response = await brainstormAPI.updateBrainstormItem(editingItem.id, itemData, tripId);
-                const updatedItem = response.data.item;
-                setItems(prev => prev.map(item =>
-                    item.id === editingItem.id ? updatedItem : item
-                ));
-                emitBrainstormUpdate(updatedItem); // Broadcast to other users
-                toast.success(t('brainstorm.updated', 'Item updated'));
-            } else {
-                // Find a position that doesn't overlap with existing cards
-                const position = findNonOverlappingPosition(items);
-                const itemWithPosition = {
-                    ...itemData,
-                    position_x: position.x,
-                    position_y: position.y,
-                };
-
-                const response = await brainstormAPI.createBrainstormItem(tripId, itemWithPosition);
-                const newItem = response.data.item;
-                setItems(prev => [newItem, ...prev]);
-                emitBrainstormCreate(newItem); // Broadcast to other users
-                toast.success(t('brainstorm.created', 'Item created'));
-            }
-            setIsModalOpen(false);
-            setEditingItem(null);
-        } catch (error) {
-            console.error('Error saving item:', error);
-            toast.error(t('brainstorm.saveFailed', 'Failed to save item'));
-        }
-    };
-
-    // Group Handlers
-    const handleCreateGroup = async () => {
-        if (!canEdit()) return;
-        try {
-            // Center in current view approx
-            const centerX = (-canvasOffset.x + 100) / canvasZoom;
-            const centerY = (-canvasOffset.y + 100) / canvasZoom;
-
-            const response = await brainstormAPI.createBrainstormGroup(tripId, {
-                title: t('brainstorm.newGroup', 'New Group'),
-                position_x: centerX > 0 ? centerX : 100,
-                position_y: centerY > 0 ? centerY : 100,
-                width: 300,
-                height: 300,
-                color: '#e5e7eb'
-            });
-            const newGroup = response.data.group;
-            setGroups(prev => [...prev, newGroup]);
-            emitBrainstormGroupCreate(newGroup); // Broadcast to other users
-            toast.success(t('brainstorm.groupCreated', 'Group created'));
-        } catch (error) {
-            console.error('Error creating group:', error);
-            toast.error(t('brainstorm.groupCreateFailed', 'Failed to create group'));
-        }
-    };
-
-    const handleUpdateGroup = async (group) => {
-        if (!canEdit()) return;
-        try {
-            // Optimistic update
-            setGroups(prev => prev.map(g => g.id === group.id ? group : g));
-            await brainstormAPI.updateBrainstormGroup(group.id, group);
-            emitBrainstormGroupUpdate(group); // Broadcast to other users
-        } catch (error) {
-            console.error('Error updating group:', error);
-            // Revert on error (could be improved by refetching)
-        }
-    };
-
-    const handleDeleteGroup = async (groupId) => {
-        if (!canEdit()) return;
-        try {
-            await brainstormAPI.deleteBrainstormGroup(groupId);
-            setGroups(prev => prev.filter(g => g.id !== groupId));
-            emitBrainstormGroupDelete(groupId); // Broadcast to other users
-            toast.success(t('brainstorm.groupDeleted', 'Group deleted'));
-        } catch (error) {
-            console.error('Error deleting group:', error);
-            toast.error(t('brainstorm.groupDeleteFailed', 'Failed to delete group'));
-        }
-    };
-
-    // Handle clipboard paste
-    useEffect(() => {
-        // Inline non-overlapping position finder for paste handler
-        const findPastePosition = (existingItems) => {
-            const CARD_WIDTH = 240;
-            const CARD_HEIGHT = 150;
-            const PADDING = 20;
-            const baseX = 100, baseY = 100;
-
-            const overlaps = (x, y) => {
-                return existingItems.some(item => {
-                    const itemX = item.position_x || 0;
-                    const itemY = item.position_y || 0;
-                    return (
-                        x < itemX + CARD_WIDTH + PADDING &&
-                        x + CARD_WIDTH + PADDING > itemX &&
-                        y < itemY + CARD_HEIGHT + PADDING &&
-                        y + CARD_HEIGHT + PADDING > itemY
-                    );
-                });
-            };
-
-            let x = baseX, y = baseY;
-            if (!overlaps(x, y)) return { x, y };
-
-            const step = CARD_WIDTH + PADDING;
-            let layer = 1, attempts = 0;
-            while (attempts < 50) {
-                for (let i = 0; i < layer && attempts < 50; i++) { x += step; attempts++; if (!overlaps(x, y)) return { x, y }; }
-                for (let i = 0; i < layer && attempts < 50; i++) { y += step; attempts++; if (!overlaps(x, y)) return { x, y }; }
-                layer++;
-                for (let i = 0; i < layer && attempts < 50; i++) { x -= step; attempts++; if (!overlaps(x, y)) return { x, y }; }
-                for (let i = 0; i < layer && attempts < 50; i++) { y -= step; attempts++; if (!overlaps(x, y)) return { x, y }; }
-                layer++;
-            }
-            return { x: baseX + Math.random() * 400, y: baseY + Math.random() * 400 };
-        };
-
-        const handlePaste = async (e) => {
-            if (!canEdit() || isModalOpen) return;
-
-            const clipboardData = e.clipboardData || window.clipboardData;
-            const pastedText = clipboardData.getData('text');
-
-            if (pastedText) {
-                // Check if it's a URL
-                const urlPattern = /^(https?:\/\/[^\s]+)/i;
-                const isUrl = urlPattern.test(pastedText.trim());
-
-                if (isUrl) {
-                    setModalDefaultType('link');
-                    setModalDefaultLocation(null);
-                    setEditingItem({ prefill: { url: pastedText.trim() } });
-                    setIsModalOpen(true);
-                } else if (pastedText.trim().length > 0 && pastedText.trim().length < 500) {
-                    // Short text, treat as quick idea - use non-overlapping position
-                    try {
-                        const position = findPastePosition(items);
-                        const response = await brainstormAPI.createBrainstormItem(tripId, {
-                            type: 'idea',
-                            content: pastedText.trim(),
-                            position_x: position.x,
-                            position_y: position.y,
-                        });
-                        setItems(prev => [response.data.item, ...prev]);
-                        toast.success(t('brainstorm.pastedIdea', 'Added from clipboard'));
-                    } catch (error) {
-                        console.error('Error creating from paste:', error);
-                    }
-                }
-            }
-        };
-
-        document.addEventListener('paste', handlePaste);
-        return () => document.removeEventListener('paste', handlePaste);
-    }, [canEdit, isModalOpen, tripId, t, items]);
-
-    // Helper function to find a position that doesn't overlap with existing cards
-    const findNonOverlappingPosition = useCallback((existingItems, baseX = 100, baseY = 100) => {
-        const CARD_WIDTH = 240;  // Approximate card width
-        const CARD_HEIGHT = 150; // Approximate card height
-        const PADDING = 20;      // Space between cards
-
-        // Check if a position overlaps with any existing card
-        const overlaps = (x, y) => {
-            return existingItems.some(item => {
-                const itemX = item.position_x || 0;
-                const itemY = item.position_y || 0;
-                return (
-                    x < itemX + CARD_WIDTH + PADDING &&
-                    x + CARD_WIDTH + PADDING > itemX &&
-                    y < itemY + CARD_HEIGHT + PADDING &&
-                    y + CARD_HEIGHT + PADDING > itemY
-                );
-            });
-        };
-
-        // Try different positions in a spiral pattern
-        let x = baseX;
-        let y = baseY;
-        let attempts = 0;
-        const maxAttempts = 50;
-
-        // If base position doesn't overlap, use it
-        if (!overlaps(x, y)) {
-            return { x, y };
-        }
-
-        // Try spiral pattern
-        const step = CARD_WIDTH + PADDING;
-        let layer = 1;
-        while (attempts < maxAttempts) {
-            // Try right side
-            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
-                x += step;
-                attempts++;
-                if (!overlaps(x, y)) return { x, y };
-            }
-            // Try down
-            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
-                y += step;
-                attempts++;
-                if (!overlaps(x, y)) return { x, y };
-            }
-            layer++;
-            // Try left
-            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
-                x -= step;
-                attempts++;
-                if (!overlaps(x, y)) return { x, y };
-            }
-            // Try up
-            for (let i = 0; i < layer && attempts < maxAttempts; i++) {
-                y -= step;
-                attempts++;
-                if (!overlaps(x, y)) return { x, y };
-            }
-            layer++;
-        }
-
-        // Fallback: return a random position if no non-overlapping position found
-        return {
-            x: baseX + Math.random() * 400,
-            y: baseY + Math.random() * 400
-        };
-    }, []);
-
-    // Handle zoom to location from canvas
-    const handleZoomToLocation = useCallback((lat, lng) => {
-        if (mapRef.current) {
-            mapRef.current.flyTo({
-                center: [lng, lat],
-                zoom: 14,
-                duration: 1000
-            });
-        }
-    }, []);
-
-    // Handle map ready callback
-    const handleMapReady = useCallback((map) => {
-        mapRef.current = map;
-    }, []);
-
-    // Latch Drag Handlers for mobile split view - 3 states
-    const handleLatchTouchStart = (e) => {
-        latchDragStartY.current = e.touches[0].clientY;
-        isDraggingLatch.current = true;
-        e.stopPropagation();
-    };
-
-    const handleLatchTouchMove = (e) => {
-        if (!isDraggingLatch.current) return;
-        e.preventDefault();
-    };
-
-    const handleLatchTouchEnd = (e) => {
-        if (!isDraggingLatch.current) return;
-        const endY = e.changedTouches[0].clientY;
-        const deltaY = endY - latchDragStartY.current;
-        isDraggingLatch.current = false;
-
-        // Dragged DOWN (positive delta) -> Go to next state (more map)
-        if (deltaY > 50) {
-            if (mobileViewState === 'canvas') {
-                setMobileViewState('split');
-            } else if (mobileViewState === 'split') {
-                setMobileViewState('map');
-            }
-        }
-        // Dragged UP (negative delta) -> Go to previous state (more canvas)
-        else if (deltaY < -50) {
-            if (mobileViewState === 'map') {
-                setMobileViewState('split');
-            } else if (mobileViewState === 'split') {
-                setMobileViewState('canvas');
-            }
-        }
-    };
-
-    // Touch handlers for detecting pull gesture on the content panel (not latch)
-    const panelTouchStartY = useRef(0);
-    const isPanelDragging = useRef(false);
-
-    const handlePanelTouchStart = useCallback((e) => {
-        // Only track if in split mode - to allow pull-down to map
-        if (mobileViewState === 'split') {
-            panelTouchStartY.current = e.touches[0].clientY;
-            isPanelDragging.current = true;
-        }
-    }, [mobileViewState]);
-
-    const handlePanelTouchMove = useCallback((e) => {
-        if (!isPanelDragging.current || mobileViewState !== 'split') return;
-
-        const currentY = e.touches[0].clientY;
-        const deltaY = currentY - panelTouchStartY.current;
-
-        // User is pulling down (finger moving down = positive delta = trying to reveal more map)
-        if (deltaY > 80) {
-            setMobileViewState('map');
-            isPanelDragging.current = false;
-        }
-        // User is pulling up (finger moving up = negative delta = trying to show more canvas)
-        else if (deltaY < -80) {
-            setMobileViewState('canvas');
-            isPanelDragging.current = false;
-        }
-    }, [mobileViewState]);
-
-    const handlePanelTouchEnd = useCallback(() => {
-        isPanelDragging.current = false;
-    }, []);
-
-    // Loading state
-    if (loading) {
-        return (
-            <div className="h-full flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-10 h-10 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm text-gray-500">{t('common.loading', 'Loading...')}</span>
-                </div>
-            </div>
-        );
+        setTrip(tripRes.data.trip);
+        setMembers(tripRes.data.members || []);
+        const boardRes = await brainstormAPI.getPublicBrainstormItems(token);
+        setBoard(boardRes.data.items || [], boardRes.data.groups || []);
+      } else if (requestedTripId) {
+        const [tripRes, itemsRes, groupsRes] = await Promise.all([
+          tripAPI.getTripById(requestedTripId),
+          brainstormAPI.getBrainstormItems(requestedTripId),
+          brainstormAPI.getBrainstormGroups(requestedTripId),
+        ]);
+        setTrip(tripRes.data.trip);
+        setMembers(tripRes.data.members || []);
+        setBoard(itemsRes.data.items || [], groupsRes.data.groups || []);
+      }
+      // Land on the whole board
+      requestAnimationFrame(() => {
+        const el = canvasContainerRef.current;
+        if (el) useBrainstormStore.getState().zoomToFit(el.clientWidth, el.clientHeight);
+      });
+    } catch (error) {
+      console.error('Error fetching board:', error);
+      toast.error(t('errors.failedFetch', 'Failed to load data'));
+      navigate(token ? `/trip/public/${token}` : '/trips');
+    } finally {
+      setLoading(false);
     }
+  }, [requestedTripId, token, navigate, t, setBoard]);
 
+  useEffect(() => {
+    fetchData();
+    return () => setBoard([], []);
+  }, [fetchData, setBoard]);
+
+  // ---- realtime ----------------------------------------------------------
+  const realtimeHandlers = useMemo(() => ({
+    onBrainstormCreate: (item) => upsertItem(item),
+    onBrainstormUpdate: (item) => upsertItem(item),
+    onBrainstormDelete: (itemId) => removeItem(itemId),
+    onBrainstormMove: ({ itemId, position_x, position_y }) =>
+      moveItemsLocal([{ id: itemId, position_x, position_y }]),
+    onBrainstormBatchMove: ({ positions, group }) => {
+      if (positions?.length) moveItemsLocal(positions);
+      if (group) upsertGroup(group);
+    },
+    onBrainstormGroupCreate: (group) => upsertGroup(group),
+    onBrainstormGroupUpdate: (group) => upsertGroup(group),
+    onBrainstormGroupDelete: (groupId) => removeGroup(groupId),
+  }), [upsertItem, removeItem, moveItemsLocal, upsertGroup, removeGroup]);
+
+  const {
+    emitBrainstormCreate, emitBrainstormUpdate, emitBrainstormDelete,
+    emitBrainstormMove, emitBrainstormBatchMove,
+    emitBrainstormGroupCreate, emitBrainstormGroupUpdate, emitBrainstormGroupDelete,
+  } = useRealtimeUpdates(tripId, realtimeHandlers);
+
+  // ---- persistence callbacks from the canvas -----------------------------
+  const handlePersistMoves = useCallback(async (updates, groupPatch) => {
+    try {
+      if (updates.length === 1 && !groupPatch) {
+        const u = updates[0];
+        await brainstormAPI.updateItemPosition(u.id, u.position_x, u.position_y, tripId);
+        emitBrainstormMove(u.id, u.position_x, u.position_y);
+        return;
+      }
+      if (updates.length > 0) await brainstormAPI.batchUpdatePositions(updates, tripId);
+      let fullGroup = null;
+      if (groupPatch) {
+        const current = useBrainstormStore.getState().groups.find((g) => g.id === groupPatch.id);
+        const res = await brainstormAPI.updateBrainstormGroup(groupPatch.id, { ...current, ...groupPatch });
+        fullGroup = res.data.group || { ...current, ...groupPatch };
+      }
+      emitBrainstormBatchMove(updates, fullGroup);
+    } catch (error) {
+      console.error('Error persisting positions:', error);
+      toast.error(t('brainstorm.saveFailed', 'Failed to save item'));
+    }
+  }, [tripId, emitBrainstormMove, emitBrainstormBatchMove, t]);
+
+  const handleMembershipChanges = useCallback(async (changes) => {
+    for (const { itemId, groupId } of changes) {
+      try {
+        const res = await brainstormAPI.updateBrainstormItem(
+          itemId,
+          { group_id: groupId ?? '' }, // '' ungroups (FormData drops null)
+          tripId
+        );
+        upsertItem(res.data.item);
+        emitBrainstormUpdate(res.data.item);
+      } catch (error) {
+        console.error('Error updating membership:', error);
+      }
+    }
+  }, [tripId, upsertItem, emitBrainstormUpdate]);
+
+  // ---- item CRUD ---------------------------------------------------------
+  const viewportCenterWorld = () => {
+    const el = canvasContainerRef.current;
+    const vp = useBrainstormStore.getState().viewport;
+    if (!el) return { x: 100, y: 100 };
+    return screenToWorld(vp, el.clientWidth / 2, el.clientHeight / 2);
+  };
+
+  const openCreateModal = (type = 'idea', location = null, spawn = null) => {
+    setEditingItem(null);
+    setModalDefaults({ type, location, spawn });
+    setIsModalOpen(true);
+  };
+
+  const handleQuickAdd = useCallback((worldPoint) => {
+    openCreateModal('idea', null, worldPoint);
+  }, []);
+
+  const handleMapClick = useCallback((lngLat, locationName) => {
+    if (!canEdit) return;
+    openCreateModal('place', {
+      latitude: lngLat.lat,
+      longitude: lngLat.lng,
+      location_name: locationName || '',
+    }, null);
+    setMobileMapOpen(false);
+  }, [canEdit]);
+
+  const handleEditItem = useCallback((item) => {
+    if (!canEdit) return;
+    setEditingItem(item);
+    setModalDefaults({ type: item.type, location: null, spawn: null });
+    setIsModalOpen(true);
+  }, [canEdit]);
+
+  const handleModalSave = async (itemData) => {
+    try {
+      if (editingItem && !editingItem.prefill) {
+        const res = await brainstormAPI.updateBrainstormItem(editingItem.id, itemData, tripId);
+        upsertItem(res.data.item);
+        emitBrainstormUpdate(res.data.item);
+        toast.success(t('brainstorm.updated', 'Item updated'));
+      } else {
+        const spawn = modalDefaults.spawn || (() => {
+          const c = viewportCenterWorld();
+          return { x: c.x - ITEM_W / 2, y: c.y - ITEM_H / 2 };
+        })();
+        const res = await brainstormAPI.createBrainstormItem(tripId, {
+          ...itemData,
+          position_x: Math.round(spawn.x),
+          position_y: Math.round(spawn.y),
+        });
+        const newItem = res.data.item;
+        upsertItem(newItem);
+        emitBrainstormCreate(newItem);
+        setHighlight(newItem.id);
+        toast.success(t('brainstorm.created', 'Item created'));
+      }
+      setIsModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error saving item:', error);
+      toast.error(error.response?.data?.message || t('brainstorm.saveFailed', 'Failed to save item'));
+    }
+  };
+
+  // ---- groups ------------------------------------------------------------
+  const handleAddGroup = async () => {
+    try {
+      const c = viewportCenterWorld();
+      const res = await brainstormAPI.createBrainstormGroup(tripId, {
+        title: t('brainstorm.newGroup', 'New Group'),
+        position_x: Math.round(c.x - 200),
+        position_y: Math.round(c.y - 150),
+        width: 400,
+        height: 300,
+      });
+      upsertGroup(res.data.group);
+      emitBrainstormGroupCreate(res.data.group);
+    } catch (error) {
+      console.error('Error creating group:', error);
+      toast.error(t('brainstorm.saveFailed', 'Failed to save item'));
+    }
+  };
+
+  const persistGroup = useCallback(async (group, patch) => {
+    try {
+      const merged = { ...group, ...patch };
+      upsertGroup(merged);
+      const res = await brainstormAPI.updateBrainstormGroup(group.id, merged);
+      const saved = res.data.group || merged;
+      upsertGroup(saved);
+      emitBrainstormGroupUpdate(saved);
+    } catch (error) {
+      console.error('Error updating group:', error);
+    }
+  }, [upsertGroup, emitBrainstormGroupUpdate]);
+
+  const handleGroupResize = useCallback((group, width, height) => {
+    persistGroup(group, { width, height });
+  }, [persistGroup]);
+
+  const handleRenameGroup = useCallback((group) => {
+    const title = window.prompt(t('brainstorm.renameGroup', 'Group name'), group.title || '');
+    if (title !== null && title.trim() !== '') persistGroup(group, { title: title.trim() });
+  }, [persistGroup, t]);
+
+  const handleDeleteGroup = useCallback(async (group) => {
+    if (!confirm(t('brainstorm.deleteGroupConfirm', 'Delete this group? Its items are kept.'))) return;
+    try {
+      await brainstormAPI.deleteBrainstormGroup(group.id);
+      removeGroup(group.id);
+      emitBrainstormGroupDelete(group.id);
+    } catch (error) {
+      console.error('Error deleting group:', error);
+    }
+  }, [t, removeGroup, emitBrainstormGroupDelete]);
+
+  // ---- bulk actions on the selection -------------------------------------
+  const applyToSelection = async (patch, label) => {
+    setIsBusy(true);
+    try {
+      for (const id of selectedIds) {
+        const res = await brainstormAPI.updateBrainstormItem(id, patch, tripId);
+        upsertItem(res.data.item);
+        emitBrainstormUpdate(res.data.item);
+      }
+      if (label) toast.success(label);
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+      toast.error(t('brainstorm.saveFailed', 'Failed to save item'));
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const deleteSelection = async () => {
+    if (!confirm(t('brainstorm.deleteSelectedConfirm', 'Delete the selected items?'))) return;
+    setIsBusy(true);
+    try {
+      for (const id of selectedIds) {
+        await brainstormAPI.deleteBrainstormItem(id, tripId);
+        removeItem(id);
+        emitBrainstormDelete(id);
+      }
+      clearSelection();
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      toast.error(t('errors.deleteFailed', { item: 'items' }));
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  // ---- search ------------------------------------------------------------
+  const matchesQuery = (item, q) =>
+    [item.title, item.content, item.location_name, item.url]
+      .some((f) => f && f.toLowerCase().includes(q));
+
+  const dimmedIds = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return null;
+    return new Set(items.filter((i) => !matchesQuery(i, q)).map((i) => i.id));
+  }, [items, searchQuery]);
+
+  const flyToFirstMatch = () => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return;
+    const match = items.find((i) => matchesQuery(i, q));
+    const el = canvasContainerRef.current;
+    if (match && el) {
+      centerOn(
+        match.position_x + ITEM_W / 2,
+        match.position_y + ITEM_H / 2,
+        el.clientWidth,
+        el.clientHeight,
+        Math.max(useBrainstormStore.getState().viewport.zoom, 0.8)
+      );
+      setHighlight(match.id);
+      select([match.id]);
+    }
+  };
+
+  // ---- desktop panel resize ---------------------------------------------
+  useEffect(() => {
+    if (!isResizing) return;
+    const onMove = (e) => {
+      const rect = canvasContainerRef.current?.parentElement?.getBoundingClientRect();
+      if (!rect) return;
+      setPanelWidth(Math.max(400, e.clientX - rect.left));
+    };
+    const onUp = () => {
+      setIsResizing(false);
+      persistPanelWidth();
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing, setPanelWidth, persistPanelWidth]);
+
+  // ---- render ------------------------------------------------------------
+  if (loading) {
     return (
-        <>
-            {/* Mobile layout with map - 3 states: canvas, split, map */}
-            <div className="md:hidden h-full flex flex-col overflow-hidden relative">
-                {/* Mobile Map Container - fixed at top, hidden in canvas mode */}
-                {hasMapboxToken && mobileViewState !== 'canvas' && (
-                    <div
-                        className="absolute top-0 left-0 right-0 z-0 transition-all duration-300 ease-out"
-                        style={{
-                            height: mobileViewState === 'map' ? '100%' : `${mobileMapHeight}px`,
-                        }}
-                    >
-                        <BrainstormMap
-                            items={items}
-                            trip={trip}
-                            canEdit={canEdit()}
-                            onMapClick={handleMapClick}
-                            onItemClick={handleEditItem}
-                            onMapReady={handleMapReady}
-                            compact={mobileViewState === 'split'} // Compact in split mode
-                            bottomOffset={mobileViewState === 'map' ? 160 : 0} // Offset legend above minimized panel
-                        />
-                    </div>
-                )}
-
-                {/* Mobile Content Panel - floats over map */}
-                <div
-                    className={`flex-1 flex flex-col overflow-hidden z-10 transition-all duration-300 ease-out ${mobileViewState !== 'canvas' ? 'shadow-[0_-4px_20px_rgba(0,0,0,0.15)]' : ''}`}
-                    style={{
-                        marginTop: mobileViewState === 'map'
-                            ? 'calc(100vh - 160px)' // Leave 160px visible at bottom
-                            : mobileViewState === 'split'
-                                ? `${mobileMapHeight - 20}px` // Overlap map slightly
-                                : '0', // Full canvas
-                        borderTopLeftRadius: mobileViewState !== 'canvas' ? '24px' : '0',
-                        borderTopRightRadius: mobileViewState !== 'canvas' ? '24px' : '0',
-                    }}
-                >
-                    <div className="bg-white dark:bg-gray-800 flex-1 flex flex-col min-h-full">
-                        {/* Latch indicator - drag to switch views - always visible when map is available */}
-                        {hasMapboxToken && (
-                            <div
-                                className="flex justify-center py-3 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing"
-                                onTouchStart={handleLatchTouchStart}
-                                onTouchMove={handleLatchTouchMove}
-                                onTouchEnd={handleLatchTouchEnd}
-                            >
-                                <div className="w-16 h-1.5 bg-gray-400 dark:bg-gray-500 rounded-full" />
-                            </div>
-                        )}
-
-                        {/* Mobile header - swipeable to change view states */}
-                        <div
-                            className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0"
-                            onTouchStart={handlePanelTouchStart}
-                            onTouchMove={handlePanelTouchMove}
-                            onTouchEnd={handlePanelTouchEnd}
-                        >
-                            <Link
-                                to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
-                                className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400"
-                            >
-                                <ArrowLeft className="mr-1 h-4 w-4" />
-                                {t('common.back', 'Back')}
-                            </Link>
-
-                            <h1 className="text-base font-semibold text-gray-900 dark:text-white truncate max-w-[140px]">
-                                {trip?.name}
-                            </h1>
-
-                            <div className="flex items-center gap-2">
-                                {/* Toggle map visibility - cycles through states */}
-                                {hasMapboxToken && (
-                                    <button
-                                        onClick={() => {
-                                            // Cycle: split -> map -> canvas -> split
-                                            if (mobileViewState === 'split') setMobileViewState('map');
-                                            else if (mobileViewState === 'map') setMobileViewState('canvas');
-                                            else setMobileViewState('split');
-                                        }}
-                                        className={`p-1.5 rounded-lg transition-colors ${mobileViewState === 'map'
-                                            ? 'bg-accent text-white'
-                                            : mobileViewState === 'canvas'
-                                                ? 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                                            }`}
-                                        title={
-                                            mobileViewState === 'map'
-                                                ? t('brainstorm.hideMap', 'Hide map')
-                                                : mobileViewState === 'canvas'
-                                                    ? t('brainstorm.showMap', 'Show map')
-                                                    : t('brainstorm.expandMap', 'Expand map')
-                                        }
-                                    >
-                                        <Map className="w-4 h-4" />
-                                    </button>
-                                )}
-
-                                {canEdit() && (
-                                    <button
-                                        onClick={() => handleFloatingAdd()}
-                                        className="w-8 h-8 bg-accent text-white rounded-full flex items-center justify-center"
-                                    >
-                                        <Plus className="w-5 h-5" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Mobile canvas - always visible except when map is full screen */}
-                        <div
-                            className="flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900"
-                            style={{
-                                display: mobileViewState === 'map' ? 'none' : 'block',
-                            }}
-                        >
-                            <BrainstormCanvas
-                                items={items}
-                                groups={groups}
-                                canEdit={canEdit()}
-                                onEditItem={handleEditItem}
-                                onDeleteItem={handleDeleteItem}
-                                onPositionUpdate={handlePositionUpdate}
-                                onZoomToLocation={handleZoomToLocation}
-                                onGroupChange={handleUpdateGroup}
-                                onDeleteGroup={handleDeleteGroup}
-                                offset={canvasOffset}
-                                zoom={canvasZoom}
-                                onOffsetChange={setCanvasOffset}
-                                onZoomChange={setCanvasZoom}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Quick add menu for map clicks */}
-                {quickAddMenu && (
-                    <div
-                        className="fixed z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-gray-700"
-                        style={{
-                            left: `${quickAddMenu.x}px`,
-                            top: `${quickAddMenu.y}px`,
-                            transform: 'translate(-50%, -50%)',
-                        }}
-                    >
-                        <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                            <span className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                                {quickAddMenu.locationName || t('brainstorm.newItem', 'New item')}
-                            </span>
-                            <button
-                                onClick={() => setQuickAddMenu(null)}
-                                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
-                            >
-                                <X className="w-4 h-4 text-gray-400" />
-                            </button>
-                        </div>
-                        <div className="flex gap-2">
-                            {['place', 'note', 'image', 'link', 'idea'].map(type => {
-                                const TypeIcon = { place: MapPin, note: FileText, image: Image, link: Link2, idea: Lightbulb }[type];
-                                return (
-                                    <button
-                                        key={type}
-                                        onClick={() => handleQuickAdd(type)}
-                                        className="p-2.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                                        title={t(`brainstorm.types.${type}`, type)}
-                                    >
-                                        <TypeIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Desktop layout */}
-            <div ref={containerRef} className="hidden md:flex h-full overflow-hidden">
-                {/* Left Panel - Canvas */}
-                <div
-                    className="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-0 flex-shrink-0 relative"
-                    style={{ width: hasMapboxToken ? `${panelWidth}px` : '100%' }}
-                >
-                    {/* Header */}
-                    <div className="px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                            <Link
-                                to={token ? `/trip/public/${token}` : fromDashboard ? '/brainstorm' : `/trips/${tripId}`}
-                                className="inline-flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                            >
-                                <ArrowLeft className="mr-1 h-4 w-4" />
-                                {t('common.back', 'Back')}
-                            </Link>
-                            <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
-                            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                {t('brainstorm.title', 'Brainstorm')}
-                            </h1>
-                        </div>
-                        <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                            {trip?.name}
-                        </span>
-                    </div>
-
-                    {/* Canvas */}
-                    <div className="flex-1 overflow-hidden relative">
-                        <BrainstormCanvas
-                            items={items}
-                            groups={groups}
-                            canEdit={canEdit()}
-                            onEditItem={handleEditItem}
-                            onDeleteItem={handleDeleteItem}
-                            onPositionUpdate={handlePositionUpdate}
-                            onZoomToLocation={handleZoomToLocation}
-                            onGroupChange={handleUpdateGroup}
-                            onDeleteGroup={handleDeleteGroup}
-                            offset={canvasOffset}
-                            zoom={canvasZoom}
-                            onOffsetChange={setCanvasOffset}
-                            onZoomChange={setCanvasZoom}
-                        />
-
-                        {/* Canvas controls */}
-                        <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-1.5">
-                            <button
-                                onClick={() => setCanvasZoom(z => Math.min(2, z + 0.1))}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                title={t('brainstorm.zoomIn', 'Zoom in')}
-                            >
-                                <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </button>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 min-w-[40px] text-center">
-                                {Math.round(canvasZoom * 100)}%
-                            </span>
-                            <button
-                                onClick={() => setCanvasZoom(z => Math.max(0.25, z - 0.1))}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                title={t('brainstorm.zoomOut', 'Zoom out')}
-                            >
-                                <ZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </button>
-                            <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
-                            <button
-                                onClick={() => { setCanvasOffset({ x: 0, y: 0 }); setCanvasZoom(1); }}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                title={t('brainstorm.resetView', 'Reset view')}
-                            >
-                                <Move className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </button>
-                        </div>
-
-                        {/* Floating add button */}
-                        {canEdit() && (
-                            <div className="absolute bottom-4 right-4">
-                                <FloatingAddButton onAdd={handleFloatingAdd} onAddGroup={handleCreateGroup} />
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Resize Handle */}
-                {hasMapboxToken && (
-                    <div
-                        className="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-accent hover:w-1.5 cursor-col-resize transition-all duration-150 flex-shrink-0 group relative"
-                        onMouseDown={handleResizeStart}
-                    >
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-12 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                )}
-
-                {/* Right Panel - Map */}
-                {hasMapboxToken && (
-                    <div className="flex-1 h-full relative min-w-0">
-                        <BrainstormMap
-                            items={items}
-                            trip={trip}
-                            canEdit={canEdit()}
-                            onMapClick={handleMapClick}
-                            onItemClick={handleEditItem}
-                            onMapReady={handleMapReady}
-                        />
-
-                        {/* Quick add menu */}
-                        {quickAddMenu && (
-                            <div
-                                className="fixed z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-gray-700"
-                                style={{
-                                    left: `${quickAddMenu.x}px`,
-                                    top: `${quickAddMenu.y}px`,
-                                    transform: 'translate(-50%, -50%)',
-                                }}
-                            >
-                                <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                        {t('brainstorm.addAt', 'Add at')} {quickAddMenu.locationName || 'this location'}
-                                    </span>
-                                    <button
-                                        onClick={() => setQuickAddMenu(null)}
-                                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                                    >
-                                        <X className="w-4 h-4 text-gray-500" />
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {Object.entries(ITEM_TYPES).map(([type, config]) => (
-                                        <button
-                                            key={type}
-                                            onClick={() => handleQuickAdd(type)}
-                                            className={`flex flex-col items-center gap-1 p-3 rounded-xl hover:bg-${config.color}-50 dark:hover:bg-${config.color}-900/20 transition-colors`}
-                                        >
-                                            <div className={`w-10 h-10 rounded-full bg-${config.color}-100 dark:bg-${config.color}-900/30 flex items-center justify-center`}>
-                                                <config.icon className={`w-5 h-5 text-${config.color}-600 dark:text-${config.color}-400`} />
-                                            </div>
-                                            <span className="text-xs text-gray-600 dark:text-gray-400">{config.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Item Modal */}
-            <BrainstormItemModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setEditingItem(null);
-                    setModalDefaultLocation(null);
-                }}
-                onSave={handleModalSave}
-                editingItem={editingItem}
-                defaultType={modalDefaultType}
-                defaultLocation={modalDefaultLocation}
-            />
-        </>
+      <div className="h-full min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <Loader2 className="w-10 h-10 text-accent animate-spin" />
+      </div>
     );
-};
+  }
 
-// Floating add button with type selection
-const FloatingAddButton = ({ onAdd, onAddGroup }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const { t } = useTranslation();
+  const backLink = token
+    ? `/trip/public/${token}`
+    : fromDashboard ? '/brainstorm' : `/trips/${tripId}`;
+  const showMapPanel = hasMapbox;
 
-    return (
-        <div className="relative">
-            {isOpen && (
-                <div className="absolute bottom-16 right-0 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-3 border border-gray-200 dark:border-gray-700 min-w-[200px]">
-                    <div className="space-y-1">
-                        {Object.entries(ITEM_TYPES).map(([type, config]) => (
-                            <button
-                                key={type}
-                                onClick={() => {
-                                    onAdd(type);
-                                    setIsOpen(false);
-                                }}
-                                className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                                <div className={`w-8 h-8 rounded-full bg-${config.color}-100 dark:bg-${config.color}-900/30 flex items-center justify-center`}>
-                                    <config.icon className={`w-4 h-4 text-${config.color}-600 dark:text-${config.color}-400`} />
-                                </div>
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t(`brainstorm.add${config.label.replace(' ', '')}`, `Add ${config.label}`)}
-                                </span>
-                            </button>
-                        ))}
-                        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
-                        <button
-                            onClick={() => {
-                                onAddGroup();
-                                setIsOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                <Grid className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                            </div>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {t('brainstorm.addGroup', 'Add Visual Group')}
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+      {/* Header */}
+      <div className="flex-none flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
+        <Link
+          to={backLink}
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">{t('common.back', 'Back')}</span>
+        </Link>
+        <h1 className="font-display font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+          {t('brainstorm.title', 'Brainstorm')}
+        </h1>
+
+        {/* Search */}
+        <div className="flex-1 max-w-sm ml-auto relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && flyToFirstMatch()}
+            placeholder={t('brainstorm.searchPlaceholder', 'Search the board…')}
+            className="w-full pl-8 pr-8 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+          />
+          {searchQuery && (
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 bg-accent text-white rounded-2xl shadow-xl flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-2xl ${isOpen ? 'rotate-45' : ''}`}
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-                <Plus className="w-6 h-6" />
+              <X className="w-4 h-4" />
             </button>
+          )}
         </div>
-    );
+
+        <span className="hidden lg:block text-sm text-gray-400 truncate max-w-[180px]">{trip?.name}</span>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 flex relative min-h-0">
+        {/* Canvas pane */}
+        <div
+          ref={canvasContainerRef}
+          className="relative h-full flex-shrink-0 max-md:!w-full"
+          style={{ width: showMapPanel ? `${panelWidth}px` : '100%' }}
+        >
+          <div className="absolute inset-0">
+            <BoardCanvas
+              canEdit={canEdit}
+              dimmedIds={dimmedIds}
+              onPersistMoves={handlePersistMoves}
+              onMembershipChanges={handleMembershipChanges}
+              onEditItem={handleEditItem}
+              onQuickAdd={handleQuickAdd}
+              onGroupResize={handleGroupResize}
+              onOpenGroupColor={setColorTargetGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onRenameGroup={handleRenameGroup}
+            />
+
+            {/* Zoom controls */}
+            <div className="absolute bottom-4 left-4 flex items-center gap-1 p-1 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-10">
+              <button
+                onClick={() => {
+                  const el = canvasContainerRef.current;
+                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 0.8);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={t('brainstorm.zoomOut', 'Zoom out')}
+              >
+                <ZoomOut className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 w-10 text-center">
+                {Math.round(viewport.zoom * 100)}%
+              </span>
+              <button
+                onClick={() => {
+                  const el = canvasContainerRef.current;
+                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 1.25);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={t('brainstorm.zoomIn', 'Zoom in')}
+              >
+                <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+              <button
+                onClick={() => {
+                  const el = canvasContainerRef.current;
+                  zoomToFit(el.clientWidth, el.clientHeight);
+                }}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                title={t('brainstorm.zoomToFit', 'Fit board')}
+              >
+                <Maximize className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+              </button>
+            </div>
+
+            {/* Add buttons */}
+            {canEdit && (
+              <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 z-10">
+                <button
+                  onClick={handleAddGroup}
+                  className="p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 shadow-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  title={t('brainstorm.addGroup', 'Add group')}
+                >
+                  <FolderPlus className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => openCreateModal()}
+                  className="p-3.5 rounded-xl bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent-hover"
+                  title={t('brainstorm.addItem', 'Add item')}
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {/* Mobile map toggle */}
+            {showMapPanel && (
+              <button
+                onClick={() => setMobileMapOpen(true)}
+                className="md:hidden absolute top-3 right-3 p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-10"
+                title={t('brainstorm.showMap', 'Show map')}
+              >
+                <MapIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </button>
+            )}
+
+            {/* Selection action bar */}
+            {canEdit && selectedIds.size > 0 && (
+              <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl z-10 max-w-[95%]">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                  {selectedIds.size} {t('brainstorm.selected', 'selected')}
+                </span>
+                <ColorPalette
+                  value={undefined}
+                  onChange={(color) => applyToSelection({ color: color ?? '' })}
+                />
+                <button
+                  disabled={isBusy}
+                  onClick={() => applyToSelection({ group_id: '' }, t('brainstorm.ungrouped', 'Removed from groups'))}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40"
+                  title={t('brainstorm.ungroup', 'Remove from group')}
+                >
+                  <Ungroup className="w-4 h-4 text-gray-500" />
+                </button>
+                <button
+                  disabled={isBusy}
+                  onClick={deleteSelection}
+                  className="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-40"
+                  title={t('common.delete', 'Delete')}
+                >
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
+
+            {/* Group color popover */}
+            {colorTargetGroup && (
+              <div
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/20"
+                onClick={() => setColorTargetGroup(null)}
+              >
+                <div
+                  className="p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">
+                    {colorTargetGroup.title || t('brainstorm.groupColor', 'Group color')}
+                  </p>
+                  <ColorPalette
+                    value={colorTargetGroup.color === '#e5e7eb' ? null : colorTargetGroup.color}
+                    onChange={(color) => {
+                      persistGroup(colorTargetGroup, { color: color ?? '' });
+                      setColorTargetGroup(null);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Divider (desktop) */}
+        {showMapPanel && (
+          <div
+            onPointerDown={() => setIsResizing(true)}
+            className="hidden md:block w-1.5 h-full cursor-col-resize bg-gray-200 dark:bg-gray-700 hover:bg-accent transition-colors flex-shrink-0"
+          />
+        )}
+
+        {/* Map pane (desktop) */}
+        {showMapPanel && (
+          <div className="hidden md:block flex-1 relative min-w-0">
+            <BrainstormMap
+              items={items}
+              trip={trip}
+              canEdit={canEdit}
+              onMapClick={handleMapClick}
+              onItemClick={handleEditItem}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Mobile fullscreen map */}
+      {showMapPanel && mobileMapOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-gray-900">
+          <BrainstormMap
+            items={items}
+            trip={trip}
+            canEdit={canEdit}
+            onMapClick={handleMapClick}
+            onItemClick={(item) => {
+              setMobileMapOpen(false);
+              handleEditItem(item);
+            }}
+          />
+          <button
+            onClick={() => setMobileMapOpen(false)}
+            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white dark:bg-gray-800 shadow-lg z-50"
+          >
+            <X className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+          </button>
+        </div>
+      )}
+
+      {/* Item editor */}
+      <BrainstormItemModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+        }}
+        onSave={handleModalSave}
+        editingItem={editingItem}
+        defaultType={modalDefaults.type}
+        defaultLocation={modalDefaults.location}
+      />
+    </div>
+  );
 };
 
 export default Brainstorm;
