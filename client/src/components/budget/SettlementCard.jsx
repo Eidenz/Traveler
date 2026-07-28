@@ -5,12 +5,16 @@
 // (any editor may record a payment — the bill payer can tick off lazy
 // friends), and the payment history with undo.
 
-import React from 'react';
-import { ArrowRight, Scale, Check, CheckCircle2, Undo2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Scale, Check, CheckCircle2, Undo2, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid, onUndoPayment, busy }) => {
   const { t } = useTranslation();
+  // null = follow the default (open while debts remain, collapsed once
+  // everything is settled); a manual toggle overrides it for the session
+  const [userToggled, setUserToggled] = useState(null);
+
   if (!settlement || (settlement.balances.length === 0 && (settlement.payments?.length || 0) === 0)) {
     return null;
   }
@@ -20,16 +24,37 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
   const myBalance = settlement.balances.find((b) => b.user_id === currentUserId);
   const iOwe = myBalance && myBalance.net < -0.009;
   const ratio = settlement.progress?.ratio ?? 1;
+  const allSettled = settlement.transfers.length === 0;
+  const open = userToggled ?? !allSettled;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
-      <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-        <Scale className="w-4 h-4 text-accent" />
+      <button
+        type="button"
+        onClick={() => setUserToggled(!open)}
+        className={`w-full p-4 flex items-center gap-2 text-left ${open ? 'border-b border-gray-100 dark:border-gray-700' : ''}`}
+      >
+        <Scale className="w-4 h-4 text-accent flex-shrink-0" />
         <h2 className="font-display font-medium text-gray-900 dark:text-white">
           {t('budget.settleUp', 'Settle up')}
         </h2>
-      </div>
+        {/* Compact status when collapsed */}
+        {!open && (
+          <span className={`ml-2 flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${allSettled && !iOwe
+            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300'
+            : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300'}`}
+          >
+            {allSettled && !iOwe
+              ? (<><CheckCircle2 className="w-3 h-3" />{t('budget.youAreSettled', "You're settled up")}</>)
+              : `${t('budget.youOwe', 'You owe')} ${fmt(-((myBalance?.net) || 0))}`}
+          </span>
+        )}
+        <ChevronDown
+          className={`ml-auto w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
 
+      {open && (
       <div className="p-4 space-y-4">
         {/* Fat personal status badge */}
         <div
@@ -146,6 +171,7 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
           {t('budget.settleHint', 'Based on expenses with a payer. Set "Paid by" when adding an expense to include it.')}
         </p>
       </div>
+      )}
     </div>
   );
 };
