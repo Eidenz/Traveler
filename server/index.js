@@ -131,7 +131,14 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
 }));
-app.use(morgan('dev'));
+// Request logging: full access log in development, but in production only
+// failed requests (4xx/5xx) — per-request logging is just noise in the
+// Docker logs and errors still leave a trace.
+if (process.env.NODE_ENV === 'production') {
+  app.use(morgan('combined', { skip: (req, res) => res.statusCode < 400 }));
+} else {
+  app.use(morgan('dev'));
+}
 
 // CORS configuration — origins from CORS_ORIGINS env var (comma-separated)
 const corsOrigins = process.env.CORS_ORIGINS
