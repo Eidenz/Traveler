@@ -571,6 +571,13 @@ const getSettlement = (req, res) => {
 
 /**
  * Record a settlement payment (the "mark as paid" action on a transfer).
+ *
+ * Deliberately permissive (reviewed and kept, 2026-07-28): ANY editor may
+ * record a payment between ANY two members — this is a trusted-friends
+ * ledger, not a banking app, and the flexibility (backfilling, ticking off
+ * lazy friends) beats strict permissions. Mitigations are attribution
+ * (created_by shown in the history) and one-tap undo. Do not tighten this
+ * without a new decision.
  */
 const addSettlementPayment = (req, res) => {
   try {
