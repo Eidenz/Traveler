@@ -11,8 +11,9 @@ import { useTranslation } from 'react-i18next';
 
 const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid, onUndoPayment, busy }) => {
   const { t } = useTranslation();
-  // null = follow the default (open while debts remain, collapsed once
-  // everything is settled); a manual toggle overrides it for the session
+  // null = follow the default (open only while *you* owe something,
+  // collapsed once you're settled — or everyone is); a manual toggle
+  // overrides it for the session
   const [userToggled, setUserToggled] = useState(null);
 
   if (!settlement || (settlement.balances.length === 0 && (settlement.payments?.length || 0) === 0)) {
@@ -25,7 +26,7 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
   const iOwe = myBalance && myBalance.net < -0.009;
   const ratio = settlement.progress?.ratio ?? 1;
   const allSettled = settlement.transfers.length === 0;
-  const open = userToggled ?? !allSettled;
+  const open = userToggled ?? iOwe;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
@@ -44,9 +45,11 @@ const SettlementCard = ({ settlement, toHome, canEdit, currentUserId, onMarkPaid
             ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-300'
             : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-300'}`}
           >
-            {allSettled && !iOwe
-              ? (<><CheckCircle2 className="w-3 h-3" />{t('budget.groupSettled', 'Group settled')}</>)
-              : `${t('budget.youOwe', 'You owe')} ${fmt(-((myBalance?.net) || 0))}`}
+            {iOwe
+              ? `${t('budget.youOwe', 'You owe')} ${fmt(-myBalance.net)}`
+              : (<><CheckCircle2 className="w-3 h-3" />{allSettled
+                  ? t('budget.groupSettled', 'Group settled')
+                  : t('budget.youAreSettled', "You're settled up")}</>)}
           </span>
         )}
         <ChevronDown
