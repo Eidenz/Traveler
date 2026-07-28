@@ -285,18 +285,23 @@ const MyTrips = () => {
   const getFilteredTrips = () => {
     let filtered = trips;
     
-    // Apply status filter
-    if (filter !== 'all') {
-      const now = dayjs();
-      filtered = trips.filter(trip => {
-        const start = dayjs(trip.start_date);
-        const end = dayjs(trip.end_date);
-        
-        if (filter === 'upcoming') return now.isBefore(start);
-        if (filter === 'active') return now.isAfter(start) && now.isBefore(end);
-        if (filter === 'past') return now.isAfter(end);
-        return true;
-      });
+    // Archived trips live only behind their own filter
+    if (filter === 'archived') {
+      filtered = trips.filter(trip => trip.archived_at);
+    } else {
+      filtered = trips.filter(trip => !trip.archived_at);
+      if (filter !== 'all') {
+        const now = dayjs();
+        filtered = filtered.filter(trip => {
+          const start = dayjs(trip.start_date);
+          const end = dayjs(trip.end_date);
+
+          if (filter === 'upcoming') return now.isBefore(start);
+          if (filter === 'active') return now.isAfter(start) && now.isBefore(end);
+          if (filter === 'past') return now.isAfter(end);
+          return true;
+        });
+      }
     }
     
     // Apply search filter
@@ -352,7 +357,7 @@ const MyTrips = () => {
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           {/* Filter pills */}
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {['all', 'active', 'upcoming', 'past'].map((f) => (
+            {['all', 'active', 'upcoming', 'past', 'archived'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -369,6 +374,7 @@ const MyTrips = () => {
                 {f === 'active' && t('trips.active', 'Active')}
                 {f === 'upcoming' && t('trips.upcoming', 'Upcoming')}
                 {f === 'past' && t('trips.past', 'Past')}
+                {f === 'archived' && t('trips.archived', 'Archived')}
                 {f !== 'all' && (
                   <span className="ml-1.5 opacity-60">
                     {f === 'active' && groupedTrips.active.length}

@@ -1,9 +1,11 @@
 // client/src/components/trips/TripPanelHeader.jsx
 import React from 'react';
-import { Share2, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb, Camera } from 'lucide-react';
+import { Share2, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb, Camera, Sparkles, Archive, ArchiveRestore } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '../../utils/imageUtils';
+import { tripAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
 const TripPanelHeader = ({
@@ -14,9 +16,26 @@ const TripPanelHeader = ({
   onShare,
   onSaveOffline,
   canEdit = true,
+  currentUserId = null,
+  onTripChange = null, // (trip) => void, e.g. after archive/unarchive
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  const isOwner = !!members.find((m) => m.id === currentUserId && m.role === 'owner');
+  const tripEnded = trip?.end_date && dayjs(trip.end_date).isBefore(dayjs(), 'day');
+
+  const setArchived = async (archived) => {
+    try {
+      const res = await tripAPI.setArchived(trip.id, archived);
+      onTripChange?.(res.data.trip);
+      toast.success(archived
+        ? t('trips.archivedToast', 'Trip archived')
+        : t('trips.unarchivedToast', 'Trip unarchived'));
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
+    }
+  };
 
   // Calculate duration
   const getDuration = () => {
@@ -130,6 +149,21 @@ const TripPanelHeader = ({
               </>
             )}
 
+            {/* Recap chip — once the trip is over */}
+            {tripEnded && (
+              <>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <button
+                  onClick={() => navigate(`/trips/${trip.id}/recap`)}
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-colors"
+                  title={t('trips.recapOpen', 'Relive this trip')}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{t('trips.recap', 'Recap')}</span>
+                </button>
+              </>
+            )}
+
             {/* Photo album chip — only when the trip has one (set in Edit Trip) */}
             {trip?.photo_album_url && (
               <>
@@ -179,6 +213,39 @@ const TripPanelHeader = ({
             </button>
           </div>
         </div>
+
+        {/* Archive: suggest once the trip is over; show state when archived */}
+        {isOwner && tripEnded && !trip?.archived_at && (
+          <div className="mt-3 flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+            <span className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2 min-w-0">
+              <Archive className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <span className="truncate">{t('trips.archiveSuggest', 'Trip\u2019s over — archive it to tidy your lists?')}</span>
+            </span>
+            <button
+              onClick={() => setArchived(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0"
+            >
+              {t('trips.archive', 'Archive')}
+            </button>
+          </div>
+        )}
+        {trip?.archived_at && (
+          <div className="mt-3 flex items-center justify-between gap-3 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40">
+            <span className="text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+              <Archive className="w-4 h-4 flex-shrink-0" />
+              {t('trips.archivedBanner', 'This trip is archived')}
+            </span>
+            {isOwner && (
+              <button
+                onClick={() => setArchived(false)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 flex-shrink-0"
+              >
+                <ArchiveRestore className="w-3.5 h-3.5" />
+                {t('trips.unarchive', 'Unarchive')}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Mobile: Offline button full width */}
         <div className="sm:hidden mt-3">

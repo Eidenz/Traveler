@@ -197,7 +197,16 @@
     "photoAlbum": "Photo album link",
     "photoAlbumHint": "Optional — a shared album (Google Photos, etc.) where everyone uploads their pictures. Appears in the trip header.",
     "photoAlbumOpen": "Open the shared photo album",
-    "photos": "Photos"
+    "photos": "Photos",
+    "archived": "Archived",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archiveSuggest": "Trip’s over — archive it to tidy your lists?",
+    "archivedBanner": "This trip is archived",
+    "archivedToast": "Trip archived",
+    "unarchivedToast": "Trip unarchived",
+    "recap": "Recap",
+    "recapOpen": "Relive this trip"
   },
   "transportation": {
     "title": "Transportation",
@@ -645,5 +654,28 @@
     "freeDay": "Nothing planned — enjoy the free day!",
     "documents": "Documents",
     "allDocuments": "All trip documents"
+  },
+  "recap": {
+    "title": "Trip recap",
+    "travelers": "{{count}} travelers",
+    "days": "days",
+    "activities": "activities",
+    "traveled": "traveled",
+    "stays": "stays",
+    "placesVisited": "places visited",
+    "groupSpend": "Group spend",
+    "settled": "Fully settled — everyone is even.",
+    "unsettled": "{{amount}} still to settle",
+    "settleNow": "Settle up",
+    "yourSpend": "What the trip cost you",
+    "onlyYou": "only you see this",
+    "yourSpendDetail": "{{personal}} personal · {{shares}} in shared splits",
+    "photos": "Photo album",
+    "photosHint": "Relive it in pictures",
+    "ideas": "{{count}} ideas pinned",
+    "ideasHint": "The board, as you left it",
+    "checklists": "{{done}}/{{total}} checklist items done",
+    "documents": "{{count}} documents kept",
+    "footer": "Made together. See you on the next one."
   }
 }

@@ -41,7 +41,7 @@ const BrainstormDashboard = () => {
         try {
             const response = await tripAPI.getUserTrips();
             if (response.data.trips) {
-                setTrips(response.data.trips);
+                setTrips(response.data.trips.filter(t => !t.archived_at));
                 // Auto-select if only one trip and no URL param
                 if (response.data.trips.length === 1 && !urlTripId) {
                     setSelectedTrip(response.data.trips[0]);

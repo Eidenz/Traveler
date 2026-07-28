@@ -120,6 +120,8 @@ export const tripAPI = {
   revokePublicShareToken: (tripId) => api.delete(`/trips/${tripId}/public-share`),
   getTripByPublicToken: (token) => api.get(`/trips/public/${token}`),
   toggleBrainstormPublic: (tripId, isPublic) => api.put(`/trips/${tripId}/brainstorm-visibility`, { isPublic }),
+  setArchived: (tripId, archived) => api.patch(`/trips/${tripId}/archive`, { archived, trip_id: tripId }),
+  getRecap: (tripId) => api.get(`/trips/${tripId}/recap`),
 };
 
 // Transportation API

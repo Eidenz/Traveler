@@ -867,6 +867,8 @@ const TripDetail = () => {
               isSavingOffline={isSavingOffline}
               onShare={() => setIsShareModalOpen(true)}
               onSaveOffline={handleSaveOffline}
+              currentUserId={user?.id}
+              onTripChange={setTrip}
               canEdit={canEdit()}
             />
 
@@ -1021,6 +1023,8 @@ const TripDetail = () => {
               isSavingOffline={isSavingOffline}
               onShare={() => setIsShareModalOpen(true)}
               onSaveOffline={handleSaveOffline}
+              currentUserId={user?.id}
+              onTripChange={setTrip}
               canEdit={canEdit()}
             />
           </div>

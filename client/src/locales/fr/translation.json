@@ -197,7 +197,16 @@
     "photoAlbum": "Lien de l'album photo",
     "photoAlbumHint": "Optionnel — un album partagé (Google Photos, etc.) où chacun dépose ses photos. Affiché dans l'en-tête du voyage.",
     "photoAlbumOpen": "Ouvrir l'album photo partagé",
-    "photos": "Photos"
+    "photos": "Photos",
+    "archived": "Archivés",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archiveSuggest": "Voyage terminé — l'archiver pour alléger vos listes ?",
+    "archivedBanner": "Ce voyage est archivé",
+    "archivedToast": "Voyage archivé",
+    "unarchivedToast": "Voyage désarchivé",
+    "recap": "Rétro",
+    "recapOpen": "Revivre ce voyage"
   },
   "transportation": {
     "title": "Transport",
@@ -645,5 +654,28 @@
     "freeDay": "Rien de prévu — profitez de la journée libre !",
     "documents": "Documents",
     "allDocuments": "Tous les documents du voyage"
+  },
+  "recap": {
+    "title": "Rétrospective",
+    "travelers": "{{count}} voyageurs",
+    "days": "jours",
+    "activities": "activités",
+    "traveled": "parcourus",
+    "stays": "logements",
+    "placesVisited": "lieux visités",
+    "groupSpend": "Dépenses du groupe",
+    "settled": "Tout est réglé — tout le monde est à jour.",
+    "unsettled": "{{amount}} restant à régler",
+    "settleNow": "Équilibrer",
+    "yourSpend": "Ce que le voyage vous a coûté",
+    "onlyYou": "visible par vous seul",
+    "yourSpendDetail": "{{personal}} personnel · {{shares}} en parts partagées",
+    "photos": "Album photo",
+    "photosHint": "Revivez-le en images",
+    "ideas": "{{count}} idées épinglées",
+    "ideasHint": "Le tableau, tel que vous l'avez laissé",
+    "checklists": "{{done}}/{{total}} éléments de checklist faits",
+    "documents": "{{count}} documents conservés",
+    "footer": "Fait ensemble. À la prochaine !"
   }
 }

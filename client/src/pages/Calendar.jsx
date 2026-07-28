@@ -43,7 +43,7 @@ const Calendar = () => {
     try {
       setLoading(true);
       const response = await tripAPI.getUserTrips();
-      setTrips(response.data.trips || []);
+      setTrips((response.data.trips || []).filter(t => !t.archived_at));
       setIsOfflineMode(false);
     } catch (error) {
       console.error('Error fetching trips:', error);
