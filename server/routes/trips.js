@@ -8,6 +8,8 @@ const {
   updateTrip,
   deleteTrip,
   shareTrip,
+  setTripArchived,
+  getTripRecap,
   removeTripMember,
   updateMemberRole,
   generatePublicShareToken,
@@ -96,5 +98,11 @@ router.delete('/:tripId/public-share', requireOwnerAccess, revokePublicShareToke
 
 // Toggle public brainstorming access (owner only)
 router.put('/:tripId/brainstorm-visibility', requireOwnerAccess, toggleBrainstormPublic);
+
+// Archive / unarchive (owner only)
+router.patch('/:tripId/archive', requireOwnerAccess, setTripArchived);
+
+// Aggregate recap (any member; the money section is per-requester)
+router.get('/:tripId/recap', checkTripAccess(), getTripRecap);
 
 module.exports = router;

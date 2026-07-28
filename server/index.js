@@ -332,7 +332,7 @@ cron.schedule('0 8 * * *', async () => {
     const tomorrowDateString = tomorrow.toISOString().split('T')[0]; // YYYY-MM-DD format
 
     // Find trips starting tomorrow
-    const tripsStartingTomorrow = db.prepare('SELECT * FROM trips WHERE start_date = ?').all(tomorrowDateString);
+    const tripsStartingTomorrow = db.prepare('SELECT * FROM trips WHERE start_date = ? AND archived_at IS NULL').all(tomorrowDateString);
 
     for (const trip of tripsStartingTomorrow) {
       // Get all members of the trip

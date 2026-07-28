@@ -481,12 +481,10 @@ const deleteBudget = (req, res) => {
  * (payers in their own split consume their share naturally). Transfers are
  * reduced greedily so the group settles in few payments.
  */
-const getSettlement = (req, res) => {
-  try {
-    const { tripId } = req.params;
+const computeSettlement = (tripId) => {
     const budget = db.prepare('SELECT * FROM budgets WHERE trip_id = ?').get(tripId);
     if (!budget) {
-      return res.status(200).json({ balances: [], transfers: [], currency: '$' });
+      return { balances: [], transfers: [], payments: [], progress: { total: 0, remaining: 0, ratio: 1 }, currency: '$', currency_code: null };
     }
 
     const expenses = attachSplits(
@@ -555,14 +553,19 @@ const getSettlement = (req, res) => {
       ? Math.min(1, Math.max(0, (totalDebt - remaining) / totalDebt))
       : 1;
 
-    return res.status(200).json({
+    return {
       balances: balanceList,
       transfers,
       payments,
       progress: { total: round2(totalDebt), remaining: round2(remaining), ratio: progress },
       currency: budget.currency || '$',
       currency_code: budget.currency_code || null,
-    });
+    };
+};
+
+const getSettlement = (req, res) => {
+  try {
+    return res.status(200).json(computeSettlement(req.params.tripId));
   } catch (error) {
     console.error('Get settlement error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -630,6 +633,7 @@ const deleteSettlementPayment = (req, res) => {
 
 module.exports = {
   getTripBudget,
+  computeSettlement,
   getSettlement,
   addSettlementPayment,
   deleteSettlementPayment,

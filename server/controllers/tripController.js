@@ -6,6 +6,8 @@ const path = require('path');
 const crypto = require('crypto');
 const { generateTripId, isValidTripId } = require('../utils/idGenerator');
 const { sendEmail } = require('../utils/emailService'); // Added
+const { getRate, isValidCode } = require('../utils/currencyService');
+const { computeSettlement } = require('./budgetController');
 
 // Helper function to get user details
 const getUserById = (userId) => {
@@ -234,8 +236,243 @@ const updateTrip = (req, res) => {
 };
 
 /**
+ * Archive / unarchive a trip. Archived trips are hidden from default lists
+ * and skip reminder emails but stay fully editable.
+ */
+const setTripArchived = (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const archived = req.body.archived === true || req.body.archived === 'true';
+
+    const trip = db.prepare('SELECT id FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    db.prepare('UPDATE trips SET archived_at = ? WHERE id = ?')
+      .run(archived ? new Date().toISOString() : null, tripId);
+
+    const updatedTrip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    return res.status(200).json({
+      message: archived ? 'Trip archived' : 'Trip unarchived',
+      trip: updatedTrip
+    });
+  } catch (error) {
+    console.error('Archive trip error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Aggregate recap for a trip: itinerary stats, distance, money, artifacts.
+ * Shared sections are identical for every member; the `personal` section is
+ * computed for the requester only (their expenses + their shared splits).
+ */
+const EARTH_RADIUS_KM = 6371;
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
+};
+
+const getTripRecap = async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const userId = req.user.id;
+
+    const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    const members = db.prepare(`
+      SELECT u.id, u.name, u.profile_image, tm.role
+      FROM trip_members tm JOIN users u ON tm.user_id = u.id
+      WHERE tm.trip_id = ?
+    `).all(tripId);
+
+    const activities = db.prepare('SELECT * FROM activities WHERE trip_id = ?').all(tripId);
+    const transports = db.prepare('SELECT * FROM transportation WHERE trip_id = ?').all(tripId);
+    const lodgings = db.prepare('SELECT COUNT(*) as c FROM lodging WHERE trip_id = ?').get(tripId).c;
+    const documents = db.prepare(`
+      SELECT COUNT(*) as c FROM documents
+      WHERE trip_id = ? AND (is_personal = 0 OR is_personal IS NULL OR uploaded_by = ?)
+    `).get(tripId, userId).c;
+    const brainstormItems = db.prepare('SELECT COUNT(*) as c FROM brainstorm_items WHERE trip_id = ?').get(tripId).c;
+    const brainstormGroups = db.prepare('SELECT COUNT(*) as c FROM brainstorm_groups WHERE trip_id = ?').get(tripId).c;
+
+    // Checklist completion (shared lists, collective status)
+    const checklist = db.prepare(`
+      SELECT COUNT(*) as total,
+             SUM(CASE WHEN ci.collective_status = 'complete' THEN 1 ELSE 0 END) as completed
+      FROM checklist_items ci
+      JOIN checklists c ON c.id = ci.checklist_id
+      WHERE c.trip_id = ? AND (c.is_personal = 0 OR c.is_personal IS NULL)
+    `).get(tripId);
+
+    // Transport breakdown + distance over legs with full coordinates
+    const transportTypes = {};
+    let distanceKm = 0;
+    for (const t of transports) {
+      transportTypes[t.type] = (transportTypes[t.type] || 0) + 1;
+      if (t.from_latitude != null && t.from_longitude != null &&
+          t.to_latitude != null && t.to_longitude != null) {
+        distanceKm += haversineKm(t.from_latitude, t.from_longitude, t.to_latitude, t.to_longitude);
+      }
+    }
+
+    // Distinct visited places (activity locations; coordinates are not
+    // stored — the client map geocodes at render time)
+    const seen = new Set();
+    const places = [];
+    for (const a of activities) {
+      const name = (a.location || '').trim();
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.add(name.toLowerCase());
+      places.push({ name });
+    }
+
+    // Shared money: totals + per-viewer home conversion + settlement state
+    const sharedBudget = db.prepare('SELECT * FROM budgets WHERE trip_id = ?').get(tripId);
+    let shared = null;
+    if (sharedBudget) {
+      const categoryTotals = {};
+      db.prepare('SELECT category, SUM(amount) as total FROM expenses WHERE budget_id = ? GROUP BY category')
+        .all(sharedBudget.id)
+        .forEach((r) => { categoryTotals[r.category] = r.total; });
+      const totalSpent = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
+
+      const profileHome = db.prepare('SELECT home_currency_code FROM users WHERE id = ?')
+        .get(userId)?.home_currency_code;
+      const homeCode = isValidCode(profileHome) ? profileHome : sharedBudget.home_currency_code;
+      let conversion = null;
+      if (isValidCode(sharedBudget.currency_code) && isValidCode(homeCode)
+          && sharedBudget.currency_code !== homeCode) {
+        const rate = await getRate(sharedBudget.currency_code, homeCode);
+        if (rate) conversion = { home_currency_code: homeCode, rate: rate.rate };
+      }
+
+      const settlement = computeSettlement(tripId);
+      shared = {
+        currency: sharedBudget.currency || '$',
+        currency_code: sharedBudget.currency_code || null,
+        total_amount: sharedBudget.total_amount,
+        total_spent: Math.round(totalSpent * 100) / 100,
+        category_totals: categoryTotals,
+        conversion,
+        settlement: {
+          settled: settlement.transfers.length === 0,
+          remaining: settlement.progress.remaining,
+          ratio: settlement.progress.ratio,
+        },
+      };
+    }
+
+    // Private per-requester money: personal expenses (converted into the
+    // personal budget's trip currency) + their share of shared expenses
+    let personal = null;
+    const personalBudget = db.prepare('SELECT * FROM personal_budgets WHERE trip_id = ? AND user_id = ?')
+      .get(tripId, userId);
+    {
+      const pExpenses = personalBudget
+        ? db.prepare('SELECT * FROM personal_expenses WHERE personal_budget_id = ?').all(personalBudget.id)
+        : [];
+
+      const tripCode = personalBudget?.currency_code || sharedBudget?.currency_code || null;
+      const profileHome = db.prepare('SELECT home_currency_code FROM users WHERE id = ?')
+        .get(userId)?.home_currency_code;
+      const homeCode = isValidCode(profileHome) ? profileHome : sharedBudget?.home_currency_code;
+      let rate = null;
+      if (isValidCode(tripCode) && isValidCode(homeCode) && tripCode !== homeCode) {
+        rate = (await getRate(tripCode, homeCode))?.rate ?? null;
+      }
+      const toTrip = (amount, code) => {
+        const c = code || tripCode;
+        if (!c || !tripCode || c === tripCode) return amount;
+        if (rate && c === homeCode) return amount / rate;
+        return amount;
+      };
+
+      let personalSpent = 0;
+      for (const e of pExpenses) personalSpent += toTrip(e.amount, e.currency_code);
+
+      let sharesTotal = 0;
+      if (sharedBudget) {
+        const rows = db.prepare(`
+          SELECT e.amount, (SELECT COUNT(*) FROM expense_splits s2 WHERE s2.expense_id = e.id) as parts
+          FROM expenses e
+          JOIN expense_splits s ON s.expense_id = e.id
+          WHERE e.budget_id = ? AND e.paid_by IS NOT NULL AND s.user_id = ?
+        `).all(sharedBudget.id, userId);
+        for (const r of rows) {
+          if (r.parts > 0) sharesTotal += toTrip(r.amount / r.parts, sharedBudget.currency_code);
+        }
+      }
+
+      const total = personalSpent + sharesTotal;
+      if (total > 0 || personalBudget) {
+        personal = {
+          currency_code: tripCode,
+          personal_spent: Math.round(personalSpent * 100) / 100,
+          shares_total: Math.round(sharesTotal * 100) / 100,
+          total: Math.round(total * 100) / 100,
+          home: rate ? {
+            currency_code: homeCode,
+            total: Math.round(total * rate * 100) / 100,
+          } : null,
+        };
+      }
+    }
+
+    const days = Math.round(
+      (new Date(trip.end_date) - new Date(trip.start_date)) / 86400000
+    ) + 1;
+
+    return res.status(200).json({
+      trip: {
+        id: trip.id,
+        name: trip.name,
+        description: trip.description,
+        location: trip.location,
+        start_date: trip.start_date,
+        end_date: trip.end_date,
+        cover_image: trip.cover_image,
+        photo_album_url: trip.photo_album_url,
+        archived_at: trip.archived_at,
+      },
+      members,
+      days,
+      counts: {
+        activities: activities.length,
+        transports: transports.length,
+        lodgings,
+        documents,
+        brainstorm_items: brainstormItems,
+        brainstorm_groups: brainstormGroups,
+      },
+      transport_types: transportTypes,
+      distance_km: Math.round(distanceKm),
+      places,
+      checklist: {
+        total: checklist.total || 0,
+        completed: checklist.completed || 0,
+      },
+      shared,
+      personal,
+    });
+  } catch (error) {
+    console.error('Get trip recap error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
  * Delete a trip
  */
+
 const deleteTrip = (req, res) => {
   try {
     const { tripId } = req.params;
@@ -657,6 +894,8 @@ const toggleBrainstormPublic = (req, res) => {
 };
 
 module.exports = {
+  setTripArchived,
+  getTripRecap,
   getUserTrips,
   getTripById,
   createTrip,
