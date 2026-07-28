@@ -204,45 +204,57 @@ const TripDetail = () => {
     emitTransportDelete,
   } = useRealtimeUpdates(tripId, realtimeHandlers);
 
-  // Fetch trip data
+  // Fetch trip data. The isStale flag guards against fast trip→trip
+  // navigation: without it a slow response for the previous trip can
+  // overwrite the new trip's state after its own fetch already resolved.
   useEffect(() => {
-    fetchTripData();
-    fetchChecklists();
-    checkOfflineAvailability();
+    let cancelled = false;
+    const isStale = () => cancelled;
+    fetchTripData(isStale);
+    fetchChecklists(isStale);
+    checkOfflineAvailability(isStale);
+    return () => {
+      cancelled = true;
+    };
   }, [tripId]);
 
-  const checkOfflineAvailability = async () => {
+  const checkOfflineAvailability = async (isStale = () => false) => {
     const available = await isTripAvailableOffline(tripId);
+    if (isStale()) return;
     setIsAvailableOffline(available);
   };
 
-  const fetchChecklists = async () => {
+  const fetchChecklists = async (isStale = () => false) => {
     try {
       // When offline, checklists come from the offline snapshot in fetchTripData
       if (!navigator.onLine) {
         const offlineTrip = await getTripOffline(tripId);
+        if (isStale()) return;
         if (offlineTrip) {
           setChecklists(offlineTrip.checklists || []);
           return;
         }
       }
       const response = await checklistAPI.getTripChecklists(tripId);
+      if (isStale()) return;
       setChecklists(response.data.checklists || []);
     } catch (error) {
       console.error('Error fetching checklists:', error);
     }
   };
 
-  const fetchTripData = async () => {
+  const fetchTripData = async (isStale = () => false) => {
     try {
       setLoading(true);
 
       const isOffline = !navigator.onLine;
       const offlineAvailable = await isTripAvailableOffline(tripId);
+      if (isStale()) return;
       setIsAvailableOffline(offlineAvailable);
 
       if (isOffline && offlineAvailable) {
         const offlineTrip = await getTripOffline(tripId);
+        if (isStale()) return;
         if (offlineTrip) {
           setTrip(offlineTrip);
           setMembers(offlineTrip.members || []);
@@ -258,16 +270,19 @@ const TripDetail = () => {
       }
 
       const response = await tripAPI.getTripById(tripId);
+      if (isStale()) return;
       setTrip(response.data.trip);
       setMembers(response.data.members);
       setTransportation(response.data.transportation);
       setLodging(response.data.lodging);
       setActivities(response.data.activities);
     } catch (error) {
+      if (isStale()) return;
       console.error('Error fetching trip:', error);
 
       if (!navigator.onLine) {
         const offlineTrip = await getTripOffline(tripId);
+        if (isStale()) return;
         if (offlineTrip) {
           setTrip(offlineTrip);
           setMembers(offlineTrip.members || []);
@@ -282,7 +297,9 @@ const TripDetail = () => {
       toast.error(t('errors.failedFetch'));
       navigate('/trips');
     } finally {
-      setLoading(false);
+      if (!isStale()) {
+        setLoading(false);
+      }
     }
   };
 
