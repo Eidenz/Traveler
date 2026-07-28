@@ -1,9 +1,11 @@
 // client/public/serviceWorker.js
 
-// Increment this version to force cache refresh
-// Bump on deploy to purge previously cached assets (old caches are
-// deleted in the activate handler).
-const CACHE_NAME = 'traveler-v4';
+// __BUILD_ID__ is replaced with a unique id by the build (see the
+// inject-sw-build-id plugin in vite.config.js), so every deploy purges the
+// previous caches automatically (old caches are deleted in the activate
+// handler). No manual bump needed. In dev the placeholder stays as-is,
+// which simply behaves like the old constant name.
+const CACHE_NAME = 'traveler-__BUILD_ID__';
 
 // Core app shell files to pre-cache for offline support
 // NOTE: '/' is deliberately NOT precached. index.html references hashed asset

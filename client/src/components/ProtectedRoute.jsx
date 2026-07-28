@@ -2,16 +2,18 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
+import useOnlineStore from '../stores/onlineStore';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading, checkOfflineMode } = useAuthStore();
   const location = useLocation();
-  const [checkingOfflineMode, setCheckingOfflineMode] = useState(!navigator.onLine);
+  const isOnline = useOnlineStore((s) => s.isOnline);
+  const [checkingOfflineMode, setCheckingOfflineMode] = useState(!isOnline);
 
   // Check for offline data if not authenticated and offline
   useEffect(() => {
     const checkOfflineData = async () => {
-      if (!isAuthenticated && !navigator.onLine && !loading) {
+      if (!isAuthenticated && !isOnline && !loading) {
         // If offline data exists, checkOfflineMode updates the auth state
         await checkOfflineMode();
         setCheckingOfflineMode(false);
@@ -23,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
     if (checkingOfflineMode) {
       checkOfflineData();
     }
-  }, [isAuthenticated, loading, checkOfflineMode, checkingOfflineMode]);
+  }, [isAuthenticated, loading, checkOfflineMode, checkingOfflineMode, isOnline]);
 
   // Show loading spinner while checking offline data
   if (loading || checkingOfflineMode) {

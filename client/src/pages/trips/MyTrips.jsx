@@ -13,11 +13,11 @@ import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
+import useOnlineStore from '../../stores/onlineStore';
 import { getAllOfflineTrips, removeTripOffline } from '../../utils/offlineStorage';
 
 const TripCard = ({ trip, isOfflineMode, isOfflineAvailable, onDelete, onEdit }) => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   // Get trip status
   const getTripStatus = () => {
@@ -189,7 +189,7 @@ const MyTrips = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [offlineTrips, setOfflineTrips] = useState([]);
-  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
+  const onlineStatus = useOnlineStore((s) => s.isOnline);
   const [filter, setFilter] = useState('all'); // all, upcoming, active, past
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
@@ -201,20 +201,6 @@ const MyTrips = () => {
     const search = searchParams.get('search');
     if (search) setSearchTerm(search);
   }, [searchParams]);
-
-  // Monitor online/offline status
-  useEffect(() => {
-    const handleOnline = () => setOnlineStatus(true);
-    const handleOffline = () => setOnlineStatus(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   // Fetch trips based on online status
   useEffect(() => {

@@ -14,6 +14,7 @@ import { getImageUrl, getFallbackImageUrl } from '../utils/imageUtils';
 import { useTranslation } from 'react-i18next';
 import { getAllOfflineTrips } from '../utils/offlineStorage';
 import useAuthStore from '../stores/authStore';
+import useOnlineStore from '../stores/onlineStore';
 
 dayjs.extend(relativeTime);
 
@@ -122,8 +123,6 @@ const FeaturedTripCard = ({ trip, type = 'active' }) => {
 
 // Small trip card
 const SmallTripCard = ({ trip }) => {
-  const { t } = useTranslation();
-  
   const getTripStatus = () => {
     const now = dayjs();
     const start = dayjs(trip.start_date);
@@ -169,23 +168,10 @@ const Dashboard = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
+  const onlineStatus = useOnlineStore((s) => s.isOnline);
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useAuthStore();
-
-  useEffect(() => {
-    const handleOnline = () => setOnlineStatus(true);
-    const handleOffline = () => setOnlineStatus(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   useEffect(() => {
     if (onlineStatus) {

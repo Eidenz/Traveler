@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Globe, Plane, Bed, Calendar, MapPin, Users, AlertCircle, Map, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { hasMapbox } from '../../config/env';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
@@ -50,7 +51,7 @@ const PublicTripView = () => {
   const lastScrollY = useRef(0);
   const scrollThreshold = 50;
 
-  const hasMapboxToken = import.meta.env.VITE_MAPBOX_TOKEN && import.meta.env.VITE_MAPBOX_TOKEN !== '';
+  const hasMapboxToken = hasMapbox;
 
   useEffect(() => {
     const fetchPublicTrip = async () => {

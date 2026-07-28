@@ -11,6 +11,7 @@ import { tripAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import useOnlineStore from '../stores/onlineStore';
 import { getAllOfflineTrips } from '../utils/offlineStorage';
 
 const Calendar = () => {
@@ -20,22 +21,8 @@ const Calendar = () => {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
-  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
+  const onlineStatus = useOnlineStore((s) => s.isOnline);
   const { t } = useTranslation();
-
-  // Monitor online/offline status
-  useEffect(() => {
-    const handleOnline = () => setOnlineStatus(true);
-    const handleOffline = () => setOnlineStatus(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   // Fetch trips based on online status
   useEffect(() => {

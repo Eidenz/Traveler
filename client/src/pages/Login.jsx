@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, WifiOff, MapPin, Plane, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
+import useOnlineStore from '../stores/onlineStore';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { useTranslation } from 'react-i18next';
@@ -15,7 +16,8 @@ const Login = () => {
   });
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
-  const [checkingOffline, setCheckingOffline] = useState(!navigator.onLine);
+  const isOnline = useOnlineStore((s) => s.isOnline);
+  const [checkingOffline, setCheckingOffline] = useState(!isOnline);
   
   const { login, isAuthenticated, loading, error, clearError, checkOfflineMode } = useAuthStore();
   const navigate = useNavigate();
@@ -29,7 +31,7 @@ const Login = () => {
   
   useEffect(() => {
     const checkForOfflineData = async () => {
-      if (!navigator.onLine && !isAuthenticated) {
+      if (!isOnline && !isAuthenticated) {
         const hasOfflineData = await checkOfflineMode();
         if (hasOfflineData) {
           navigate('/dashboard');
@@ -43,7 +45,7 @@ const Login = () => {
     if (checkingOffline) {
       checkForOfflineData();
     }
-  }, [checkOfflineMode, navigate, isAuthenticated, checkingOffline]);
+  }, [checkOfflineMode, navigate, isAuthenticated, checkingOffline, isOnline]);
   
   useEffect(() => {
     if (error) {
@@ -92,7 +94,7 @@ const Login = () => {
   };
   
   // Offline mode UI
-  if (!navigator.onLine) {
+  if (!isOnline) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
         <div className="max-w-md w-full">

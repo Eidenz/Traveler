@@ -93,12 +93,11 @@ const DateGroupedList = ({ items, type, tripStartDate, onItemClick }) => {
 
     return (
         <div>
-            {sortedDates.map((dateStr, index) => {
+            {sortedDates.map((dateStr) => {
                 const date = dayjs(dateStr);
                 const dayNumber = date.diff(tripStart, 'day') + 1;
                 const isToday = date.isSame(today, 'day');
                 const itemsForDate = groupedItems[dateStr];
-                const isLast = index === sortedDates.length - 1;
 
                 return (
                     <div key={dateStr} className="relative">

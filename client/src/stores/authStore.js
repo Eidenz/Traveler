@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { authAPI } from '../services/api';
 import { jwtDecode } from 'jwt-decode';
 import { getAllOfflineTrips } from '../utils/offlineStorage';
+import { isOnline } from './onlineStore';
 
 const getStoredAuth = () => {
   const token = localStorage.getItem('token');
@@ -172,7 +173,7 @@ const useAuthStore = create((set, get) => ({
   // logout, and network errors are normal for this app when travelling.
   refreshSession: async () => {
     const { token, isAuthenticated, isOfflineMode } = get();
-    if (!token || !isAuthenticated || isOfflineMode || !navigator.onLine) return;
+    if (!token || !isAuthenticated || isOfflineMode || !isOnline()) return;
     try {
       const response = await authAPI.refresh();
       if (response.data?.token) {

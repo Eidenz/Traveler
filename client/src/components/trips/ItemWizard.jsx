@@ -39,8 +39,6 @@ const ItemWizard = ({
     // Form data based on type
     const [formData, setFormData] = useState(() => getInitialFormData(type, defaultDate));
     const [bannerImage, setBannerImage] = useState(null);
-    const [bannerImagePreview, setBannerImagePreview] = useState(null);
-    const [existingBannerImage, setExistingBannerImage] = useState(null);
     const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
     const [documentLinks, setDocumentLinks] = useState([]); // Array of {url, title, isPersonal} for NEW link documents
     const [existingDocuments, setExistingDocuments] = useState([]); // Existing documents from the server
@@ -114,8 +112,6 @@ const ItemWizard = ({
             setDocumentFiles([]);
             setExistingDocuments([]);
             setBannerImage(null);
-            setBannerImagePreview(null);
-            setExistingBannerImage(null);
             setCurrentStep(0);
             setErrors({});
             setWarnings({});
@@ -152,7 +148,6 @@ const ItemWizard = ({
                     confirmation_code: activity.confirmation_code || '',
                     notes: activity.notes || '',
                 });
-                setExistingBannerImage(activity.banner_image || null);
                 // Load existing documents
                 if (response.data.documents) {
                     setExistingDocuments(response.data.documents);
@@ -170,7 +165,6 @@ const ItemWizard = ({
                     confirmation_code: lodging.confirmation_code || '',
                     notes: lodging.notes || '',
                 });
-                setExistingBannerImage(lodging.banner_image || null);
                 // Load existing documents
                 if (response.data.documents) {
                     setExistingDocuments(response.data.documents);
@@ -196,7 +190,6 @@ const ItemWizard = ({
                     confirmation_code: transport.confirmation_code || '',
                     notes: transport.notes || '',
                 });
-                setExistingBannerImage(transport.banner_image || null);
                 // Load existing documents
                 if (response.data.documents) {
                     setExistingDocuments(response.data.documents);
@@ -362,15 +355,6 @@ const ItemWizard = ({
         setFormData(prev => ({ ...prev, [name]: value }));
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
-        }
-    };
-
-    // Handle banner image
-    const handleBannerChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setBannerImage(file);
-            setBannerImagePreview(URL.createObjectURL(file));
         }
     };
 
@@ -706,18 +690,6 @@ const ItemWizard = ({
             toast.error(error.response?.data?.message || t('errors.saveFailed', { item: type }));
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    // Get transport icon
-    const getTransportIcon = (transportType) => {
-        switch (transportType?.toLowerCase()) {
-            case 'flight': return <Plane className="w-6 h-6" />;
-            case 'train': return <Train className="w-6 h-6" />;
-            case 'bus': return <Bus className="w-6 h-6" />;
-            case 'car': return <Car className="w-6 h-6" />;
-            case 'ship': case 'ferry': return <Ship className="w-6 h-6" />;
-            default: return <Plane className="w-6 h-6" />;
         }
     };
 

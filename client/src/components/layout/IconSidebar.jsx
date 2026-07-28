@@ -4,7 +4,9 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Calendar, DollarSign, Map, PlusCircle, User, Lightbulb, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
+const SidebarIcon = ({ to, icon, label, isActive }) => {
+  const Icon = icon;
+  return (
   <NavLink
     to={to}
     className={`
@@ -29,7 +31,8 @@ const SidebarIcon = ({ to, icon: Icon, label, isActive }) => (
       <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-900 rotate-45" />
     </div>
   </NavLink>
-);
+  );
+};
 
 const IconSidebar = () => {
   const location = useLocation();

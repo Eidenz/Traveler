@@ -390,7 +390,9 @@ const DocumentsList = ({ tripId, trip }) => {
         </div>
     );
 
-    const Section = ({ title, icon: Icon, docs, description, isUnlinked = false }) => (
+    const Section = ({ title, icon, docs, description, isUnlinked = false }) => {
+        const Icon = icon;
+        return (
         <div className="mb-8">
             <div className="flex items-start gap-3 mb-4">
                 <div className={`p-2 rounded-lg mt-1 ${isUnlinked ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-accent-soft text-accent'}`}>
@@ -412,7 +414,8 @@ const DocumentsList = ({ tripId, trip }) => {
                 <p className="text-gray-500 text-sm italic ml-11">No documents in this category</p>
             )}
         </div>
-    );
+        );
+    };
 
     return (
         <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">

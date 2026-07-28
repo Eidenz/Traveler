@@ -28,7 +28,6 @@ const Profile = () => {
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
-  const [existingProfileImage, setExistingProfileImage] = useState(null);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [profileErrors, setProfileErrors] = useState({});
   const [removeProfileImageFlag, setRemoveProfileImageFlag] = useState(false);
@@ -76,10 +75,8 @@ const Profile = () => {
       });
 
       if (userData.profile_image) {
-        setExistingProfileImage(getImageUrl(userData.profile_image));
         setProfileImagePreview(getImageUrl(userData.profile_image));
       } else {
-        setExistingProfileImage(null);
         setProfileImagePreview(null);
       }
       setRemoveProfileImageFlag(false);

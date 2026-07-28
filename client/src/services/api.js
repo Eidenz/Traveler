@@ -1,6 +1,7 @@
 // client/src/services/api.js
 import axios from 'axios';
 import { getBackendUrl, isNative } from '@/utils/platform';
+import { noteBackendReachable, noteNetworkFailure } from '../stores/onlineStore';
 
 const API_URL = isNative()
   ? `${getBackendUrl()}/api`
@@ -30,13 +31,18 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle errors
+// Add a response interceptor to handle errors and feed the online store:
+// request outcomes are the authoritative online/offline signal (see
+// stores/onlineStore.js)
 api.interceptors.response.use(
   (response) => {
+    noteBackendReachable();
     return response;
   },
   (error) => {
     if (error.response) {
+      // The backend answered, even if with an error status — we are online
+      noteBackendReachable();
       // Handle 401 Unauthorized errors (expired token, etc.)
       if (error.response.status === 401) {
         // Only logout if not on login/register/reset pages
@@ -47,6 +53,9 @@ api.interceptors.response.use(
           window.location.href = '/login?sessionExpired=true'; // Redirect with flag
         }
       }
+    } else {
+      // No response at all: network error or timeout — treat as offline
+      noteNetworkFailure();
     }
     return Promise.reject(error);
   }

@@ -1,7 +1,7 @@
 // client/src/components/ui/ToggleSwitch.jsx
 import React from 'react';
 
-const ToggleSwitch = ({ id, checked, onChange, disabled = false }) => {
+const ToggleSwitch = ({ checked, onChange, disabled = false }) => {
   const handleToggle = () => {
     if (!disabled && onChange) {
       onChange(!checked);

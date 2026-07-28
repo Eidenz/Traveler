@@ -38,9 +38,7 @@ const formatTransportTime = (transport) => {
 };
 
 // Activity card component
-const ActivityCard = ({ activity, onClick, onDocumentClick, canEdit }) => {
-  const { t } = useTranslation();
-
+const ActivityCard = ({ activity, onClick, onDocumentClick }) => {
   return (
     <div
       onClick={() => onClick?.(activity)}
@@ -184,7 +182,6 @@ const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
 const TimelineIcon = ({ type, items, onClick, tooltip }) => {
   const isTransport = type === 'transport';
   const isCheckout = type === 'checkout';
-  const isCheckin = type === 'lodging';
   const count = Array.isArray(items) ? items.length : (items ? 1 : 0);
 
   if (count === 0) return null;
@@ -558,7 +555,6 @@ const TripTimeline = ({
           const preTripTransports = transportation.filter(t => {
             const depDate = dayjs(t.departure_date);
             const tripStart = dayjs(trip.start_date);
-            const tripEnd = dayjs(trip.end_date);
 
             // Departs before trip starts
             if (depDate.isBefore(tripStart, 'day')) {
@@ -595,7 +591,7 @@ const TripTimeline = ({
           );
         })()}
 
-        {days.map((day, index) => (
+        {days.map((day) => (
           <DayGroup
             key={day.date.toISOString()}
             {...day}

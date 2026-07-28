@@ -18,19 +18,6 @@ const TripPanelHeader = ({
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  // Get trip status
-  const getTripStatus = () => {
-    if (!trip) return 'draft';
-
-    const now = dayjs();
-    const start = dayjs(trip.start_date);
-    const end = dayjs(trip.end_date);
-
-    if (now.isBefore(start)) return 'upcoming';
-    if (now.isAfter(end)) return 'completed';
-    return 'active';
-  };
-
   // Calculate duration
   const getDuration = () => {
     if (!trip?.start_date || !trip?.end_date) return null;

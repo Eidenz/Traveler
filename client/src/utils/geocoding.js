@@ -3,7 +3,7 @@
  * Geocoding utilities using Mapbox Geocoding API
  */
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+import { MAPBOX_TOKEN } from '../config/env';
 
 /**
  * Geocode a location string to coordinates

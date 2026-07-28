@@ -74,7 +74,7 @@ const Register = () => {
     
     if (validateForm()) {
       try {
-        const { confirmPassword, ...registerData } = formData;
+        const { confirmPassword: _confirmPassword, ...registerData } = formData;
         await register(registerData);
         toast.success(t('auth.registerSuccess'));
         navigate('/dashboard');

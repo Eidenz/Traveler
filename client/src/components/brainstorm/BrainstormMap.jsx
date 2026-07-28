@@ -1,12 +1,13 @@
 // client/src/components/brainstorm/BrainstormMap.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { MAPBOX_TOKEN } from '../../config/env';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useTranslation } from 'react-i18next';
 import { Plus, Minus, Layers, Navigation, MapPin, Search } from 'lucide-react';
 
 // Set Mapbox token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 // Item type colors for markers
 const MARKER_COLORS = {
@@ -19,7 +20,6 @@ const MARKER_COLORS = {
 
 const BrainstormMap = ({
     items = [],
-    trip,
     canEdit = false,
     onMapClick,
     onItemClick,

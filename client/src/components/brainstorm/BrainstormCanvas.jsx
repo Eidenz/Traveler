@@ -64,7 +64,7 @@ const BrainstormCanvas = ({
     const canvasRef = useRef(null);
     const [draggingItemId, setDraggingItemId] = useState(null);
     const [draggingGroupId, setDraggingGroupId] = useState(null);
-    const [resizingGroupId, setResizingGroupId] = useState(null);
+    const [, setResizingGroupId] = useState(null);
     const [editingGroupId, setEditingGroupId] = useState(null);
     const longPressTimerRef = useRef(null);
 
@@ -566,7 +566,6 @@ const BrainstormCanvas = ({
                 {/* Visual Groups Layer - Background */}
                 {groups.map((group) => {
                     const isDragging = draggingGroupId === group.id;
-                    const isResizing = resizingGroupId === group.id;
 
                     return (
                         <div

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { hasMapbox } from '../../config/env';
 import toast from 'react-hot-toast';
 import {
     ArrowLeft, Plus, MapPin, FileText, Image, Link2, Lightbulb,
@@ -68,7 +69,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
 
     // Check for Mapbox token
-    const hasMapboxToken = !!import.meta.env.VITE_MAPBOX_TOKEN;
+    const hasMapboxToken = hasMapbox;
 
     // Get socket for room members display
     const { connectWithPublicToken } = useSocket();
@@ -511,7 +512,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     }, []);
 
     // Handle zoom to location from canvas
-    const handleZoomToLocation = useCallback((lat, lng, name) => {
+    const handleZoomToLocation = useCallback((lat, lng) => {
         if (mapRef.current) {
             mapRef.current.flyTo({
                 center: [lng, lat],

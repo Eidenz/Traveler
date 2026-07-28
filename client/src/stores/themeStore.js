@@ -11,7 +11,9 @@ const getSystemThemePreference = () => {
 const useThemeStore = create(
   persist(
     (set) => ({
-      theme: localStorage.getItem('theme') || getSystemThemePreference(),
+      // Initial value before rehydration; the persisted choice (stored by
+      // the persist middleware under 'theme-storage') overrides it
+      theme: getSystemThemePreference(),
       
       // Toggle between dark and light mode
       toggleTheme: () => {

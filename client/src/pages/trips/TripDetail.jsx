@@ -5,6 +5,7 @@ import {
   ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { hasMapbox } from '../../config/env';
 import toast from 'react-hot-toast';
 
 // API and stores
@@ -17,6 +18,7 @@ import {
 
 // Real-time collaboration
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
+import useOnlineStore, { isOnline } from '../../stores/onlineStore';
 
 // Components
 import Button from '../../components/ui/Button';
@@ -105,7 +107,10 @@ const TripDetail = () => {
   // Note: Share state is now managed in ShareModal component
 
   // Check if Mapbox token is available
-  const hasMapboxToken = import.meta.env.VITE_MAPBOX_TOKEN && import.meta.env.VITE_MAPBOX_TOKEN !== '';
+  const hasMapboxToken = hasMapbox;
+
+  // Online status (render-reactive; async fetchers use the isOnline() getter)
+  const online = useOnlineStore((s) => s.isOnline);
 
   // Real-time update handlers
   const realtimeHandlers = useMemo(() => ({
@@ -227,7 +232,7 @@ const TripDetail = () => {
   const fetchChecklists = async (isStale = () => false) => {
     try {
       // When offline, checklists come from the offline snapshot in fetchTripData
-      if (!navigator.onLine) {
+      if (!isOnline()) {
         const offlineTrip = await getTripOffline(tripId);
         if (isStale()) return;
         if (offlineTrip) {
@@ -247,7 +252,7 @@ const TripDetail = () => {
     try {
       setLoading(true);
 
-      const isOffline = !navigator.onLine;
+      const isOffline = !isOnline();
       const offlineAvailable = await isTripAvailableOffline(tripId);
       if (isStale()) return;
       setIsAvailableOffline(offlineAvailable);
@@ -280,7 +285,7 @@ const TripDetail = () => {
       if (isStale()) return;
       console.error('Error fetching trip:', error);
 
-      if (!navigator.onLine) {
+      if (!isOnline()) {
         const offlineTrip = await getTripOffline(tripId);
         if (isStale()) return;
         if (offlineTrip) {
@@ -564,7 +569,7 @@ const TripDetail = () => {
       setCurrentReferenceType(referenceType);
       setCurrentDocumentItemName(item.name || item.from_location || '');
 
-      if (!navigator.onLine && isAvailableOffline) {
+      if (!isOnline() && isAvailableOffline) {
         const offlineDocs = await getDocumentsForReference(referenceType, item.id);
         if (offlineDocs?.length > 0) {
           setCurrentDocuments(offlineDocs);
@@ -956,7 +961,7 @@ const TripDetail = () => {
                     canEdit={canEdit()}
                     checklists={checklists}
                     onChange={setChecklists}
-                    isOfflineMode={!navigator.onLine && isAvailableOffline}
+                    isOfflineMode={!online && isAvailableOffline}
                   />
                 </div>
               )}
@@ -1115,7 +1120,7 @@ const TripDetail = () => {
                   canEdit={canEdit()}
                   checklists={checklists}
                   onChange={setChecklists}
-                  isOfflineMode={!navigator.onLine && isAvailableOffline}
+                  isOfflineMode={!online && isAvailableOffline}
                 />
               </div>
             )}
@@ -1179,7 +1184,7 @@ const TripDetail = () => {
                 referenceId={currentReferenceId}
                 tripId={tripId}
                 itemName={currentDocumentItemName}
-                isOfflineMode={!navigator.onLine && isAvailableOffline}
+                isOfflineMode={!online && isAvailableOffline}
                 onClose={handleCloseDocumentPanel}
                 onDocumentsChange={refreshDocuments}
                 canEdit={canEdit()}
@@ -1241,7 +1246,7 @@ const TripDetail = () => {
         onClose={() => setIsDocumentsModalOpen(false)}
         documents={currentDocuments}
         tripId={tripId}
-        isOfflineMode={!navigator.onLine && isAvailableOffline}
+        isOfflineMode={!online && isAvailableOffline}
         onDocumentsChange={refreshDocuments}
         canEdit={canEdit()}
       />

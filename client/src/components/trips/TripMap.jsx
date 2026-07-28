@@ -1,12 +1,13 @@
 // client/src/components/trips/TripMap.jsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { MAPBOX_TOKEN } from '../../config/env';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Plus, Minus, Layers, Navigation, MapPin } from 'lucide-react';
 import { geocodeLocation } from '../../utils/geocoding';
 
 // Use environment variable for token
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const TripMap = ({
   trip,
