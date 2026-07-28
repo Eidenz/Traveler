@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Globe, Plane, Bed, Calendar, MapPin, Users, AlertCircle, Map, Lightbulb } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { hasMapbox } from '../../config/env';
+import usePanelWidth from '../../hooks/usePanelWidth';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 
@@ -26,14 +27,17 @@ const PublicTripView = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('timeline');
   const [isResizing, setIsResizing] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('publicTripPanelWidth');
-    return saved ? parseInt(saved, 10) : 520;
+  const MIN_PANEL_WIDTH = 400;
+  const MAX_PANEL_WIDTH = 800;
+  // Rendered width is viewport-clamped (edge always visible); the saved
+  // preference keeps its full value across monitor changes
+  const { panelWidth, setPanelWidth, persistPanelWidth } = usePanelWidth('publicTripPanelWidth', {
+    min: MIN_PANEL_WIDTH,
+    max: MAX_PANEL_WIDTH,
+    defaultWidth: 520,
   });
 
   const layoutContainerRef = useRef(null);
-  const MIN_PANEL_WIDTH = 400;
-  const MAX_PANEL_WIDTH = 800;
 
   const { connectWithPublicToken } = useSocket();
 
@@ -87,14 +91,14 @@ const PublicTripView = () => {
     const newWidth = e.clientX - containerRect.left;
     const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
     setPanelWidth(clampedWidth);
-  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]);
+  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH, setPanelWidth]);
 
   const handleResizeEnd = useCallback(() => {
     if (isResizing) {
       setIsResizing(false);
-      localStorage.setItem('publicTripPanelWidth', panelWidth.toString());
+      persistPanelWidth();
     }
-  }, [isResizing, panelWidth]);
+  }, [isResizing, persistPanelWidth]);
 
   useEffect(() => {
     if (isResizing) {

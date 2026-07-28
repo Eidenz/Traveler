@@ -14,6 +14,7 @@ import BrainstormMap from '../../components/brainstorm/BrainstormMap';
 import BrainstormItemModal from '../../components/brainstorm/BrainstormItemModal';
 import Button from '../../components/ui/Button';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
+import usePanelWidth from '../../hooks/usePanelWidth';
 import { useSocket } from '../../contexts/SocketContext';
 
 // Item type configuration
@@ -40,9 +41,11 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     const [groups, setGroups] = useState([]); // Visual groups
     const [loading, setLoading] = useState(true);
     const [isResizing, setIsResizing] = useState(false);
-    const [panelWidth, setPanelWidth] = useState(() => {
-        const saved = localStorage.getItem('brainstormPanelWidth');
-        return saved ? parseInt(saved, 10) : 500;
+    // Rendered width is viewport-clamped (edge always visible); the saved
+    // preference keeps its full value across monitor changes
+    const { panelWidth, setPanelWidth, persistPanelWidth } = usePanelWidth('brainstormPanelWidth', {
+        min: 400,
+        defaultWidth: 500,
     });
 
     // Modal state
@@ -189,14 +192,14 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         const maxWidth = containerRect.width - 20;
         const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), maxWidth);
         setPanelWidth(clampedWidth);
-    }, [isResizing, MIN_PANEL_WIDTH]);
+    }, [isResizing, MIN_PANEL_WIDTH, setPanelWidth]);
 
     const handleResizeEnd = useCallback(() => {
         if (isResizing) {
             setIsResizing(false);
-            localStorage.setItem('brainstormPanelWidth', panelWidth.toString());
+            persistPanelWidth();
         }
-    }, [isResizing, panelWidth]);
+    }, [isResizing, persistPanelWidth]);
 
     useEffect(() => {
         if (isResizing) {

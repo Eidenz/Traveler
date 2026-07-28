@@ -18,6 +18,7 @@ import {
 
 // Real-time collaboration
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
+import usePanelWidth from '../../hooks/usePanelWidth';
 import useOnlineStore, { isOnline } from '../../stores/onlineStore';
 
 // Components
@@ -83,17 +84,18 @@ const TripDetail = () => {
   const [wizardType, setWizardType] = useState(null); // 'activity' | 'lodging' | 'transport'
   const [wizardItemId, setWizardItemId] = useState(null);
 
-  // Panel resize state
-  const [panelWidth, setPanelWidth] = useState(() => {
-    // Try to load saved width from localStorage
-    const saved = localStorage.getItem('tripPanelWidth');
-    // Default wide enough for all four tabs to fit without scrolling
-    return saved ? parseInt(saved, 10) : 560;
+  // Panel resize state. Rendered width is viewport-clamped so the resize
+  // edge never disappears on a smaller monitor; the saved preference keeps
+  // its full value (default wide enough for all four tabs without scrolling).
+  const MIN_PANEL_WIDTH = 450;
+  const MAX_PANEL_WIDTH = 800;
+  const { panelWidth, setPanelWidth, persistPanelWidth } = usePanelWidth('tripPanelWidth', {
+    min: MIN_PANEL_WIDTH,
+    max: MAX_PANEL_WIDTH,
+    defaultWidth: 560,
   });
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
-  const MIN_PANEL_WIDTH = 450;
-  const MAX_PANEL_WIDTH = 800;
 
   // Mobile view state: 'details' (fullscreen details) | 'split' (default) | 'map' (fullscreen map)
   const [mobileViewState, setMobileViewState] = useState('split');
@@ -322,15 +324,14 @@ const TripDetail = () => {
     const clampedWidth = Math.min(Math.max(newWidth, MIN_PANEL_WIDTH), MAX_PANEL_WIDTH);
 
     setPanelWidth(clampedWidth);
-  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH]);
+  }, [isResizing, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH, setPanelWidth]);
 
   const handleResizeEnd = useCallback(() => {
     if (isResizing) {
       setIsResizing(false);
-      // Save to localStorage
-      localStorage.setItem('tripPanelWidth', panelWidth.toString());
+      persistPanelWidth();
     }
-  }, [isResizing, panelWidth]);
+  }, [isResizing, persistPanelWidth]);
 
   // Attach global mouse events for resizing
   useEffect(() => {
