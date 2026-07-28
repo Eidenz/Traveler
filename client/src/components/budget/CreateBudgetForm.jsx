@@ -5,18 +5,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 
-// Display symbol for an ISO code ('JPY' -> '¥'); falls back to the code
-const symbolFor = (code) => {
-  if (!/^[A-Z]{3}$/.test(code || '')) return null;
-  try {
-    const part = new Intl.NumberFormat('en', { style: 'currency', currency: code })
-      .formatToParts(0)
-      .find((p) => p.type === 'currency');
-    return part ? part.value : code;
-  } catch {
-    return code;
-  }
-};
+import { symbolFor } from '../../utils/currencyUtils';
 
 const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
   const { t } = useTranslation();

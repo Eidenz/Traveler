@@ -19,6 +19,7 @@ import ExpenseForm from '../../components/budget/ExpenseForm';
 import CreateBudgetForm from '../../components/budget/CreateBudgetForm';
 import SettlementCard from '../../components/budget/SettlementCard';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
+import { symbolFor } from '../../utils/currencyUtils';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 
 const BudgetDashboard = () => {
@@ -43,6 +44,15 @@ const BudgetDashboard = () => {
     setIncludeSharedShares(value);
     localStorage.setItem('personalIncludeSharedShares', String(value));
   };
+  // Personal stats display unit: trip currency or your home currency
+  const [personalStatsCurrency, setPersonalStatsCurrency] = useState(
+    () => localStorage.getItem('personalStatsCurrency') === 'home' ? 'home' : 'trip'
+  );
+  const setStatsCurrency = (value) => {
+    setPersonalStatsCurrency(value);
+    localStorage.setItem('personalStatsCurrency', value);
+  };
+  const [personalConversion, setPersonalConversion] = useState(null);
 
   // Panel resize state
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -66,8 +76,8 @@ const BudgetDashboard = () => {
   // State for personal budget
   const [personalBudget, setPersonalBudget] = useState(null);
   const [personalExpenses, setPersonalExpenses] = useState([]);
-  const [personalCategoryTotals, setPersonalCategoryTotals] = useState({});
-  const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
+  const [, setPersonalCategoryTotals] = useState({});
+  const [, setPersonalTotalSpent] = useState(0);
 
   // Fetch trips
   const fetchTrips = useCallback(async () => {
@@ -135,6 +145,7 @@ const BudgetDashboard = () => {
       setPersonalExpenses(response.data.expenses || []);
       setPersonalCategoryTotals(response.data.categoryTotals || {});
       setPersonalTotalSpent(response.data.totalSpent || 0);
+      setPersonalConversion(response.data.conversion || null);
     } catch (error) {
       console.error('Error fetching personal budget:', error);
     }
@@ -211,6 +222,7 @@ const BudgetDashboard = () => {
       ...e,
       id: `shared-${e.id}`,
       amount: e.amount / e.split_user_ids.length,
+      currency_code: sharedBudget?.currency_code || null,
       isSharedShare: true,
     }));
 
@@ -220,14 +232,48 @@ const BudgetDashboard = () => {
         const shares = includeSharedShares ? mySharedShares : [];
         const expenses = [...personalExpenses, ...shares]
           .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        const categoryTotals = { ...personalCategoryTotals };
-        let totalSpent = personalTotalSpent;
-        for (const sh of shares) {
-          categoryTotals[sh.category] = (categoryTotals[sh.category] || 0) + sh.amount;
-          totalSpent += sh.amount;
+
+        // Expenses can mix trip currency and home currency; stats are
+        // recomputed in the chosen display unit using the daily rate
+        const conv = personalConversion;
+        const tripCode = personalBudget?.currency_code || conv?.trip_currency_code || null;
+        const displayHome = personalStatsCurrency === 'home' && !!conv;
+        const displayCode = displayHome ? conv.home_currency_code : tripCode;
+        const toDisplay = (amount, code) => {
+          const c = code || tripCode;
+          if (!conv || !displayCode || c === displayCode) return amount;
+          if (c === conv.trip_currency_code && displayCode === conv.home_currency_code) return amount * conv.rate;
+          if (c === conv.home_currency_code && displayCode === conv.trip_currency_code) return amount / conv.rate;
+          return amount;
+        };
+
+        const categoryTotals = {};
+        let totalSpent = 0;
+        for (const e of expenses) {
+          const v = toDisplay(e.amount, e.currency_code);
+          categoryTotals[e.category] = (categoryTotals[e.category] || 0) + v;
+          totalSpent += v;
         }
-        return { budget: personalBudget, expenses, categoryTotals, totalSpent, canEdit: true };
+
+        const budget = personalBudget
+          ? {
+              ...personalBudget,
+              currency: displayHome
+                ? (symbolFor(conv.home_currency_code) || conv.home_currency_code)
+                : (personalBudget.currency || '$'),
+              total_amount: toDisplay(personalBudget.total_amount, tripCode),
+            }
+          : null;
+        return { budget, expenses, categoryTotals, totalSpent, canEdit: true };
       })();
+
+  // Original per-expense symbol for the cards (stats may be displayed in a
+  // different unit; cards always show what was actually paid)
+  const expenseSymbol = (expense) => {
+    if (expense.currency_code) return symbolFor(expense.currency_code) || expense.currency_code;
+    if (expense.isSharedShare) return sharedBudget?.currency || '$';
+    return (activeBudgetTab === 'personal' ? personalBudget?.currency : sharedBudget?.currency) || '$';
+  };
 
   // Settlement payment actions ("mark paid" / undo)
   const [settlementBusy, setSettlementBusy] = useState(false);
@@ -682,6 +728,29 @@ const BudgetDashboard = () => {
                 </div>
               </div>
 
+              {/* Stats display-unit toggle (personal, mixed currencies) */}
+              {activeBudgetTab === 'personal' && personalConversion && (
+                <div className="flex justify-end">
+                  <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  {[
+                    { value: 'trip', label: personalConversion.trip_currency_code },
+                    { value: 'home', label: personalConversion.home_currency_code },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setStatsCurrency(opt.value)}
+                      className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${personalStatsCurrency === opt.value
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                </div>
+              )}
+
               {/* Category breakdown - mobile */}
               <div className="grid grid-cols-3 gap-2">
                 {['transport', 'lodging', 'activities', 'food', 'other'].slice(0, 3).map(category => {
@@ -769,7 +838,7 @@ const BudgetDashboard = () => {
                             </p>
                           </div>
                           <span className="font-semibold text-gray-900 dark:text-white">
-                            {(expense.isSharedShare ? sharedBudget?.currency : currentData.budget.currency) || '$'}{parseFloat(expense.amount).toFixed(2)}
+                            {expenseSymbol(expense)}{parseFloat(expense.amount).toFixed(2)}
                               {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                           </span>
                         </div>
@@ -918,9 +987,30 @@ const BudgetDashboard = () => {
 
                 {/* Category breakdown */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
-                    {t('budget.byCategory', 'By category')}
-                  </h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {t('budget.byCategory', 'By category')}
+                    </h3>
+                    {activeBudgetTab === 'personal' && personalConversion && (
+                      <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  {[
+                    { value: 'trip', label: personalConversion.trip_currency_code },
+                    { value: 'home', label: personalConversion.home_currency_code },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setStatsCurrency(opt.value)}
+                      className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${personalStatsCurrency === opt.value
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400'}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {['transport', 'lodging', 'activities', 'food', 'other'].map(category => {
                       const style = getCategoryStyle(category);
@@ -1139,7 +1229,7 @@ const BudgetDashboard = () => {
                               {expense.name}
                             </p>
                             <p className="font-semibold text-gray-900 dark:text-white flex-shrink-0">
-                              {(expense.isSharedShare ? sharedBudget?.currency : currentData.budget.currency) || '$'}{parseFloat(expense.amount).toFixed(2)}
+                              {expenseSymbol(expense)}{parseFloat(expense.amount).toFixed(2)}
                               {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                             </p>
                           </div>
@@ -1193,6 +1283,18 @@ const BudgetDashboard = () => {
         onSubmit={selectedExpense ? handleUpdateExpense : handleAddExpense}
         members={tripMembers}
         showSettlement={activeBudgetTab === 'shared'}
+        currencyChoices={activeBudgetTab === 'personal' && personalConversion ? [
+          {
+            code: personalConversion.trip_currency_code,
+            symbol: symbolFor(personalConversion.trip_currency_code) || personalConversion.trip_currency_code,
+            label: personalConversion.trip_currency_code,
+          },
+          {
+            code: personalConversion.home_currency_code,
+            symbol: symbolFor(personalConversion.home_currency_code) || personalConversion.home_currency_code,
+            label: personalConversion.home_currency_code,
+          },
+        ] : null}
         expense={selectedExpense}
         currency={currentData.budget?.currency || '$'}
       />

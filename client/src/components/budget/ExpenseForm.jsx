@@ -6,7 +6,10 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 
-const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', members = [], showSettlement = false }) => {
+// currencyChoices: [{ code, symbol, label }] — when 2+ choices are given the
+// amount field grows a currency picker (personal budgets mix trip-currency
+// spendings with home-currency bookings)
+const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', members = [], showSettlement = false, currencyChoices = null }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
@@ -17,6 +20,7 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
   });
   const [paidBy, setPaidBy] = useState('');
   const [splitIds, setSplitIds] = useState([]);
+  const [expenseCurrency, setExpenseCurrency] = useState('');
 
   useEffect(() => {
     if (expense) {
@@ -29,6 +33,7 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
       });
       setPaidBy(expense.paid_by ?? '');
       setSplitIds(expense.split_user_ids?.length ? expense.split_user_ids : members.map(m => m.id));
+      setExpenseCurrency(expense.currency_code || currencyChoices?.[0]?.code || '');
     } else {
       setFormData({
         name: '',
@@ -39,6 +44,7 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
       });
       setPaidBy('');
       setSplitIds(members.map(m => m.id));
+      setExpenseCurrency(currencyChoices?.[0]?.code || '');
     }
     // members list is stable per trip; re-running on it would reset choices
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,9 +75,13 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
       return; // a paid expense needs at least one participant
     }
 
+    const withCurrency = currencyChoices?.length
+      ? { ...formData, currency_code: expenseCurrency }
+      : formData;
+
     onSubmit(showSettlement
-      ? { ...formData, paid_by: paidBy, split_user_ids: paidBy === '' ? [] : splitIds }
-      : formData);
+      ? { ...withCurrency, paid_by: paidBy, split_user_ids: paidBy === '' ? [] : splitIds }
+      : withCurrency);
   };
 
   const handleCategorySelect = (category) => {
@@ -173,7 +183,11 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
               {t('budget.amount')}
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-3 text-gray-500 dark:text-gray-400">{currency}</span>
+              <span className="absolute left-3 top-3 text-gray-500 dark:text-gray-400">
+                {currencyChoices?.length
+                  ? (currencyChoices.find(c => c.code === expenseCurrency)?.symbol || currency)
+                  : currency}
+              </span>
               <input 
                 type="number" 
                 name="amount"
@@ -185,6 +199,22 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', membe
                 required
               />
             </div>
+            {currencyChoices?.length > 1 && (
+              <div className="mt-2 flex gap-1.5">
+                {currencyChoices.map(c => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => setExpenseCurrency(c.code)}
+                    className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${expenseCurrency === c.code
+                      ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300'
+                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}
+                  >
+                    {c.symbol} {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

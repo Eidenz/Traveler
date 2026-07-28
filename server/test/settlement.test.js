@@ -169,3 +169,46 @@ test('setting a trip currency code derives the display symbol', async () => {
   assert.equal(created.data.budget.currency, '¥');
   assert.equal(created.data.budget.currency_code, 'JPY');
 });
+
+test('personal budgets carry ISO codes and per-expense currencies', async () => {
+  const t3 = await createTrip(alice.api, { name: 'Personal Currency Trip' });
+  const created = await alice.api.post(`/personal-budgets/trip/${t3}`, {
+    total_amount: 200000, currency_code: 'JPY', trip_id: t3,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.budget.currency, '¥');
+  assert.equal(created.data.budget.currency_code, 'JPY');
+  const pbId = created.data.budget.id;
+
+  // A local (trip currency, implicit) and a home-currency expense mix
+  const local = await alice.api.post(`/personal-budgets/${pbId}/expenses`, {
+    name: 'Ramen', amount: 1200, category: 'food', date: '2026-08-05', trip_id: t3,
+  });
+  assert.equal(local.status, 201);
+  const flight = await alice.api.post(`/personal-budgets/${pbId}/expenses`, {
+    name: 'Flight', amount: 800, category: 'transport', date: '2026-07-01',
+    currency_code: 'EUR', trip_id: t3,
+  });
+  assert.equal(flight.status, 201);
+
+  // Alice's home currency is EUR (budget fallback earlier tests) — wait,
+  // her profile home is unset; seed it plus the JPY->EUR rate for conversion
+  const profile = new FormData();
+  profile.append('name', 'Alice');
+  profile.append('home_currency_code', 'EUR');
+  await alice.api.put('/users/profile', profile);
+
+  const data = (await alice.api.get(`/personal-budgets/trip/${t3}`)).data;
+  const byName = Object.fromEntries(data.expenses.map(e => [e.name, e]));
+  assert.equal(byName.Ramen.currency_code, null, 'implicit = trip currency');
+  assert.equal(byName.Flight.currency_code, 'EUR');
+  assert.ok(data.conversion, 'trip<->home conversion present');
+  assert.equal(data.conversion.trip_currency_code, 'JPY');
+  assert.equal(data.conversion.home_currency_code, 'EUR');
+
+  const badCode = await alice.api.post(`/personal-budgets/${pbId}/expenses`, {
+    name: 'Bad', amount: 10, category: 'other', date: '2026-08-06',
+    currency_code: 'EUROS', trip_id: t3,
+  });
+  assert.equal(badCode.status, 400);
+});
