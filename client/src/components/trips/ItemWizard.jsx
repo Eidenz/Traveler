@@ -10,6 +10,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { uploadErrorMessage } from '../../utils/documentActions';
+import TimeInput from '../ui/TimeInput';
 import dayjs from 'dayjs';
 import { transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import { geocodeLocation } from '../../utils/geocoding';
@@ -59,6 +60,7 @@ const ItemWizard = ({
                 name: '',
                 date: baseDate,
                 time: '',
+                time_exact: '',
                 location: '',
                 latitude: null,
                 longitude: null,
@@ -90,8 +92,10 @@ const ItemWizard = ({
                 to_location_disabled: false,
                 departure_date: baseDate,
                 departure_time: '',
+                departure_time_exact: '',
                 arrival_date: null,
                 arrival_time: '',
+                arrival_time_exact: '',
                 confirmation_code: '',
                 notes: '',
             };
@@ -143,6 +147,7 @@ const ItemWizard = ({
                     name: activity.name || '',
                     date: activity.date ? parseLocalDate(activity.date) : new Date(),
                     time: activity.time || '',
+                    time_exact: activity.time_exact || '',
                     location: activity.location || '',
                     latitude: activity.latitude || null,
                     longitude: activity.longitude || null,
@@ -186,8 +191,10 @@ const ItemWizard = ({
                     to_location_disabled: transport.to_location_disabled || false,
                     departure_date: transport.departure_date ? parseLocalDate(transport.departure_date) : new Date(),
                     departure_time: transport.departure_time || '',
+                    departure_time_exact: transport.departure_time_exact || '',
                     arrival_date: transport.arrival_date ? parseLocalDate(transport.arrival_date) : null,
                     arrival_time: transport.arrival_time || '',
+                    arrival_time_exact: transport.arrival_time_exact || '',
                     confirmation_code: transport.confirmation_code || '',
                     notes: transport.notes || '',
                 });
@@ -357,6 +364,12 @@ const ItemWizard = ({
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
         }
+    };
+
+    // TimeInput commits both halves of a time (clock + free text are
+    // mutually exclusive; exactly one is non-empty)
+    const handleTimeChange = (exactField, textField) => ({ exact, text }) => {
+        setFormData(prev => ({ ...prev, [exactField]: exact, [textField]: text }));
     };
 
     // Allowed file extensions for document uploads
@@ -825,21 +838,13 @@ const ItemWizard = ({
                         </div>
 
                         <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    {t('activities.time', 'Time')}
-                                </label>
-                                <div className="relative">
-                                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        value={formData.time}
-                                        onChange={(e) => handleChange('time', e.target.value)}
-                                        placeholder={t('activities.timePlaceholder', 'e.g. 14:30 or 2:30 PM')}
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
-                                </div>
-                            </div>
+                            <TimeInput
+                                label={t('activities.time', 'Time')}
+                                exactValue={formData.time_exact}
+                                textValue={formData.time}
+                                onChange={handleTimeChange('time_exact', 'time')}
+                                focusRingClass="focus:ring-purple-500"
+                            />
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1324,18 +1329,12 @@ const ItemWizard = ({
                                     )}
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {t('transportation.departureTime', 'Time')}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.departure_time}
-                                        onChange={(e) => handleChange('departure_time', e.target.value)}
-                                        placeholder="14:30"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
+                                <TimeInput
+                                    label={t('transportation.departureTime', 'Time')}
+                                    exactValue={formData.departure_time_exact}
+                                    textValue={formData.departure_time}
+                                    onChange={handleTimeChange('departure_time_exact', 'departure_time')}
+                                />
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -1366,18 +1365,12 @@ const ItemWizard = ({
                                     )}
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                        {t('transportation.arrivalTime', 'Time')}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.arrival_time}
-                                        onChange={(e) => handleChange('arrival_time', e.target.value)}
-                                        placeholder="16:45"
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
+                                <TimeInput
+                                    label={t('transportation.arrivalTime', 'Time')}
+                                    exactValue={formData.arrival_time_exact}
+                                    textValue={formData.arrival_time}
+                                    onChange={handleTimeChange('arrival_time_exact', 'arrival_time')}
+                                />
                             </div>
 
                             <div>

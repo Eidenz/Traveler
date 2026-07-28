@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
+import { displayTime } from '../../utils/timeFormat';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
@@ -24,17 +25,21 @@ const getTransportIcon = (type, className) => {
   }
 };
 
-// Format transport time range, adding dates when departure/arrival are on different days
+// Format transport time range, adding dates when departure/arrival are on
+// different days. Times go through displayTime: exact clock values render in
+// the user's 12h/24h preference, free text shows verbatim.
 const formatTransportTime = (transport) => {
-  if (!transport.departure_time) return transport.type || 'Transport';
-  if (!transport.arrival_time) return transport.departure_time;
+  const dep = displayTime(transport.departure_time_exact, transport.departure_time);
+  const arr = displayTime(transport.arrival_time_exact, transport.arrival_time);
+  if (!dep) return transport.type || 'Transport';
+  if (!arr) return dep;
 
   const sameDay = !transport.arrival_date || transport.departure_date === transport.arrival_date;
-  if (sameDay) return `${transport.departure_time} → ${transport.arrival_time}`;
+  if (sameDay) return `${dep} → ${arr}`;
 
   const depDay = dayjs(transport.departure_date).format('D MMM');
   const arrDay = dayjs(transport.arrival_date).format('D MMM');
-  return `(${depDay}) ${transport.departure_time} → (${arrDay}) ${transport.arrival_time}`;
+  return `(${depDay}) ${dep} → (${arrDay}) ${arr}`;
 };
 
 // Activity card component
@@ -46,10 +51,10 @@ const ActivityCard = ({ activity, onClick, onDocumentClick }) => {
     >
       <div className="flex gap-3">
         {/* Time badge */}
-        {activity.time && (
+        {(activity.time_exact || activity.time) && (
           <div className="flex-shrink-0 w-14 text-center">
             <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {activity.time}
+              {displayTime(activity.time_exact, activity.time)}
             </span>
           </div>
         )}
@@ -278,9 +283,7 @@ const TransportPicker = ({ transports, onSelect, onClose }) => {
               {transport.company || `${transport.from_location} → ${transport.to_location}`}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {transport.departure_time && transport.arrival_time
-                ? `${transport.departure_time} → ${transport.arrival_time}`
-                : transport.departure_time || transport.type || 'Transport'}
+              {formatTransportTime(transport)}
             </p>
           </div>
         </button>

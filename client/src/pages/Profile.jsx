@@ -9,10 +9,11 @@ import { userAPI } from '../services/api';
 import useAuthStore from '../stores/authStore';
 import toast from 'react-hot-toast';
 import { getImageUrl } from '../utils/imageUtils';
+import { getTimeFormatPreference, setTimeFormatPreference } from '../utils/timeFormat';
 import { useTranslation } from 'react-i18next';
 import {
   User, Mail, Lock, Camera, Save, Trash2, LogOut,
-  AlertTriangle, Bell, BellOff, Shield, Eye, EyeOff, Check
+  AlertTriangle, Bell, BellOff, Shield, Eye, EyeOff, Check, Clock
 } from 'lucide-react';
 
 const Profile = () => {
@@ -47,6 +48,7 @@ const Profile = () => {
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // Account deletion state
+  const [timeFormat, setTimeFormat] = useState(getTimeFormatPreference());
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
@@ -328,6 +330,43 @@ const Profile = () => {
                     ${profileForm.receiveEmails ? 'left-6' : 'left-1'}
                   `} />
                 </button>
+              </div>
+
+              {/* Time format (device-local display preference) */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {t('auth.timeFormat', 'Time format')}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {t('auth.timeFormatHelp', 'How exact times are displayed on this device')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5 p-0.5 bg-gray-200 dark:bg-gray-600 rounded-lg">
+                  {[
+                    { value: 'auto', label: t('auth.timeFormatAuto', 'Auto') },
+                    { value: '24h', label: '24h' },
+                    { value: '12h', label: '12h' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setTimeFormatPreference(opt.value);
+                        setTimeFormat(opt.value);
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${timeFormat === opt.value
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white'
+                        }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end">

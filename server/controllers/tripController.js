@@ -589,7 +589,8 @@ const getTripByPublicToken = (req, res) => {
     // Get transportation (without confirmation codes)
     const transportation = db.prepare(`
       SELECT id, trip_id, type, company, from_location, to_location, 
-             departure_date, departure_time, arrival_date, arrival_time, 
+             departure_date, departure_time, departure_time_exact,
+             arrival_date, arrival_time, arrival_time_exact,
              notes, banner_image
       FROM transportation
       WHERE trip_id = ?
@@ -607,7 +608,7 @@ const getTripByPublicToken = (req, res) => {
 
     // Get activities (without confirmation codes)
     const activities = db.prepare(`
-      SELECT id, trip_id, name, date, time, location, 
+      SELECT id, trip_id, name, date, time, time_exact, location, 
              notes, banner_image
       FROM activities
       WHERE trip_id = ?

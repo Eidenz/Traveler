@@ -1,6 +1,7 @@
 // server/controllers/activityController.js
 const { db } = require('../db/database');
 const { authorizeTrip } = require('../utils/tripAuth');
+const { normalizeExactTime } = require('../utils/timeFields');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -93,6 +94,12 @@ const createActivity = (req, res) => {
       notes
     } = req.body;
 
+    // Canonical clock time (the legacy free-text field stays unvalidated)
+    const timeExact = normalizeExactTime(req.body.time_exact);
+    if (timeExact === false) {
+      return res.status(400).json({ message: 'Exact times must use 24h HH:MM format' });
+    }
+
     // Check if trip exists
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
     if (!trip) {
@@ -113,13 +120,13 @@ const createActivity = (req, res) => {
     // Insert activity
     const insert = db.prepare(`
       INSERT INTO activities (
-        trip_id, name, date, time, location,
+        trip_id, name, date, time, time_exact, location,
         confirmation_code, notes, banner_image
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
-      tripId, name, date, time, location, confirmation_code, notes, bannerImage
+      tripId, name, date, time, timeExact, location, confirmation_code, notes, bannerImage
     );
 
     // Get the created activity
@@ -173,6 +180,12 @@ const updateActivity = (req, res) => {
       confirmation_code,
       notes
     } = req.body;
+
+    // Canonical clock time (the legacy free-text field stays unvalidated)
+    const timeExact = normalizeExactTime(req.body.time_exact);
+    if (timeExact === false) {
+      return res.status(400).json({ message: 'Exact times must use 24h HH:MM format' });
+    }
 
     // Check if activity exists
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
@@ -231,13 +244,13 @@ const updateActivity = (req, res) => {
     // Update activity
     const update = db.prepare(`
       UPDATE activities
-      SET name = ?, date = ?, time = ?, location = ?,
+      SET name = ?, date = ?, time = ?, time_exact = ?, location = ?,
           confirmation_code = ?, notes = ?, banner_image = ?
       WHERE id = ?
     `);
 
     update.run(
-      name, date, time, location, confirmation_code, notes, bannerImage, activityId
+      name, date, time, timeExact, location, confirmation_code, notes, bannerImage, activityId
     );
 
     // Get updated activity

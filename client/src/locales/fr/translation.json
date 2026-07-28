@@ -129,7 +129,10 @@
     "enterPassword": "Entrez votre mot de passe",
     "typeDeleteConfirm": "Tapez DELETE pour confirmer",
     "typeDelete": "Veuillez taper DELETE pour confirmer",
-    "accountDeleted": "Votre compte a été supprimé"
+    "accountDeleted": "Votre compte a été supprimé",
+    "timeFormat": "Format de l'heure",
+    "timeFormatHelp": "Affichage des heures précises sur cet appareil",
+    "timeFormatAuto": "Auto"
   },
   "forgotPassword": {
     "title": "Mot de Passe Oublié",
@@ -575,5 +578,10 @@
     "connected": "Connecté",
     "disconnected": "Déconnecté",
     "reconnecting": "Reconnexion..."
+  },
+  "time": {
+    "clockMode": "Choisir une heure",
+    "textMode": "Texte libre (ex. « après le déjeuner »)",
+    "textPlaceholder": "ex. après le déjeuner, à définir"
   }
 }

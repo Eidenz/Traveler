@@ -1,6 +1,7 @@
 // server/controllers/transportationController.js
 const { db } = require('../db/database');
 const { authorizeTrip } = require('../utils/tripAuth');
+const { normalizeExactTime } = require('../utils/timeFields');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -121,6 +122,13 @@ const createTransportation = (req, res) => {
       to_location_disabled
     } = req.body;
 
+    // Canonical clock times (the legacy free-text fields stay unvalidated)
+    const departureExact = normalizeExactTime(req.body.departure_time_exact);
+    const arrivalExact = normalizeExactTime(req.body.arrival_time_exact);
+    if (departureExact === false || arrivalExact === false) {
+      return res.status(400).json({ message: 'Exact times must use 24h HH:MM format' });
+    }
+
     // Check if trip exists
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
     if (!trip) {
@@ -133,48 +141,27 @@ const createTransportation = (req, res) => {
       bannerImage = `/uploads/transportation/${req.file.filename}`;
     }
 
-    // Check if the new location_disabled columns exist
-    const tableInfo = db.prepare("PRAGMA table_info(transportation)").all();
-    const hasFromLocationDisabled = tableInfo.some(col => col.name === 'from_location_disabled');
-    const hasToLocationDisabled = tableInfo.some(col => col.name === 'to_location_disabled');
-
-    // Insert transportation - handle both old and new schema
-    let insert, result;
-    if (hasFromLocationDisabled && hasToLocationDisabled) {
-      insert = db.prepare(`
-        INSERT INTO transportation (
-          trip_id, type, company, from_location, to_location,
-          departure_date, departure_time, arrival_date, arrival_time,
-          confirmation_code, notes, banner_image,
-          from_latitude, from_longitude, to_latitude, to_longitude,
-          from_location_disabled, to_location_disabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      result = insert.run(
-        tripId,
-        type, company, from_location, to_location,
-        departure_date, departure_time, arrival_date, arrival_time,
-        confirmation_code, notes, bannerImage,
-        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
-        toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled)
-      );
-    } else {
-      insert = db.prepare(`
-        INSERT INTO transportation (
-          trip_id, type, company, from_location, to_location,
-          departure_date, departure_time, arrival_date, arrival_time,
-          confirmation_code, notes, banner_image,
-          from_latitude, from_longitude, to_latitude, to_longitude
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      result = insert.run(
-        tripId,
-        type, company, from_location, to_location,
-        departure_date, departure_time, arrival_date, arrival_time,
-        confirmation_code, notes, bannerImage,
-        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null
-      );
-    }
+    // Insert transportation (the migration runner guarantees the schema,
+    // so the old dual-schema branching is gone)
+    const insert = db.prepare(`
+      INSERT INTO transportation (
+        trip_id, type, company, from_location, to_location,
+        departure_date, departure_time, departure_time_exact,
+        arrival_date, arrival_time, arrival_time_exact,
+        confirmation_code, notes, banner_image,
+        from_latitude, from_longitude, to_latitude, to_longitude,
+        from_location_disabled, to_location_disabled
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const result = insert.run(
+      tripId,
+      type, company, from_location, to_location,
+      departure_date, departure_time, departureExact,
+      arrival_date, arrival_time, arrivalExact,
+      confirmation_code, notes, bannerImage,
+      from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
+      toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled)
+    );
 
     // Get the created transportation
     const transportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(result.lastInsertRowid);
@@ -240,6 +227,13 @@ const updateTransportation = (req, res) => {
       to_location_disabled
     } = req.body;
 
+    // Canonical clock times (the legacy free-text fields stay unvalidated)
+    const departureExact = normalizeExactTime(req.body.departure_time_exact);
+    const arrivalExact = normalizeExactTime(req.body.arrival_time_exact);
+    if (departureExact === false || arrivalExact === false) {
+      return res.status(400).json({ message: 'Exact times must use 24h HH:MM format' });
+    }
+
     // Check if transportation exists
     const transportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(transportId);
     if (!transportation) {
@@ -283,47 +277,26 @@ const updateTransportation = (req, res) => {
       bannerImage = null;
     }
 
-    // Check if the new location_disabled columns exist
-    const tableInfo = db.prepare("PRAGMA table_info(transportation)").all();
-    const hasFromLocationDisabled = tableInfo.some(col => col.name === 'from_location_disabled');
-    const hasToLocationDisabled = tableInfo.some(col => col.name === 'to_location_disabled');
-
-    // Update transportation - handle both old and new schema
-    if (hasFromLocationDisabled && hasToLocationDisabled) {
-      const update = db.prepare(`
-        UPDATE transportation
-        SET type = ?, company = ?, from_location = ?, to_location = ?,
-            departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
-            confirmation_code = ?, notes = ?, banner_image = ?,
-            from_latitude = ?, from_longitude = ?, to_latitude = ?, to_longitude = ?,
-            from_location_disabled = ?, to_location_disabled = ?
-        WHERE id = ?
-      `);
-      update.run(
-        type, company, from_location, to_location,
-        departure_date, departure_time, arrival_date, arrival_time,
-        confirmation_code, notes, bannerImage,
-        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
-        toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled),
-        transportId
-      );
-    } else {
-      const update = db.prepare(`
-        UPDATE transportation
-        SET type = ?, company = ?, from_location = ?, to_location = ?,
-            departure_date = ?, departure_time = ?, arrival_date = ?, arrival_time = ?,
-            confirmation_code = ?, notes = ?, banner_image = ?,
-            from_latitude = ?, from_longitude = ?, to_latitude = ?, to_longitude = ?
-        WHERE id = ?
-      `);
-      update.run(
-        type, company, from_location, to_location,
-        departure_date, departure_time, arrival_date, arrival_time,
-        confirmation_code, notes, bannerImage,
-        from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
-        transportId
-      );
-    }
+    // Update transportation (schema guaranteed by the migration runner)
+    const update = db.prepare(`
+      UPDATE transportation
+      SET type = ?, company = ?, from_location = ?, to_location = ?,
+          departure_date = ?, departure_time = ?, departure_time_exact = ?,
+          arrival_date = ?, arrival_time = ?, arrival_time_exact = ?,
+          confirmation_code = ?, notes = ?, banner_image = ?,
+          from_latitude = ?, from_longitude = ?, to_latitude = ?, to_longitude = ?,
+          from_location_disabled = ?, to_location_disabled = ?
+      WHERE id = ?
+    `);
+    update.run(
+      type, company, from_location, to_location,
+      departure_date, departure_time, departureExact,
+      arrival_date, arrival_time, arrivalExact,
+      confirmation_code, notes, bannerImage,
+      from_latitude || null, from_longitude || null, to_latitude || null, to_longitude || null,
+      toDisabledInt(from_location_disabled), toDisabledInt(to_location_disabled),
+      transportId
+    );
 
     // Get updated transportation
     const updatedTransportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(transportId);

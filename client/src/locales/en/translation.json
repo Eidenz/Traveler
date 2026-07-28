@@ -129,7 +129,10 @@
     "enterPassword": "Enter your password",
     "typeDeleteConfirm": "Type DELETE to confirm",
     "typeDelete": "Please type DELETE to confirm",
-    "accountDeleted": "Your account has been deleted"
+    "accountDeleted": "Your account has been deleted",
+    "timeFormat": "Time format",
+    "timeFormatHelp": "How exact times are displayed on this device",
+    "timeFormatAuto": "Auto"
   },
   "forgotPassword": {
     "title": "Forgot Password",
@@ -575,5 +578,10 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "reconnecting": "Reconnecting..."
+  },
+  "time": {
+    "clockMode": "Pick a time",
+    "textMode": "Free text (e.g. “after lunch”)",
+    "textPlaceholder": "e.g. after lunch, TBD"
   }
 }

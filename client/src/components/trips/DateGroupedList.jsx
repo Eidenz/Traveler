@@ -1,5 +1,6 @@
 // client/src/components/trips/DateGroupedList.jsx
 import React from 'react';
+import { displayTime } from '../../utils/timeFormat';
 import dayjs from 'dayjs';
 import { Plane, Bed, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +19,7 @@ const TransportCard = ({ item, onClick }) => (
                 <div>
                     <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {item.departure_time || item.company || item.type}
+                        {displayTime(item.departure_time_exact, item.departure_time) || item.company || item.type}
                     </p>
                 </div>
             </div>
