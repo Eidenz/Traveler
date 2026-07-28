@@ -35,7 +35,7 @@ const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
         ${highlighted ? 'board-item-pulse' : ''}
         ${dimmed ? 'opacity-40' : ''}
         ${lifted ? 'scale-105 shadow-xl ring-2 ring-accent/50' : ''}`}
-      style={accent ? { borderLeftWidth: 4, borderLeftColor: accent } : undefined}
+      style={accent ? { borderColor: accent, borderLeftWidth: 4 } : undefined}
     >
       {/* Image (lazy — hundreds of these can exist on one board) */}
       {item.image_path && (

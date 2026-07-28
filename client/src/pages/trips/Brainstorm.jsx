@@ -386,7 +386,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
   // ---- render ------------------------------------------------------------
   if (loading) {
     return (
-      <div className="h-full min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <Loader2 className="w-10 h-10 text-accent animate-spin" />
       </div>
     );
@@ -398,7 +398,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
   const showMapPanel = hasMapbox;
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
+    <div className="h-full flex flex-col overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <div className="flex-none flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-20">
         <Link
@@ -463,7 +463,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               <button
                 onClick={() => {
                   const el = canvasContainerRef.current;
-                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 0.8);
+                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 0.9);
                 }}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title={t('brainstorm.zoomOut', 'Zoom out')}
@@ -476,7 +476,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               <button
                 onClick={() => {
                   const el = canvasContainerRef.current;
-                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 1.25);
+                  zoomAt(el.clientWidth / 2, el.clientHeight / 2, 1.12);
                 }}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title={t('brainstorm.zoomIn', 'Zoom in')}

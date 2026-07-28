@@ -361,7 +361,7 @@ const BoardCanvas = ({
     const p = localPoint(e);
     if (e.ctrlKey || e.metaKey) {
       // Pinch-trackpads and ctrl+wheel zoom at the cursor
-      useBrainstormStore.getState().zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.01));
+      useBrainstormStore.getState().zoomAt(p.x, p.y, Math.exp(-e.deltaY * 0.005));
     } else {
       useBrainstormStore.getState().panBy(-e.deltaX, -e.deltaY);
     }
