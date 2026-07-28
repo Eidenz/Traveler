@@ -261,7 +261,7 @@ const BudgetDashboard = () => {
               currency: displayHome
                 ? (symbolFor(conv.home_currency_code) || conv.home_currency_code)
                 : (personalBudget.currency || '$'),
-              total_amount: toDisplay(personalBudget.total_amount, tripCode),
+              total_amount: toDisplay(personalBudget.total_amount, personalBudget.total_currency_code || tripCode),
             }
           : null;
         return { budget, expenses, categoryTotals, totalSpent, canEdit: true };
@@ -1303,7 +1303,19 @@ const BudgetDashboard = () => {
         isOpen={showCreateBudgetForm}
         onClose={() => setShowCreateBudgetForm(false)}
         onSubmit={currentData.budget ? handleUpdateBudget : handleCreateBudget}
-        budget={currentData.budget}
+        budget={activeBudgetTab === 'shared' ? sharedBudget : personalBudget}
+        currencyChoices={activeBudgetTab === 'personal' && personalConversion ? [
+          {
+            code: personalConversion.trip_currency_code,
+            symbol: symbolFor(personalConversion.trip_currency_code) || personalConversion.trip_currency_code,
+            label: personalConversion.trip_currency_code,
+          },
+          {
+            code: personalConversion.home_currency_code,
+            symbol: symbolFor(personalConversion.home_currency_code) || personalConversion.home_currency_code,
+            label: personalConversion.home_currency_code,
+          },
+        ] : null}
       />
 
       <Modal

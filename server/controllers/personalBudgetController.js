@@ -79,12 +79,14 @@ const createPersonalBudget = (req, res) => {
       return res.status(400).json({ message: 'Personal budget already exists for this trip' });
     }
     
-    const { currency_code } = req.body;
-    if (currency_code && !isValidCode(currency_code)) {
-      return res.status(400).json({ message: 'Currency code must be a 3-letter ISO code' });
+    const { currency_code, total_currency_code } = req.body;
+    for (const code of [currency_code, total_currency_code]) {
+      if (code && !isValidCode(code)) {
+        return res.status(400).json({ message: 'Currency code must be a 3-letter ISO code' });
+      }
     }
     const symbol = currency_code ? symbolFor(currency_code) : (currency || '$');
-    const result = db.prepare('INSERT INTO personal_budgets (trip_id, user_id, total_amount, currency, currency_code) VALUES (?, ?, ?, ?, ?)').run(tripId, userId, total_amount, symbol, currency_code || null);
+    const result = db.prepare('INSERT INTO personal_budgets (trip_id, user_id, total_amount, currency, currency_code, total_currency_code) VALUES (?, ?, ?, ?, ?, ?)').run(tripId, userId, total_amount, symbol, currency_code || null, total_currency_code || null);
     const budget = db.prepare('SELECT * FROM personal_budgets WHERE id = ?').get(result.lastInsertRowid);
     
     return res.status(201).json({ message: 'Personal budget created successfully', budget });
@@ -114,13 +116,18 @@ const updatePersonalBudget = (req, res) => {
       return res.status(403).json({ message: 'Access denied or budget not found' });
     }
     
-    const { currency_code } = req.body;
-    if (currency_code && !isValidCode(currency_code)) {
-      return res.status(400).json({ message: 'Currency code must be a 3-letter ISO code' });
+    const { currency_code, total_currency_code } = req.body;
+    for (const code of [currency_code, total_currency_code]) {
+      if (code && !isValidCode(code)) {
+        return res.status(400).json({ message: 'Currency code must be a 3-letter ISO code' });
+      }
     }
     const finalCode = currency_code === undefined ? budget.currency_code : (currency_code || null);
-    db.prepare('UPDATE personal_budgets SET total_amount = ?, currency = ?, currency_code = ? WHERE id = ?')
-      .run(total_amount, finalCode ? symbolFor(finalCode) : (currency || budget.currency), finalCode, budgetId);
+    const finalTotalCode = total_currency_code === undefined
+      ? budget.total_currency_code
+      : (total_currency_code || null);
+    db.prepare('UPDATE personal_budgets SET total_amount = ?, currency = ?, currency_code = ?, total_currency_code = ? WHERE id = ?')
+      .run(total_amount, finalCode ? symbolFor(finalCode) : (currency || budget.currency), finalCode, finalTotalCode, budgetId);
     const updatedBudget = db.prepare('SELECT * FROM personal_budgets WHERE id = ?').get(budgetId);
     
     return res.status(200).json({ message: 'Personal budget updated successfully', budget: updatedBudget });

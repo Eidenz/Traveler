@@ -7,13 +7,17 @@ import { useTranslation } from 'react-i18next';
 
 import { symbolFor } from '../../utils/currencyUtils';
 
-const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
+// currencyChoices: [{ code, symbol, label }] — when provided (personal
+// budgets), the total amount can be denominated in either currency (a €5000
+// envelope for a JPY trip)
+const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices = null }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     total_amount: '',
     currency: '$',
     currency_code: ''
   });
+  const [totalCurrency, setTotalCurrency] = useState('');
 
   useEffect(() => {
     if (budget) {
@@ -22,12 +26,14 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
         currency: budget.currency || '$',
         currency_code: budget.currency_code || ''
       });
+      setTotalCurrency(budget.total_currency_code || '');
     } else {
       setFormData({
         total_amount: '',
         currency: '$',
         currency_code: ''
       });
+      setTotalCurrency('');
     }
   }, [budget, isOpen]);
 
@@ -50,7 +56,9 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
       return;
     }
     
-    onSubmit(formData);
+    onSubmit(currencyChoices?.length
+      ? { ...formData, total_currency_code: totalCurrency }
+      : formData);
   };
 
   return (
@@ -67,7 +75,8 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
           </label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
-              {symbolFor(formData.currency_code) || formData.currency || '$'}
+              {(totalCurrency && symbolFor(totalCurrency))
+                || symbolFor(formData.currency_code) || formData.currency || '$'}
             </span>
             <input
               type="number"
@@ -80,6 +89,22 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
               required
             />
           </div>
+          {currencyChoices?.length > 1 && (
+            <div className="mt-2 flex gap-1.5">
+              {currencyChoices.map(c => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => setTotalCurrency(c.code === currencyChoices[0].code ? '' : c.code)}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${(totalCurrency || currencyChoices[0].code) === c.code
+                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'}`}
+                >
+                  {c.symbol} {c.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         
         {/* The trip's ISO code drives the symbol and conversions; each

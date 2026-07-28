@@ -224,3 +224,26 @@ test('personal conversion falls back to the shared budget home currency', async 
   assert.ok(data.conversion, 'fallback conversion expected');
   assert.equal(data.conversion.home_currency_code, 'EUR');
 });
+
+test('personal budget total can be denominated in the home currency', async () => {
+  // €5000 envelope on a JPY-currency personal budget
+  const t4 = await createTrip(alice.api, { name: 'Envelope Trip' });
+  const created = await alice.api.post(`/personal-budgets/trip/${t4}`, {
+    total_amount: 5000, currency_code: 'JPY', total_currency_code: 'EUR', trip_id: t4,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.budget.total_currency_code, 'EUR');
+  assert.equal(created.data.budget.currency_code, 'JPY');
+
+  // Clearing it reverts the total to trip currency
+  const cleared = await alice.api.put(`/personal-budgets/${created.data.budget.id}`, {
+    total_amount: 5000, total_currency_code: '', trip_id: t4,
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.data.budget.total_currency_code, null);
+
+  const bad = await alice.api.post(`/personal-budgets/trip/${t4}`, {
+    total_amount: 1, total_currency_code: 'EUROS', trip_id: t4,
+  });
+  assert.equal(bad.status, 400);
+});
