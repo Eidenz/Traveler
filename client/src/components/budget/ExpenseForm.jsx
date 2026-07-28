@@ -6,7 +6,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 
-const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => {
+const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$', members = [], showSettlement = false }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: '',
@@ -15,6 +15,8 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => 
     date: new Date().toISOString().slice(0, 10),
     notes: ''
   });
+  const [paidBy, setPaidBy] = useState('');
+  const [splitIds, setSplitIds] = useState([]);
 
   useEffect(() => {
     if (expense) {
@@ -25,6 +27,8 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => 
         date: expense.date || new Date().toISOString().slice(0, 10),
         notes: expense.notes || ''
       });
+      setPaidBy(expense.paid_by ?? '');
+      setSplitIds(expense.split_user_ids?.length ? expense.split_user_ids : members.map(m => m.id));
     } else {
       setFormData({
         name: '',
@@ -33,8 +37,18 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => 
         date: new Date().toISOString().slice(0, 10),
         notes: ''
       });
+      setPaidBy('');
+      setSplitIds(members.map(m => m.id));
     }
+    // members list is stable per trip; re-running on it would reset choices
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expense, isOpen]);
+
+  const toggleSplit = (userId) => {
+    setSplitIds(prev => prev.includes(userId)
+      ? prev.filter(id => id !== userId)
+      : [...prev, userId]);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,8 +65,13 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => 
     if (!formData.name || !formData.amount || !formData.date) {
       return;
     }
-    
-    onSubmit(formData);
+    if (showSettlement && paidBy !== '' && splitIds.length === 0) {
+      return; // a paid expense needs at least one participant
+    }
+
+    onSubmit(showSettlement
+      ? { ...formData, paid_by: paidBy, split_user_ids: paidBy === '' ? [] : splitIds }
+      : formData);
   };
 
   const handleCategorySelect = (category) => {
@@ -182,6 +201,52 @@ const ExpenseForm = ({ isOpen, onClose, onSubmit, expense, currency = '$' }) => 
           </div>
         </div>
         
+        {showSettlement && members.length > 0 && (
+          <div className="mb-6 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('budget.paidBy', 'Paid by')}
+            </label>
+            <select
+              value={paidBy}
+              onChange={(e) => setPaidBy(e.target.value === '' ? '' : Number(e.target.value))}
+              className="w-full p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">{t('budget.paidByNobody', 'Not tracked (no settlement)')}</option>
+              {members.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+
+            {paidBy !== '' && (
+              <div className="mt-3">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  {t('budget.splitBetween', 'Split between')}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {members.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => toggleSplit(m.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-sm font-medium border transition-colors ${splitIds.includes(m.id)
+                        ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 text-blue-700 dark:text-blue-300'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                        }`}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+                {splitIds.length === 0 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    {t('budget.splitNeedsOne', 'Pick at least one participant')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('budget.notes')}

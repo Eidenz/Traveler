@@ -16,6 +16,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import ExpenseForm from '../../components/budget/ExpenseForm';
 import CreateBudgetForm from '../../components/budget/CreateBudgetForm';
+import SettlementCard from '../../components/budget/SettlementCard';
 import { getImageUrl, getFallbackImageUrl } from '../../utils/imageUtils';
 import { useRealtimeUpdates } from '../../hooks/useRealtimeUpdates';
 
@@ -49,6 +50,9 @@ const BudgetDashboard = () => {
   const [sharedExpenses, setSharedExpenses] = useState([]);
   const [sharedCategoryTotals, setSharedCategoryTotals] = useState({});
   const [sharedTotalSpent, setSharedTotalSpent] = useState(0);
+  const [conversion, setConversion] = useState(null);
+  const [settlement, setSettlement] = useState(null);
+  const [tripMembers, setTripMembers] = useState([]);
 
   // State for personal budget
   const [personalBudget, setPersonalBudget] = useState(null);
@@ -101,6 +105,15 @@ const BudgetDashboard = () => {
       setSharedExpenses(response.data.expenses || []);
       setSharedCategoryTotals(response.data.categoryTotals || {});
       setSharedTotalSpent(response.data.totalSpent || 0);
+      setConversion(response.data.conversion || null);
+
+      // Settlement + member list ride along with the shared budget
+      const [settlementRes, tripRes] = await Promise.all([
+        budgetAPI.getSettlement(tripId),
+        tripAPI.getTripById(tripId),
+      ]);
+      setSettlement(settlementRes.data);
+      setTripMembers(tripRes.data.members || []);
     } catch (error) {
       console.error('Error fetching shared budget:', error);
     }
@@ -183,6 +196,16 @@ const BudgetDashboard = () => {
   const currentData = activeBudgetTab === 'shared'
     ? { budget: sharedBudget, expenses: sharedExpenses, categoryTotals: sharedCategoryTotals, totalSpent: sharedTotalSpent, canEdit: canEditShared }
     : { budget: personalBudget, expenses: personalExpenses, categoryTotals: personalCategoryTotals, totalSpent: personalTotalSpent, canEdit: true };
+
+  // Home-currency conversion (shared budget only, when both ISO codes are set)
+  const activeConversion = activeBudgetTab === 'shared' ? conversion : null;
+  const toHome = activeConversion
+    ? (amount) => new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: activeConversion.home_currency_code,
+        maximumFractionDigits: amount * activeConversion.rate >= 100 ? 0 : 2,
+      }).format(amount * activeConversion.rate)
+    : null;
 
   const selectTrip = (trip) => {
     setSelectedTrip(trip);
@@ -577,6 +600,7 @@ const BudgetDashboard = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500 dark:text-gray-400">
                     {currentData.budget.currency}{currentData.totalSpent.toLocaleString()} {t('budget.spent', 'spent')}
+                    {toHome && <span className="text-gray-400"> · ≈{toHome(currentData.totalSpent)}</span>}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
                     {currentData.budget.currency}{currentData.budget.total_amount.toLocaleString()} {t('budget.total', 'total')}
@@ -603,6 +627,11 @@ const BudgetDashboard = () => {
                   );
                 })}
               </div>
+
+              {/* Settle up - mobile */}
+              {activeBudgetTab === 'shared' && (
+                <SettlementCard settlement={settlement} toHome={toHome} />
+              )}
 
               {/* Expenses list - mobile */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
@@ -639,6 +668,7 @@ const BudgetDashboard = () => {
                           </div>
                           <span className="font-semibold text-gray-900 dark:text-white">
                             {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                              {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                           </span>
                         </div>
                       );
@@ -776,6 +806,7 @@ const BudgetDashboard = () => {
                   <div className="flex justify-between mt-2 text-sm">
                     <span className="text-gray-600 dark:text-gray-400">
                       {currentData.budget.currency}{currentData.totalSpent.toLocaleString()} spent
+                      {toHome && <span className="text-gray-400"> · ≈{toHome(currentData.totalSpent)}</span>}
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {Math.round(budgetPercentUsed)}%
@@ -820,6 +851,11 @@ const BudgetDashboard = () => {
                     })}
                   </div>
                 </div>
+
+                {/* Settle up */}
+                {activeBudgetTab === 'shared' && (
+                  <SettlementCard settlement={settlement} toHome={toHome} />
+                )}
 
                 {/* Budget actions */}
                 {currentData.canEdit && (
@@ -977,6 +1013,7 @@ const BudgetDashboard = () => {
                             </p>
                             <p className="font-semibold text-gray-900 dark:text-white flex-shrink-0">
                               {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                              {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                             </p>
                           </div>
                           <div className="flex items-center justify-between">
@@ -1021,6 +1058,8 @@ const BudgetDashboard = () => {
         isOpen={showExpenseForm}
         onClose={() => { setShowExpenseForm(false); setSelectedExpense(null); }}
         onSubmit={selectedExpense ? handleUpdateExpense : handleAddExpense}
+        members={tripMembers}
+        showSettlement={activeBudgetTab === 'shared'}
         expense={selectedExpense}
         currency={currentData.budget?.currency || '$'}
       />

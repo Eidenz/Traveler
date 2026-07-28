@@ -553,7 +553,17 @@
     "noTripsMessage": "Créez d'abord un voyage pour commencer à suivre votre budget",
     "tripNotFound": "Voyage non trouvé",
     "left": "restant",
-    "notSet": "Non défini"
+    "notSet": "Non défini",
+    "settleUp": "Équilibrer les comptes",
+    "allSettled": "Tout est réglé — personne ne doit rien.",
+    "settleHint": "Basé sur les dépenses avec un payeur. Indiquez « Payé par » lors de l'ajout d'une dépense.",
+    "paidBy": "Payé par",
+    "paidByNobody": "Non suivi (pas de règlement)",
+    "splitBetween": "Partagé entre",
+    "splitNeedsOne": "Choisissez au moins un participant",
+    "tripCurrency": "Devise du voyage",
+    "homeCurrency": "Devise locale",
+    "currencyCodesHint": "Renseignez les deux codes pour voir les montants convertis dans votre devise (taux quotidien)."
   },
   "errors": {
     "required": "{{field}} est requis",

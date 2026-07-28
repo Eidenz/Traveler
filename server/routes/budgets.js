@@ -4,6 +4,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const { 
   getTripBudget,
+  getSettlement,
   createBudget,
   updateBudget,
   addExpense,
@@ -20,6 +21,9 @@ router.use(authenticate);
 
 // Get budget for a trip
 router.get('/trip/:tripId', checkTripAccess(), getTripBudget);
+
+// Who-owes-whom for the trip's shared expenses
+router.get('/trip/:tripId/settlement', checkTripAccess(), getSettlement);
 
 // Create a budget for a trip
 router.post(

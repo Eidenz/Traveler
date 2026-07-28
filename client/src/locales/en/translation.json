@@ -553,7 +553,17 @@
     "noTripsMessage": "Create a trip first to start tracking your budget",
     "tripNotFound": "Trip not found",
     "left": "left",
-    "notSet": "Not set"
+    "notSet": "Not set",
+    "settleUp": "Settle up",
+    "allSettled": "All settled — nobody owes anything.",
+    "settleHint": "Based on expenses with a payer. Set \"Paid by\" when adding an expense to include it.",
+    "paidBy": "Paid by",
+    "paidByNobody": "Not tracked (no settlement)",
+    "splitBetween": "Split between",
+    "splitNeedsOne": "Pick at least one participant",
+    "tripCurrency": "Trip currency",
+    "homeCurrency": "Home currency",
+    "currencyCodesHint": "Set both codes to see amounts converted to your home currency (daily rate)."
   },
   "errors": {
     "required": "{{field}} is required",

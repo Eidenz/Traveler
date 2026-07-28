@@ -9,28 +9,37 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     total_amount: '',
-    currency: '$'
+    currency: '$',
+    currency_code: '',
+    home_currency_code: ''
   });
 
   useEffect(() => {
     if (budget) {
       setFormData({
         total_amount: budget.total_amount || '',
-        currency: budget.currency || '$'
+        currency: budget.currency || '$',
+        currency_code: budget.currency_code || '',
+        home_currency_code: budget.home_currency_code || ''
       });
     } else {
       setFormData({
         total_amount: '',
-        currency: '$'
+        currency: '$',
+        currency_code: '',
+        home_currency_code: ''
       });
     }
   }, [budget, isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const codes = ['currency_code', 'home_currency_code'];
     setFormData({
       ...formData,
-      [name]: name === 'total_amount' ? parseFloat(value) || '' : value
+      [name]: name === 'total_amount'
+        ? parseFloat(value) || ''
+        : codes.includes(name) ? value.toUpperCase().slice(0, 3) : value
     });
   };
 
@@ -84,6 +93,41 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget }) => {
           </div>
         </div>
         
+        {/* ISO codes power the home-currency conversion (both optional) */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('budget.tripCurrency', 'Trip currency')}
+            </label>
+            <input
+              type="text"
+              name="currency_code"
+              value={formData.currency_code}
+              onChange={handleChange}
+              placeholder="JPY"
+              maxLength={3}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('budget.homeCurrency', 'Home currency')}
+            </label>
+            <input
+              type="text"
+              name="home_currency_code"
+              value={formData.home_currency_code}
+              onChange={handleChange}
+              placeholder="EUR"
+              maxLength={3}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+          {t('budget.currencyCodesHint', 'Set both codes to see amounts converted to your home currency (daily rate).')}
+        </p>
+
         <div className="flex justify-end space-x-3 mt-6">
           <Button
             type="button"
