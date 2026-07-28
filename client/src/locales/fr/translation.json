@@ -583,5 +583,27 @@
     "clockMode": "Choisir une heure",
     "textMode": "Texte libre (ex. « après le déjeuner »)",
     "textPlaceholder": "ex. après le déjeuner, à définir"
+  },
+  "brainstorm": {
+    "title": "Brainstorm",
+    "notPublic": "Le brainstorming n'est pas public pour ce voyage",
+    "searchPlaceholder": "Rechercher sur le tableau…",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "zoomToFit": "Ajuster au tableau",
+    "addItem": "Ajouter un élément",
+    "addGroup": "Ajouter un groupe",
+    "newGroup": "Nouveau groupe",
+    "showMap": "Afficher la carte",
+    "selected": "sélectionné(s)",
+    "ungroup": "Retirer du groupe",
+    "ungrouped": "Retirés des groupes",
+    "deleteSelectedConfirm": "Supprimer les éléments sélectionnés ?",
+    "deleteGroupConfirm": "Supprimer ce groupe ? Ses éléments sont conservés.",
+    "renameGroup": "Nom du groupe",
+    "groupColor": "Couleur du groupe",
+    "updated": "Élément mis à jour",
+    "created": "Élément créé",
+    "saveFailed": "Échec de l'enregistrement"
   }
 }

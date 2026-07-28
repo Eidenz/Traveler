@@ -583,5 +583,27 @@
     "clockMode": "Pick a time",
     "textMode": "Free text (e.g. “after lunch”)",
     "textPlaceholder": "e.g. after lunch, TBD"
+  },
+  "brainstorm": {
+    "title": "Brainstorm",
+    "notPublic": "Brainstorming is not public for this trip",
+    "searchPlaceholder": "Search the board…",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomToFit": "Fit board",
+    "addItem": "Add item",
+    "addGroup": "Add group",
+    "newGroup": "New Group",
+    "showMap": "Show map",
+    "selected": "selected",
+    "ungroup": "Remove from group",
+    "ungrouped": "Removed from groups",
+    "deleteSelectedConfirm": "Delete the selected items?",
+    "deleteGroupConfirm": "Delete this group? Its items are kept.",
+    "renameGroup": "Group name",
+    "groupColor": "Group color",
+    "updated": "Item updated",
+    "created": "Item created",
+    "saveFailed": "Failed to save item"
   }
 }
