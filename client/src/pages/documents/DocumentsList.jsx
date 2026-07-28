@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { documentAPI, activityAPI, transportAPI, lodgingAPI } from '../../services/api';
+import { viewDocument, downloadDocument, revokePreviewUrl } from '../../utils/documentActions';
 import { FileText, Download, Eye, Image, File, Lock, Users, Briefcase, Map, Home, Plus, X, Trash2, Link as LinkIcon, ExternalLink, AlertCircle, Search, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -262,46 +263,35 @@ const DocumentsList = ({ tripId, trip }) => {
 
     const handleDownload = async (docId, fileName) => {
         try {
-            const response = await documentAPI.downloadDocument(docId);
-            const blob = new Blob([response.data]);
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(downloadUrl);
+            await downloadDocument(docId, fileName);
         } catch {
             toast.error(t('errors.downloadFailed', 'Download failed'));
         }
     };
 
+    // Shared behavior in utils/documentActions
     const handleView = async (doc) => {
         try {
             setViewLoading(true);
-            if (doc.file_type === 'link') {
-                if (doc.url) {
-                    window.open(doc.url, '_blank', 'noopener,noreferrer');
-                }
-            } else if (doc.file_type && doc.file_type.includes('pdf')) {
-                const response = await documentAPI.viewDocumentAsBlob(doc.id);
-                setCurrentPdfBlob(response.data);
-                setCurrentPdfName(doc.file_name);
-                setCurrentDocumentId(doc.id);
-                setIsPdfViewerOpen(true);
-            } else if (doc.file_type && doc.file_type.includes('image')) {
-                const response = await documentAPI.viewDocumentAsBlob(doc.id);
-                const url = URL.createObjectURL(response.data);
-                setPreviewUrl(url);
-            } else {
-                handleDownload(doc.id, doc.file_name);
-            }
+            await viewDocument(doc, {
+                onPdf: (blob, d) => {
+                    setCurrentPdfBlob(blob);
+                    setCurrentPdfName(d.file_name);
+                    setCurrentDocumentId(d.id);
+                    setIsPdfViewerOpen(true);
+                },
+                onImagePreview: (url) => setPreviewUrl(url),
+            });
         } catch {
             toast.error(t('errors.viewFailed', 'Could not view document'));
         } finally {
             setViewLoading(false);
         }
+    };
+
+    const closePreview = () => {
+        revokePreviewUrl(previewUrl);
+        setPreviewUrl(null);
     };
 
     const openLinkModal = (doc) => {
@@ -428,7 +418,7 @@ const DocumentsList = ({ tripId, trip }) => {
         <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
             {/* Image Preview Overlay */}
             {previewUrl && (
-                <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+                <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={closePreview}>
                     <button className="absolute top-4 right-4 text-white hover:text-gray-300">
                         <X className="w-8 h-8" />
                     </button>

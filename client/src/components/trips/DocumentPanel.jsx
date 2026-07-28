@@ -5,6 +5,7 @@ import { documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import PDFViewerModal from './PDFViewerModal';
+import { viewDocument, downloadDocument, revokePreviewUrl } from '../../utils/documentActions';
 
 const DocumentPanel = ({
     documents = [],
@@ -184,49 +185,23 @@ const DocumentPanel = ({
         setShowLinkForm(false);
     };
 
-    // Handle viewing a document
+    // Handle viewing a document (shared behavior in utils/documentActions)
     const handleViewDocument = async (doc) => {
         try {
             setIsLoading(true);
-
-            // Link documents open in a new tab
-            if (doc.file_type === 'link') {
-                if (doc.url) {
-                    window.open(doc.url, '_blank', 'noopener,noreferrer');
-                }
-                return;
-            }
-
-            // Only PDF files can be viewed in the viewer
-            if (doc.file_type && doc.file_type.includes('pdf')) {
-                if (doc.blob) {
-                    setCurrentPdfBlob(doc.blob);
-                    setCurrentPdfName(doc.file_name);
-                    setCurrentDocumentId(doc.id);
+            await viewDocument(doc, {
+                blob: doc.blob,
+                onPdf: (blob, d) => {
+                    setCurrentPdfBlob(blob);
+                    setCurrentPdfName(d.file_name);
+                    setCurrentDocumentId(d.id);
                     setIsPdfViewerOpen(true);
-                } else {
-                    const response = await documentAPI.viewDocumentAsBlob(doc.id);
-                    setCurrentPdfBlob(response.data);
-                    setCurrentPdfName(doc.file_name);
-                    setCurrentDocumentId(doc.id);
-                    setIsPdfViewerOpen(true);
-                }
-            } else if (doc.file_type && doc.file_type.includes('image')) {
-                // For images, show preview
-                if (doc.blob) {
-                    const url = URL.createObjectURL(doc.blob);
+                },
+                onImagePreview: (url, d) => {
                     setPreviewUrl(url);
-                    setPreviewDoc(doc);
-                } else {
-                    const response = await documentAPI.viewDocumentAsBlob(doc.id);
-                    const url = URL.createObjectURL(response.data);
-                    setPreviewUrl(url);
-                    setPreviewDoc(doc);
-                }
-            } else {
-                // For other files, download
-                await handleDownloadDocument(doc.id, doc.file_name);
-            }
+                    setPreviewDoc(d);
+                },
+            });
         } catch (error) {
             console.error('Error viewing document:', error);
             toast.error(t('documents.viewFailed'));
@@ -239,32 +214,10 @@ const DocumentPanel = ({
     const handleDownloadDocument = async (documentId, fileName) => {
         try {
             setIsLoading(true);
-
-            if (isOfflineMode) {
-                const offlineDoc = documents.find(doc => doc.id === documentId);
-                if (offlineDoc && offlineDoc.blob) {
-                    const downloadUrl = window.URL.createObjectURL(offlineDoc.blob);
-                    const link = document.createElement('a');
-                    link.href = downloadUrl;
-                    link.download = fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(downloadUrl);
-                    return;
-                }
-            }
-
-            const response = await documentAPI.downloadDocument(documentId);
-            const blob = new Blob([response.data]);
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(downloadUrl);
+            const offlineBlob = isOfflineMode
+                ? documents.find(doc => doc.id === documentId)?.blob
+                : undefined;
+            await downloadDocument(documentId, fileName, { blob: offlineBlob });
         } catch (error) {
             console.error('Error downloading document:', error);
             toast.error(t('documents.downloadFailed'));
@@ -307,9 +260,7 @@ const DocumentPanel = ({
     };
 
     const closePreview = () => {
-        if (previewUrl) {
-            URL.revokeObjectURL(previewUrl);
-        }
+        revokePreviewUrl(previewUrl);
         setPreviewUrl(null);
         setPreviewDoc(null);
     };

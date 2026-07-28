@@ -5,6 +5,7 @@ import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import PDFViewerModal from './PDFViewerModal';
 import { documentAPI } from '../../services/api';
+import { viewDocument, downloadDocument, revokePreviewUrl } from '../../utils/documentActions';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
@@ -23,6 +24,7 @@ const DocumentsModal = ({
   const [currentPdfName, setCurrentPdfName] = useState('');
   const [currentDocumentId, setCurrentDocumentId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
   // Split documents into shared and personal
   const { sharedDocs, personalDocs } = useMemo(() => {
@@ -38,39 +40,20 @@ const DocumentsModal = ({
     return { sharedDocs: shared, personalDocs: personal };
   }, [documents]);
 
-  // Handle viewing a document
+  // Handle viewing a document (shared behavior in utils/documentActions)
   const handleViewDocument = async (doc) => {
     try {
       setIsLoading(true);
-
-      // Link documents open in a new tab
-      if (doc.file_type === 'link') {
-        if (doc.url) {
-          window.open(doc.url, '_blank', 'noopener,noreferrer');
-        }
-        return;
-      }
-
-      // Only PDF files can be viewed in the viewer
-      if (doc.file_type && doc.file_type.includes('pdf')) {
-        // If document already has a blob (from offline storage), use it
-        if (doc.blob) {
-          setCurrentPdfBlob(doc.blob);
-          setCurrentPdfName(doc.file_name);
-          setCurrentDocumentId(doc.id);
+      await viewDocument(doc, {
+        blob: doc.blob,
+        onPdf: (blob, d) => {
+          setCurrentPdfBlob(blob);
+          setCurrentPdfName(d.file_name);
+          setCurrentDocumentId(d.id);
           setIsPdfViewerOpen(true);
-        } else {
-          // Otherwise fetch it from the server
-          const response = await documentAPI.viewDocumentAsBlob(doc.id);
-          setCurrentPdfBlob(response.data);
-          setCurrentPdfName(doc.file_name);
-          setCurrentDocumentId(doc.id);
-          setIsPdfViewerOpen(true);
-        }
-      } else {
-        // For non-PDF files, just download
-        await handleDownloadDocument(doc.id, doc.file_name);
-      }
+        },
+        onImagePreview: (url) => setPreviewUrl(url),
+      });
     } catch (error) {
       console.error('Error viewing document:', error);
       toast.error(t('documents.viewFailed'));
@@ -79,45 +62,19 @@ const DocumentsModal = ({
     }
   };
 
+  const closePreview = () => {
+    revokePreviewUrl(previewUrl);
+    setPreviewUrl(null);
+  };
+
   // Handle downloading a document
   const handleDownloadDocument = async (documentId, fileName) => {
     try {
       setIsLoading(true);
-
-      // For offline mode with blob already available
-      if (isOfflineMode) {
-        const offlineDoc = documents.find(doc => doc.id === documentId);
-        if (offlineDoc && offlineDoc.blob) {
-          // Create download from the blob
-          const downloadUrl = window.URL.createObjectURL(offlineDoc.blob);
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(downloadUrl);
-          return;
-        }
-      }
-
-      // Online mode - fetch from server
-      const response = await documentAPI.downloadDocument(documentId);
-
-      // Create blob from response data
-      const blob = new Blob([response.data]);
-
-      // Create download link and trigger click
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up URL object
-      window.URL.revokeObjectURL(downloadUrl);
+      const offlineBlob = isOfflineMode
+        ? documents.find(doc => doc.id === documentId)?.blob
+        : undefined;
+      await downloadDocument(documentId, fileName, { blob: offlineBlob });
     } catch (error) {
       console.error('Error downloading document:', error);
       toast.error(t('documents.downloadFailed'));
@@ -340,6 +297,16 @@ const DocumentsModal = ({
           </div>
         </div>
       </Modal>
+
+      {/* Image Preview Overlay */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4" onClick={closePreview}>
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300" onClick={closePreview}>
+            <X className="w-8 h-8" />
+          </button>
+          <img src={previewUrl} alt="Preview" className="max-w-full max-h-full rounded-lg" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
 
       {/* PDF Viewer Modal */}
       <PDFViewerModal
