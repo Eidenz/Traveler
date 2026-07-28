@@ -22,7 +22,7 @@ const getTripActivities = (req, res) => {
         (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'activity' AND d.reference_id = a.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM activities a
       WHERE a.trip_id = ?
-      ORDER BY a.date, a.time
+      ORDER BY a.date, COALESCE(NULLIF(a.time_exact, ''), a.time)
     `).all(userId, tripId);
 
     return res.status(200).json({ activities });

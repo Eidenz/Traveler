@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
-import { displayTime } from '../../utils/timeFormat';
+import { displayTime, effectiveTime } from '../../utils/timeFormat';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
@@ -480,10 +480,13 @@ const TripTimeline = ({
     while (current.isSameOrBefore(end, 'day')) {
       const dateStr = current.format('YYYY-MM-DD');
 
-      // Get activities for this day
-      const dayActivities = activities.filter(a =>
-        dayjs(a.date).format('YYYY-MM-DD') === dateStr
-      );
+      // Get activities for this day, ordered by effective time so edits
+      // reorder immediately (state updates items in place, so the incoming
+      // array order can be stale)
+      const dayActivities = activities
+        .filter(a => dayjs(a.date).format('YYYY-MM-DD') === dateStr)
+        .sort((a, b) => effectiveTime(a.time_exact, a.time)
+          .localeCompare(effectiveTime(b.time_exact, b.time)));
 
       // Get all transports for this day
       // Include transports that: depart this day, arrive this day, or overlap with this day
@@ -499,7 +502,8 @@ const TripTimeline = ({
         if (depDate < dateStr && arrDate > dateStr) return true;
 
         return false;
-      });
+      }).sort((a, b) => effectiveTime(a.departure_time_exact, a.departure_time)
+        .localeCompare(effectiveTime(b.departure_time_exact, b.departure_time)));
 
       // Get lodging checking in this day
       const dayLodging = lodging.find(l =>

@@ -40,7 +40,7 @@ const getTripTransportation = (req, res) => {
         (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'transportation' AND d.reference_id = t.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM transportation t
       WHERE t.trip_id = ?
-      ORDER BY t.departure_date, t.departure_time
+      ORDER BY t.departure_date, COALESCE(NULLIF(t.departure_time_exact, ''), t.departure_time)
     `).all(userId, tripId);
 
     return res.status(200).json({ transportation });

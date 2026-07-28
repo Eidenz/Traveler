@@ -83,3 +83,22 @@ test('the public share payload includes the exact time fields', async () => {
   assert.ok(pub.data.activities.some(a => a.time_exact === '14:30'));
   assert.ok(pub.data.transportation.some(t => t.departure_time_exact === '08:12'));
 });
+
+test('activities come back ordered by effective time (exact ?? text)', async () => {
+  const t2 = await createTrip(owner.api, { name: 'Order Trip', start: '2026-09-01', end: '2026-09-05' });
+
+  // Deliberately created out of order, mixing clocked and legacy-text times
+  await owner.api.post(`/activities/trip/${t2}`, { name: 'Late', date: '2026-09-02', time_exact: '17:00' });
+  await owner.api.post(`/activities/trip/${t2}`, { name: 'Early', date: '2026-09-02', time_exact: '09:30' });
+  await owner.api.post(`/activities/trip/${t2}`, { name: 'LegacyNoon', date: '2026-09-02', time: '12:15' });
+  await owner.api.post(`/activities/trip/${t2}`, { name: 'Vague', date: '2026-09-02', time: 'after dinner' });
+  await owner.api.post(`/activities/trip/${t2}`, { name: 'Mid', date: '2026-09-02', time_exact: '15:00' });
+
+  const res = await owner.api.get(`/trips/${t2}`);
+  const names = res.data.activities.map(a => a.name);
+  assert.deepStrictEqual(
+    names,
+    ['Early', 'LegacyNoon', 'Mid', 'Late', 'Vague'],
+    `clocked and legacy times must interleave chronologically, got ${names}`
+  );
+});

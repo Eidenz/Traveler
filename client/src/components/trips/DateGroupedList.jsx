@@ -1,6 +1,6 @@
 // client/src/components/trips/DateGroupedList.jsx
 import React from 'react';
-import { displayTime } from '../../utils/timeFormat';
+import { displayTime, effectiveTime } from '../../utils/timeFormat';
 import dayjs from 'dayjs';
 import { Plane, Bed, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -98,7 +98,11 @@ const DateGroupedList = ({ items, type, tripStartDate, onItemClick }) => {
                 const date = dayjs(dateStr);
                 const dayNumber = date.diff(tripStart, 'day') + 1;
                 const isToday = date.isSame(today, 'day');
-                const itemsForDate = groupedItems[dateStr];
+                const itemsForDate = type === 'transport'
+                    ? [...groupedItems[dateStr]].sort((a, b) =>
+                        effectiveTime(a.departure_time_exact, a.departure_time)
+                            .localeCompare(effectiveTime(b.departure_time_exact, b.departure_time)))
+                    : groupedItems[dateStr];
 
                 return (
                     <div key={dateStr} className="relative">

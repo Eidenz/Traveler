@@ -46,3 +46,11 @@ export const formatClock = (hhmm) => {
  * per preference) wins; otherwise the free text is shown verbatim.
  */
 export const displayTime = (exact, text) => (exact ? formatClock(exact) : (text || ''));
+
+/**
+ * Chronological-ish comparator for two items' times. Canonical 'HH:MM'
+ * values compare correctly; free text sorts after clocked times within the
+ * same day (letters > digits), which pushes vague times ("after lunch")
+ * toward the end — matching the server's ORDER BY on the same expression.
+ */
+export const effectiveTime = (exact, text) => exact || text || '';

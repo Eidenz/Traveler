@@ -64,7 +64,7 @@ const getTripById = (req, res) => {
         (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'transportation' AND d.reference_id = t.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM transportation t
       WHERE t.trip_id = ?
-      ORDER BY t.departure_date, t.departure_time
+      ORDER BY t.departure_date, COALESCE(NULLIF(t.departure_time_exact, ''), t.departure_time)
     `).all(userId, tripId);
 
     // Get lodging
@@ -82,7 +82,7 @@ const getTripById = (req, res) => {
         (SELECT COUNT(*) FROM documents d WHERE d.reference_type = 'activity' AND d.reference_id = a.id AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)) as has_documents
       FROM activities a
       WHERE a.trip_id = ?
-      ORDER BY a.date, a.time
+      ORDER BY a.date, COALESCE(NULLIF(a.time_exact, ''), a.time)
     `).all(userId, tripId);
 
     return res.status(200).json({
@@ -594,7 +594,7 @@ const getTripByPublicToken = (req, res) => {
              notes, banner_image
       FROM transportation
       WHERE trip_id = ?
-      ORDER BY departure_date, departure_time
+      ORDER BY departure_date, COALESCE(NULLIF(departure_time_exact, ''), departure_time)
     `).all(trip.id);
 
     // Get lodging (without confirmation codes)
@@ -612,7 +612,7 @@ const getTripByPublicToken = (req, res) => {
              notes, banner_image
       FROM activities
       WHERE trip_id = ?
-      ORDER BY date, time
+      ORDER BY date, COALESCE(NULLIF(time_exact, ''), time)
     `).all(trip.id);
 
     return res.status(200).json({
