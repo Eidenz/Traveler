@@ -73,17 +73,27 @@ const authenticate = (req, res, next) => {
     }
 
     // Verify JWT
-    const { userId } = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { userId, iat } = decoded;
 
     // Check if user exists
-    const user = db.prepare('SELECT id, name, email FROM users WHERE id = ?').get(userId);
-    if (!user) {
+    const row = db.prepare('SELECT id, name, email, password_changed_at FROM users WHERE id = ?').get(userId);
+    if (!row) {
       return res.status(401).json({ message: 'User no longer exists' });
+    }
+
+    // Tokens issued before the last password change are revoked
+    const { password_changed_at, ...user } = row;
+    if (password_changed_at && iat < password_changed_at) {
+      return res.status(401).json({ message: 'Token expired' });
     }
 
     // Add user to request object
     req.user = user;
     req.authMethod = 'jwt';
+    // Expose the token's claims so endpoints that re-issue tokens (refresh,
+    // password change) can preserve the session's "remember me" choice
+    req.tokenClaims = decoded;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);

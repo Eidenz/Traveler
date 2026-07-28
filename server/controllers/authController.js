@@ -6,6 +6,21 @@ const { db } = require('../db/database');
 const { validationResult } = require('express-validator');
 const { sendEmail } = require('../utils/emailService'); // Added
 
+// Session token lifetimes. Kept short-ish because tokens cannot be revoked
+// individually — only en masse via password_changed_at. Active clients stay
+// logged in by refreshing on app load (POST /auth/refresh). "Remember me" at
+// login opts into the long lifetime; the choice rides along as a `remember`
+// claim so refresh and password change preserve it.
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '3d';
+const JWT_REMEMBER_EXPIRY = process.env.JWT_REMEMBER_EXPIRY || '30d';
+
+const signSessionToken = (userId, { remember = false } = {}) =>
+  jwt.sign(
+    remember ? { userId, remember: true } : { userId },
+    process.env.JWT_SECRET,
+    { expiresIn: remember ? JWT_REMEMBER_EXPIRY : JWT_EXPIRY }
+  );
+
 /**
  * Register a new user
  */
@@ -35,11 +50,7 @@ const register = async (req, res) => {
     const result = insert.run(name, email, hashedPassword);
 
     // Create JWT token
-    const token = jwt.sign(
-      { userId: result.lastInsertRowid },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = signSessionToken(result.lastInsertRowid);
 
     // Get user info including receiveEmails
     const user = db.prepare('SELECT id, name, email, receiveEmails FROM users WHERE id = ?').get(result.lastInsertRowid);
@@ -80,12 +91,9 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    // Create JWT token
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Create JWT token ("Remember me" opts into the long-lived session)
+    const remember = req.body.remember_me === true || req.body.remember_me === 'true';
+    const token = signSessionToken(user.id, { remember });
 
     // Return user info without password or reset token info
     const { password: pass, resetPasswordToken, resetPasswordExpires, ...userInfo } = user;
@@ -212,17 +220,17 @@ const resetPassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Update password and clear reset token fields
-    db.prepare('UPDATE users SET password = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE id = ?')
-      .run(hashedPassword, user.id);
+    // Update password, clear reset token fields, and revoke every previously
+    // issued session token (tokens with iat < password_changed_at are
+    // rejected by the auth middleware). Same clock source as jwt's iat so the
+    // fresh token signed below (same second or later) stays valid.
+    const changedAt = Math.floor(Date.now() / 1000);
+    db.prepare('UPDATE users SET password = ?, password_changed_at = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE id = ?')
+      .run(hashedPassword, changedAt, user.id);
 
     // Optionally, log the user in or just send success message
     // Create JWT token
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = signSessionToken(user.id);
 
      // Return user info without password or reset token info
     const { password: pass, resetPasswordToken: rpt, resetPasswordExpires: rpe, ...userInfo } = user;
@@ -239,10 +247,27 @@ const resetPassword = async (req, res) => {
   }
 };
 
+/**
+ * Issue a fresh session token for an already-authenticated user (sliding
+ * session: the client calls this on app load so active users never hit the
+ * expiry, while a stolen token still dies within JWT_EXPIRY).
+ */
+const refreshToken = (req, res) => {
+  try {
+    const token = signSessionToken(req.user.id, { remember: !!req.tokenClaims?.remember });
+    return res.status(200).json({ token });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return res.status(500).json({ message: 'Server error during token refresh' });
+  }
+};
+
 module.exports = {
   register,
   login,
   getCurrentUser,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  refreshToken,
+  signSessionToken
 };

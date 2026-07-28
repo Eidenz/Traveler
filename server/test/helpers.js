@@ -17,6 +17,7 @@ let portCounter = 0;
  * @param {object} [opts]
  * @param {boolean} [opts.rateLimitEnabled] run with NODE_ENV unset so the auth
  *   rate limiters are active (they are skipped under NODE_ENV=test)
+ * @param {object} [opts.env] extra environment variables for the server process
  * @returns {Promise<{baseUrl: string, stop: () => Promise<void>}>}
  */
 async function startServer(opts = {}) {
@@ -37,6 +38,7 @@ async function startServer(opts = {}) {
       EMAIL_HOST: '',
       EMAIL_USER: '',
       EMAIL_PASSWORD: '',
+      ...(opts.env || {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -66,6 +68,7 @@ async function startServer(opts = {}) {
 
   return {
     baseUrl: `http://127.0.0.1:${port}`,
+    dbPath,
     logs,
     async stop() {
       child.kill('SIGKILL');

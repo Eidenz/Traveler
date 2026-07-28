@@ -26,11 +26,14 @@ RUN printf "VITE_API_URL=/api\nVITE_BASE_URL=\nVITE_BACKEND_URL=\nVITE_MAPBOX_TO
 # Create needed directories
 RUN mkdir -p server/uploads/documents server/uploads/trips server/uploads/profiles server/db/data
 
-# Set permission for the uploads directory
-RUN chmod -R 777 server/uploads server/db/data
-
 # Build production frontend
 RUN cd client && npm run build
+
+# The app runs as the unprivileged node user (dropped to by the entrypoint).
+# It needs to own the runtime-writable paths: uploads + database (bind-mounted
+# volumes are re-chowned by the entrypoint on every start) and the built
+# client assets the entrypoint rewrites for Mapbox token injection.
+RUN chown -R node:node server/uploads server/db/data client/dist
 
 # Copy and set permissions for entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

@@ -37,7 +37,14 @@ function initializeSocket(httpServer) {
                 socket.userId = decoded.userId; // JWT stores userId, not id
 
                 // Look up user name and avatar from database
-                const user = db.prepare('SELECT name, profile_image FROM users WHERE id = ?').get(decoded.userId);
+                const user = db.prepare('SELECT name, profile_image, password_changed_at FROM users WHERE id = ?').get(decoded.userId);
+
+                // Same revocation rule as the HTTP auth middleware: tokens
+                // issued before the last password change are rejected
+                if (user?.password_changed_at && decoded.iat < user.password_changed_at) {
+                    return next(new Error('Invalid token'));
+                }
+
                 socket.userName = user?.name || 'Anonymous';
                 socket.profileImage = user?.profile_image || null;
 
@@ -86,28 +93,46 @@ function initializeSocket(httpServer) {
         return socket.rooms.has(`trip:${data.tripId}`);
     };
 
+    /**
+     * Relay a client event into a trip's rooms.
+     *
+     * Trip members share `trip:<id>`. Public share guests sit in a separate
+     * `trip:<id>:public` room that only ever receives brainstorm events —
+     * the trip room's payloads (transportation, checklists, budgets, presence)
+     * contain fields the public REST endpoint deliberately strips (e.g.
+     * `confirmation_code`), so guests must never share a room with members.
+     */
+    const relayToTrip = (socket, tripId, event, payload, { includePublic = false } = {}) => {
+        socket.to(`trip:${tripId}`).emit(event, payload);
+        if (includePublic) {
+            socket.to(`trip:${tripId}:public`).emit(event, payload);
+        }
+    };
+
     // Connection handler
     io.on('connection', (socket) => {
         // Join a trip room
         socket.on('trip:join', async (tripId) => {
             try {
-                // Verify user has access to this trip
-                let member = null;
-
                 if (socket.isPublic) {
-                    // Public user: check if trip ID matches the token's trip
-                    // And check if they are trying to join the trip room 
-                    if (socket.publicTripId === tripId) {
-                        // Mock member object for public users (read-only viewer)
-                        member = { role: 'viewer' };
+                    // Public guests join a separate room that only receives
+                    // brainstorm events, and only when brainstorming is
+                    // actually shared publicly. They are not tracked as room
+                    // members and receive no presence information.
+                    if (socket.publicTripId !== tripId || !socket.publicBrainstormAllowed) {
+                        socket.emit('error', { message: 'Access denied to this trip' });
+                        return;
                     }
-                } else {
-                    // Authenticated user: check DB
-                    member = db.prepare(`
-                      SELECT role FROM trip_members 
-                      WHERE trip_id = ? AND user_id = ?
-                    `).get(tripId, socket.userId);
+                    socket.join(`trip:${tripId}:public`);
+                    socket.emit('room:members', []);
+                    return;
                 }
+
+                // Authenticated user: check DB
+                const member = db.prepare(`
+                  SELECT role FROM trip_members
+                  WHERE trip_id = ? AND user_id = ?
+                `).get(tripId, socket.userId);
 
                 if (!member) {
                     socket.emit('error', { message: 'Access denied to this trip' });
@@ -174,6 +199,10 @@ function initializeSocket(httpServer) {
 
         // Leave a trip room
         socket.on('trip:leave', (tripId) => {
+            if (socket.isPublic) {
+                socket.leave(`trip:${tripId}:public`);
+                return;
+            }
             const roomName = `trip:${tripId}`;
             socket.leave(roomName);
             removeFromTripRoom(tripId, socket.userId);
@@ -187,42 +216,42 @@ function initializeSocket(httpServer) {
         // Brainstorm events
         socket.on('brainstorm:create', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstorm:created', data.item);
+            relayToTrip(socket, data.tripId, 'brainstorm:created', data.item, { includePublic: true });
         });
 
         socket.on('brainstorm:update', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstorm:updated', data.item);
+            relayToTrip(socket, data.tripId, 'brainstorm:updated', data.item, { includePublic: true });
         });
 
         socket.on('brainstorm:delete', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstorm:deleted', data.itemId);
+            relayToTrip(socket, data.tripId, 'brainstorm:deleted', data.itemId, { includePublic: true });
         });
 
         socket.on('brainstorm:move', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstorm:moved', {
+            relayToTrip(socket, data.tripId, 'brainstorm:moved', {
                 itemId: data.itemId,
                 position_x: data.position_x,
                 position_y: data.position_y
-            });
+            }, { includePublic: true });
         });
 
         // Brainstorm group events
         socket.on('brainstormGroup:create', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:created', data.group);
+            relayToTrip(socket, data.tripId, 'brainstormGroup:created', data.group, { includePublic: true });
         });
 
         socket.on('brainstormGroup:update', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:updated', data.group);
+            relayToTrip(socket, data.tripId, 'brainstormGroup:updated', data.group, { includePublic: true });
         });
 
         socket.on('brainstormGroup:delete', (data) => {
             if (!canRelay(socket, data)) return;
-            socket.to(`trip:${data.tripId}`).emit('brainstormGroup:deleted', data.groupId);
+            relayToTrip(socket, data.tripId, 'brainstormGroup:deleted', data.groupId, { includePublic: true });
         });
 
         // Trip data events (activities, lodging, transport)
@@ -360,6 +389,7 @@ function initializeSocket(httpServer) {
 
         // Handle disconnect
         socket.on('disconnect', () => {
+            if (socket.isPublic) return; // guests are untracked, no presence to clean up
             // Remove from all trip rooms
             socket.rooms.forEach(room => {
                 if (room.startsWith('trip:')) {

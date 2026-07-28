@@ -179,10 +179,15 @@ const Profile = () => {
     if (validatePasswordForm()) {
       try {
         setIsChangingPassword(true);
-        await userAPI.changePassword({
+        const response = await userAPI.changePassword({
           current_password: passwordForm.current_password,
           new_password: passwordForm.new_password
         });
+        // Changing the password revokes all previously issued tokens; the
+        // server returns a fresh one so this session stays logged in
+        if (response.data?.token) {
+          useAuthStore.getState().setToken(response.data.token);
+        }
         toast.success(t('auth.passwordChanged'));
         setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
       } catch (error) {

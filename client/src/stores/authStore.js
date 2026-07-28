@@ -160,6 +160,29 @@ const useAuthStore = create((set, get) => ({
     });
   },
 
+  // Replace the stored session token (after refresh or password change)
+  setToken: (token) => {
+    localStorage.setItem('token', token);
+    set({ token });
+  },
+
+  // Exchange the current token for a fresh one (sliding session). Called on
+  // app load so active users never hit the token expiry. Failures are
+  // ignored: a 401 is already handled by the api interceptor's global
+  // logout, and network errors are normal for this app when travelling.
+  refreshSession: async () => {
+    const { token, isAuthenticated, isOfflineMode } = get();
+    if (!token || !isAuthenticated || isOfflineMode || !navigator.onLine) return;
+    try {
+      const response = await authAPI.refresh();
+      if (response.data?.token) {
+        get().setToken(response.data.token);
+      }
+    } catch (error) {
+      console.error('Session refresh failed:', error);
+    }
+  },
+
   // Update user information
   updateUser: (userData) => {
     const updatedUser = { ...get().user, ...userData };

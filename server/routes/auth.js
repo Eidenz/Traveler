@@ -6,9 +6,10 @@ const {
   login,
   getCurrentUser,
   forgotPassword,
-  resetPassword 
+  resetPassword,
+  refreshToken
 } = require('../controllers/authController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireSessionAuth } = require('../middleware/auth');
 const {
   authLimiter,
   loginLimiter,
@@ -47,6 +48,10 @@ router.post(
 
 // Get current user
 router.get('/me', authenticate, getCurrentUser);
+
+// Exchange a valid session token for a fresh one (sliding session).
+// JWT-only: an API key must never be able to mint a session token.
+router.post('/refresh', authenticate, requireSessionAuth, refreshToken);
 
 // Forgot password
 router.post(

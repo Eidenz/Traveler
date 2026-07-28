@@ -5,6 +5,7 @@ const { db } = require('../db/database');
 const { authenticate } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
 const bcrypt = require('bcrypt');
+const { signSessionToken } = require('../controllers/authController');
 const fs = require('fs');
 const path = require('path');
 
@@ -150,12 +151,18 @@ router.put(
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(new_password, salt);
 
-      // Update password
-      db.prepare('UPDATE users SET password = ? WHERE id = ?')
-        .run(hashedPassword, userId);
+      // Update password and revoke every previously issued session token
+      // (tokens with iat < password_changed_at are rejected). A fresh token
+      // is returned so the current session survives the revocation.
+      const changedAt = Math.floor(Date.now() / 1000);
+      db.prepare('UPDATE users SET password = ?, password_changed_at = ? WHERE id = ?')
+        .run(hashedPassword, changedAt, userId);
+
+      const token = signSessionToken(userId, { remember: !!req.tokenClaims?.remember });
 
       return res.status(200).json({
-        message: 'Password updated successfully'
+        message: 'Password updated successfully',
+        token
       });
     } catch (error) {
       console.error('Change password error:', error);

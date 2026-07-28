@@ -98,7 +98,10 @@ app.use(helmet({
     directives: {
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       "default-src": ["'self'"],
-      "script-src": ["'self'", "'unsafe-inline'"], // Mapbox GL requires some inline scripts
+      // No 'unsafe-inline': the Vite build emits only external module scripts,
+      // and Mapbox GL runs its workers from blob: (worker-src), not inline
+      // scripts. Keeping script-src strict is the main XSS mitigation.
+      "script-src": ["'self'"],
       "style-src": [
         "'self'",
         "'unsafe-inline'",

@@ -14,6 +14,7 @@ const Login = () => {
     password: '',
   });
   const [errors, setErrors] = useState({});
+  const [rememberMe, setRememberMe] = useState(false);
   const [checkingOffline, setCheckingOffline] = useState(!navigator.onLine);
   
   const { login, isAuthenticated, loading, error, clearError, checkOfflineMode } = useAuthStore();
@@ -81,7 +82,7 @@ const Login = () => {
     
     if (validateForm()) {
       try {
-        await login(formData);
+        await login({ ...formData, remember_me: rememberMe });
         toast.success(t('auth.loginSuccess'));
         navigate('/dashboard');
       } catch {
@@ -242,6 +243,8 @@ const Login = () => {
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-gray-300 text-accent focus:ring-accent"
                   />
                   <span className="text-sm text-gray-600 dark:text-gray-400">

@@ -1,7 +1,8 @@
 // client/src/App.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import useAuthStore from './stores/authStore';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 import { SocketProvider } from './contexts/SocketContext';
@@ -32,6 +33,13 @@ import PublicTripView from './pages/trips/PublicTripView';
 import NotFound from './pages/NotFound';
 
 function App() {
+  // Sliding session: trade the token for a fresh one on every app load so
+  // active users never hit the JWT expiry
+  const refreshSession = useAuthStore((state) => state.refreshSession);
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
+
   return (
     <Router>
       <Toaster

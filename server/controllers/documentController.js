@@ -96,6 +96,30 @@ const getTripIdFromReference = (reference_type, reference_id) => {
 /**
  * Upload a document
  */
+// Storage quota per user per trip: each member gets their own allowance in
+// every trip, so no one can fill a shared trip for the others and a heavy
+// trip never blocks a new one. Sizes are read from disk so no schema change
+// is needed; at this app's scale (a handful of users, dozens of documents)
+// the stat sweep per upload is negligible.
+const UPLOAD_QUOTA_MB = parseInt(process.env.UPLOAD_QUOTA_MB) || 500;
+const UPLOAD_QUOTA_BYTES = UPLOAD_QUOTA_MB * 1024 * 1024;
+
+const getUserTripDocumentBytes = (userId, tripId) => {
+  const rows = db.prepare(`
+    SELECT file_path FROM documents
+    WHERE uploaded_by = ? AND trip_id = ? AND file_type != 'link' AND file_path != ''
+  `).all(userId, tripId);
+  let total = 0;
+  for (const row of rows) {
+    try {
+      total += fs.statSync(path.join(__dirname, '..', row.file_path)).size;
+    } catch {
+      // File missing on disk — nothing to count
+    }
+  }
+  return total;
+};
+
 const uploadDocument = async (req, res) => { // Make async if needed later
   try {
     // ValidationResult check is now done in the route definition
@@ -145,6 +169,16 @@ const uploadDocument = async (req, res) => { // Make async if needed later
       return res.status(400).json({ message: 'Could not resolve trip for this document.' });
     }
 
+    // *** Quota check *** (after the permission check so unauthorized callers
+    // learn nothing about usage; the new file is unlinked on rejection)
+    if (getUserTripDocumentBytes(userId, tripId) + req.file.size > UPLOAD_QUOTA_BYTES) {
+      fs.unlink(req.file.path, (unlinkErr) => {
+        if (unlinkErr) console.error("Error deleting uploaded file after quota rejection:", unlinkErr);
+      });
+      return res.status(413).json({
+        message: `Storage quota exceeded: your uploads to this trip are limited to ${UPLOAD_QUOTA_MB} MB. Delete some of your documents and try again.`
+      });
+    }
 
     // Construct file path relative to server root for DB
     // Assumes 'uploads' is served at root, and files are in uploads/documents
