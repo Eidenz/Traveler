@@ -206,7 +206,8 @@
     "archivedToast": "Voyage archivé",
     "unarchivedToast": "Voyage désarchivé",
     "recap": "Rétro",
-    "recapOpen": "Revivre ce voyage"
+    "recapOpen": "Revivre ce voyage",
+    "archivedTrips": "Voyages archivés"
   },
   "transportation": {
     "title": "Transport",

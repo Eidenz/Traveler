@@ -481,6 +481,27 @@ const MyTrips = () => {
                 </div>
               </section>
             )}
+
+            {/* Archived trips section (only under its own filter) */}
+            {filter === 'archived' && (
+              <section>
+                <h2 className="text-lg font-display font-medium text-gray-900 dark:text-white mb-4">
+                  {t('trips.archivedTrips', 'Archived Trips')}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredTrips.map((trip) => (
+                    <TripCard
+                      key={trip.id}
+                      trip={trip}
+                      isOfflineMode={isOfflineMode}
+                      isOfflineAvailable={isOfflineMode || isTripOffline(trip.id)}
+                      onDelete={handleDeleteClick}
+                      onEdit={(id) => navigate(`/trips/${id}/edit`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         ) : (
           /* Empty state */
