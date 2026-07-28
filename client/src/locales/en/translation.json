@@ -470,7 +470,10 @@
     "sharedDescription": "Visible to all trip members",
     "personalDescription": "Only visible to you",
     "noShared": "No checklists yet",
-    "noPersonal": "No personal checklists yet"
+    "noPersonal": "No personal checklists yet",
+    "groupProgress": "Group progress",
+    "ownProgressShared": "{{checked}} / {{total}} checked by you",
+    "ownProgressPersonal": "{{checked}} / {{total}} checked"
   },
   "budget": {
     "title": "Trip Budget",

@@ -470,7 +470,10 @@
     "sharedDescription": "Visibles par tous les membres du voyage",
     "personalDescription": "Visibles uniquement par vous",
     "noShared": "Pas encore de checklists",
-    "noPersonal": "Pas encore de checklists personnelles"
+    "noPersonal": "Pas encore de checklists personnelles",
+    "groupProgress": "Progression du groupe",
+    "ownProgressShared": "{{checked}} / {{total}} cochés par vous",
+    "ownProgressPersonal": "{{checked}} / {{total}} cochés"
   },
   "budget": {
     "title": "Budget de voyage",

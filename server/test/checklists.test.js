@@ -97,3 +97,47 @@ test('shared checklist completion counts every trip member', async () => {
   assert.equal(res.data.item.completion.total_members, 2);
   assert.equal(res.data.item.completion.is_complete, false, '1 of 2 members is not complete');
 });
+
+test('the trip listing carries own and group progress without fetching items', async () => {
+  // Fresh shared list: two items, owner checks one. Audience = 2 members.
+  const listId = (await owner.api.post(`/checklists/trip/${tripId}`, { name: 'Progress list' })).data.checklist.id;
+  const itemA = (await owner.api.post(`/checklists/${listId}/items`, {
+    description: 'Passports', trip_id: tripId,
+  })).data.item;
+  await owner.api.post(`/checklists/${listId}/items`, {
+    description: 'Chargers', trip_id: tripId,
+  });
+  await owner.api.patch(`/checklists/items/${itemA.id}/user-status`, {
+    status: 'checked', trip_id: tripId,
+  });
+
+  const forOwner = (await owner.api.get(`/checklists/trip/${tripId}`)).data.checklists
+    .find(c => c.id === listId);
+  assert.equal(forOwner.total_items, 2);
+  assert.equal(forOwner.user_completed_items, 1, 'owner checked one item');
+  // 1 actioned status over 2 items x 2 members = 25%
+  assert.equal(forOwner.group_percentage, 25);
+
+  const forViewer = (await viewer.api.get(`/checklists/trip/${tripId}`)).data.checklists
+    .find(c => c.id === listId);
+  assert.equal(forViewer.user_completed_items, 0, 'viewer has checked nothing');
+  assert.equal(forViewer.group_percentage, 25, 'group progress is the same for every member');
+});
+
+test('personal checklist progress is measured against the creator alone', async () => {
+  const listId = (await owner.api.post(`/checklists/trip/${tripId}`, {
+    name: 'Personal progress', is_personal: true,
+  })).data.checklist.id;
+  const item = (await owner.api.post(`/checklists/${listId}/items`, {
+    description: 'Book', trip_id: tripId,
+  })).data.item;
+  await owner.api.patch(`/checklists/items/${item.id}/user-status`, {
+    status: 'checked', trip_id: tripId,
+  });
+
+  const summary = (await owner.api.get(`/checklists/trip/${tripId}`)).data.checklists
+    .find(c => c.id === listId);
+  // Audience is just the creator: 1 checked / (1 item x 1 person) = 100%
+  assert.equal(summary.group_percentage, 100);
+  assert.equal(summary.user_completed_items, 1);
+});

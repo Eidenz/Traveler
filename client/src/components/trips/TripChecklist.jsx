@@ -290,22 +290,27 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
     }
   };
 
-  const getCompletionPercentage = (checklist) => {
-    if (!checklist.items || checklist.items.length === 0) {
-      const total = checklist.total_items || 0;
-      if (total === 0) return 0;
-      const completed = checklist.completed_items || 0;
-      return Math.round((completed / total) * 100);
+  // Your own progress. Computed live from loaded items when available,
+  // otherwise from the list endpoint's summary fields — so the bar renders
+  // as soon as the tab opens, before any dropdown has been expanded.
+  const getOwnProgress = (checklist) => {
+    const useItems = Array.isArray(checklist.items);
+    const total = useItems ? checklist.items.length : (checklist.total_items || 0);
+    if (total === 0) return { checked: 0, total: 0, percentage: 0 };
+    const checked = useItems
+      ? checklist.items.filter(i => i.current_user_status === 'checked').length
+      : (checklist.user_completed_items || 0);
+    return { checked, total, percentage: Math.round((checked / total) * 100) };
+  };
+
+  // Whole-group progress (shown in the header badge). Live from loaded
+  // items, otherwise the list endpoint's group_percentage summary.
+  const getGroupPercentage = (checklist) => {
+    if (Array.isArray(checklist.items) && checklist.items.length > 0) {
+      const sum = checklist.items.reduce((acc, item) => acc + (item.completion?.percentage || 0), 0);
+      return Math.round(sum / checklist.items.length);
     }
-
-    const totalItems = checklist.items.length;
-    if (totalItems === 0) return 0;
-
-    const totalCompletionPercentage = checklist.items.reduce((sum, item) => {
-      return sum + (item.completion?.percentage || 0);
-    }, 0);
-
-    return Math.round(totalCompletionPercentage / totalItems);
+    return checklist.group_percentage || 0;
   };
 
   // Split checklists by scope (the server only ever returns the user's own personal lists)
@@ -465,14 +470,25 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
               ) : (
                 <>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       {expandedChecklistId === checklist.id ? (
                         <ChevronDown className="w-4 h-4 text-gray-400" />
                       ) : (
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       )}
-                      <h3 className="font-medium text-gray-900 dark:text-white">{checklist.name}</h3>
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate">{checklist.name}</h3>
                     </div>
+
+                    {/* Group progress badge (the bar below tracks your own checks) */}
+                    {!checklist.is_personal && (
+                      <span
+                        title={t('checklists.groupProgress', 'Group progress')}
+                        className="flex items-center gap-1 flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300"
+                      >
+                        <Users className="w-3 h-3" />
+                        {getGroupPercentage(checklist)}%
+                      </span>
+                    )}
 
                     {canModify && (
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -495,21 +511,28 @@ const TripChecklist = ({ tripId, canEdit, checklists: externalChecklists, onChan
                     )}
                   </div>
 
-                  {/* Progress */}
-                  <div className="mt-2 ml-6">
-                    <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      <span>
-                        {checklist.items?.filter(i => i.completion?.is_complete).length || 0} / {checklist.total_items || 0} complete
-                      </span>
-                      <span>{getCompletionPercentage(checklist)}%</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${getCompletionPercentage(checklist)}%` }}
-                      />
-                    </div>
-                  </div>
+                  {/* Progress — your own checks (group progress is the badge above) */}
+                  {(() => {
+                    const own = getOwnProgress(checklist);
+                    return (
+                      <div className="mt-2 ml-6">
+                        <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          <span>
+                            {checklist.is_personal
+                              ? t('checklists.ownProgressPersonal', '{{checked}} / {{total}} checked', { checked: own.checked, total: own.total })
+                              : t('checklists.ownProgressShared', '{{checked}} / {{total}} checked by you', { checked: own.checked, total: own.total })}
+                          </span>
+                          <span>{own.percentage}%</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full transition-all"
+                            style={{ width: `${own.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               )}
             </div>

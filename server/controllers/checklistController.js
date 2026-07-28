@@ -64,7 +64,27 @@ const getTripChecklists = (req, res) => {
       ORDER BY c.created_at DESC
     `).all(req.user.id, tripId, req.user.id); // Added user id for user-specific completion
 
-    return res.status(200).json({ checklists });
+    // Group progress per checklist, so the client can show it without
+    // fetching every item: actioned statuses over (items × audience size).
+    // Mirrors the per-item completion.percentage of getChecklist (which
+    // counts checked + skipped against the checklist's audience).
+    const actionedStmt = db.prepare(`
+      SELECT COUNT(*) as actioned
+      FROM checklist_item_user_status cius
+      JOIN checklist_items ci ON cius.item_id = ci.id
+      WHERE ci.checklist_id = ? AND cius.status IN ('checked', 'skipped')
+    `);
+    const withProgress = checklists.map(checklist => {
+      const audienceSize = getChecklistAudience(checklist).length;
+      const denominator = checklist.total_items * audienceSize;
+      const { actioned } = actionedStmt.get(checklist.id);
+      return {
+        ...checklist,
+        group_percentage: denominator > 0 ? Math.round((actioned / denominator) * 100) : 0
+      };
+    });
+
+    return res.status(200).json({ checklists: withProgress });
   } catch (error) {
     console.error('Get checklists error:', error);
     return res.status(500).json({ message: 'Server error' });
