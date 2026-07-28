@@ -102,7 +102,7 @@ const TripRecap = () => {
           <ArrowLeft className="w-4 h-4" />
           {trip.name}
         </Link>
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-16 sm:bottom-4 left-4 right-4">
           <p className="flex items-center gap-1.5 text-amber-300 text-xs font-semibold uppercase tracking-widest mb-1">
             <Sparkles className="w-3.5 h-3.5" />
             {t('recap.title', 'Trip recap')}
