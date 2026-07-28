@@ -36,6 +36,24 @@ const checkItemEditAccess = (itemId, userId) => {
 };
 
 /**
+ * Resolve an incoming group_id for an item in tripId.
+ * undefined = field not provided (keep current), null = ungroup,
+ * a number = validated group id, false = invalid (caller responds 400).
+ * The trip check matters: accepting a foreign group id would let an editor
+ * of trip A attach items to trip B's groups (same IDOR class as the
+ * resource-id routes).
+ */
+const resolveGroupId = (rawGroupId, tripId) => {
+    if (rawGroupId === undefined) return undefined;
+    if (rawGroupId === null || rawGroupId === '') return null;
+    const gid = parseInt(rawGroupId, 10);
+    if (Number.isNaN(gid)) return false;
+    const group = db.prepare('SELECT trip_id FROM brainstorm_groups WHERE id = ?').get(gid);
+    if (!group || group.trip_id !== tripId) return false;
+    return gid;
+};
+
+/**
  * Get all brainstorm items for a trip
  */
 const getBrainstormItems = async (req, res) => {
@@ -107,6 +125,11 @@ const createBrainstormItem = async (req, res) => {
             return res.status(400).json({ message: 'Only http(s) links are allowed' });
         }
 
+        const groupId = resolveGroupId(req.body.group_id, tripId);
+        if (groupId === false) {
+            return res.status(400).json({ message: 'Invalid group for this trip' });
+        }
+
         // Validate type
         const validTypes = ['place', 'note', 'image', 'link', 'idea'];
         if (!validTypes.includes(type)) {
@@ -123,8 +146,8 @@ const createBrainstormItem = async (req, res) => {
       INSERT INTO brainstorm_items (
         trip_id, type, title, content, url, image_path,
         latitude, longitude, location_name,
-        position_x, position_y, color, priority, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        position_x, position_y, color, priority, group_id, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
             tripId,
             type,
@@ -139,6 +162,7 @@ const createBrainstormItem = async (req, res) => {
             position_y || 100,
             color || null,
             priority || 0,
+            groupId ?? null,
             userId
         );
 
@@ -193,6 +217,14 @@ const updateBrainstormItem = async (req, res) => {
             return res.status(404).json({ message: 'Brainstorm item not found' });
         }
 
+        // Membership: undefined keeps the current group, null/'' ungroups,
+        // a number is validated against this item's trip
+        const resolvedGroupId = resolveGroupId(req.body.group_id, existingItem.trip_id);
+        if (resolvedGroupId === false) {
+            return res.status(400).json({ message: 'Invalid group for this trip' });
+        }
+        const finalGroupId = resolvedGroupId === undefined ? existingItem.group_id : resolvedGroupId;
+
         // Handle image
         let imagePath = existingItem.image_path;
         if (remove_image === 'true' && existingItem.image_path) {
@@ -227,6 +259,7 @@ const updateBrainstormItem = async (req, res) => {
         position_y = COALESCE(?, position_y),
         color = COALESCE(?, color),
         priority = COALESCE(?, priority),
+        group_id = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
@@ -241,6 +274,7 @@ const updateBrainstormItem = async (req, res) => {
             position_y,
             color,
             priority,
+            finalGroupId,
             itemId
         );
 

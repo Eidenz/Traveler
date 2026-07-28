@@ -238,6 +238,16 @@ function initializeSocket(httpServer) {
             }, { includePublic: true });
         });
 
+        // Batched item moves (group drags, multi-select drags) — one event
+        // instead of N per-item relays
+        socket.on('brainstorm:batchMove', (data) => {
+            if (!canRelay(socket, data)) return;
+            relayToTrip(socket, data.tripId, 'brainstorm:batchMoved', {
+                positions: data.positions,
+                group: data.group || null
+            }, { includePublic: true });
+        });
+
         // Brainstorm group events
         socket.on('brainstormGroup:create', (data) => {
             if (!canRelay(socket, data)) return;
