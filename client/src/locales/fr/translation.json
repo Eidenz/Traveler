@@ -577,7 +577,9 @@
     "paymentLine": "{{from}} a payé {{to}} {{amount}}",
     "recordedBy": "par {{name}}",
     "paymentRecorded": "Paiement enregistré",
-    "tripCurrencyHint": "Les montants sont convertis dans la devise de chaque membre (définie dans le profil)."
+    "tripCurrencyHint": "Les montants sont convertis dans la devise de chaque membre (définie dans le profil).",
+    "yourShare": "Votre part",
+    "includeShares": "Inclure mes parts partagées"
   },
   "errors": {
     "required": "{{field}} est requis",

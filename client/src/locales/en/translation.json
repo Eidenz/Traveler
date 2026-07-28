@@ -577,7 +577,9 @@
     "paymentLine": "{{from}} paid {{to}} {{amount}}",
     "recordedBy": "by {{name}}",
     "paymentRecorded": "Payment recorded",
-    "tripCurrencyHint": "Amounts convert to each member's own home currency (set in Profile)."
+    "tripCurrencyHint": "Amounts convert to each member's own home currency (set in Profile).",
+    "yourShare": "Your share",
+    "includeShares": "Include my shared splits"
   },
   "errors": {
     "required": "{{field}} is required",

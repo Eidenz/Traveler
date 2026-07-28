@@ -10,6 +10,7 @@ import {
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import StatusBadge from '../../components/ui/StatusBadge';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { budgetAPI, personalBudgetAPI, tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
@@ -34,6 +35,14 @@ const BudgetDashboard = () => {
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [activeExpenseTab, setActiveExpenseTab] = useState('all');
   const [activeBudgetTab, setActiveBudgetTab] = useState('shared');
+  // Personal view: whether your share of shared expenses is folded in
+  const [includeSharedShares, setIncludeSharedShares] = useState(
+    () => localStorage.getItem('personalIncludeSharedShares') !== 'false'
+  );
+  const toggleSharedShares = (value) => {
+    setIncludeSharedShares(value);
+    localStorage.setItem('personalIncludeSharedShares', String(value));
+  };
 
   // Panel resize state
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -192,14 +201,36 @@ const BudgetDashboard = () => {
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
   const canEditShared = selectedTrip?.role === 'owner' || selectedTrip?.role === 'editor';
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Your share of each shared expense you participate in — surfaced
+  // read-only in the personal view (display only, never editable there)
+  const mySharedShares = sharedExpenses
+    .filter(e => e.paid_by != null && (e.split_user_ids || []).includes(currentUser.id))
+    .map(e => ({
+      ...e,
+      id: `shared-${e.id}`,
+      amount: e.amount / e.split_user_ids.length,
+      isSharedShare: true,
+    }));
 
   const currentData = activeBudgetTab === 'shared'
     ? { budget: sharedBudget, expenses: sharedExpenses, categoryTotals: sharedCategoryTotals, totalSpent: sharedTotalSpent, canEdit: canEditShared }
-    : { budget: personalBudget, expenses: personalExpenses, categoryTotals: personalCategoryTotals, totalSpent: personalTotalSpent, canEdit: true };
+    : (() => {
+        const shares = includeSharedShares ? mySharedShares : [];
+        const expenses = [...personalExpenses, ...shares]
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const categoryTotals = { ...personalCategoryTotals };
+        let totalSpent = personalTotalSpent;
+        for (const sh of shares) {
+          categoryTotals[sh.category] = (categoryTotals[sh.category] || 0) + sh.amount;
+          totalSpent += sh.amount;
+        }
+        return { budget: personalBudget, expenses, categoryTotals, totalSpent, canEdit: true };
+      })();
 
   // Settlement payment actions ("mark paid" / undo)
   const [settlementBusy, setSettlementBusy] = useState(false);
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   const refreshSettlement = async () => {
     if (!selectedTrip) return;
@@ -684,6 +715,20 @@ const BudgetDashboard = () => {
                 />
               )}
 
+              {/* Shared-splits toggle - mobile */}
+              {activeBudgetTab === 'personal' && mySharedShares.length > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-200 truncate">
+                      {t('budget.includeShares', 'Include my shared splits')}
+                      <span className="text-gray-400"> ({mySharedShares.length})</span>
+                    </span>
+                  </div>
+                  <ToggleSwitch checked={includeSharedShares} onChange={toggleSharedShares} />
+                </div>
+              )}
+
               {/* Expenses list - mobile */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700">
@@ -703,8 +748,8 @@ const BudgetDashboard = () => {
                       return (
                         <div
                           key={expense.id}
-                          className="flex items-center gap-3 p-4"
-                          onClick={() => currentData.canEdit && editExpense(expense)}
+                          className={`flex items-center gap-3 p-4 ${expense.isSharedShare ? 'opacity-90' : ''}`}
+                          onClick={() => currentData.canEdit && !expense.isSharedShare && editExpense(expense)}
                         >
                           <div className={`w-10 h-10 rounded-xl ${style.bg} ${style.text} flex items-center justify-center flex-shrink-0`}>
                             {getCategoryIcon(expense.category)}
@@ -713,12 +758,18 @@ const BudgetDashboard = () => {
                             <p className="font-medium text-gray-900 dark:text-white truncate">
                               {expense.name}
                             </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                               {dayjs(expense.date).format('MMM D')}
+                              {expense.isSharedShare && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-[10px] font-medium">
+                                  <Users className="w-2.5 h-2.5" />
+                                  {t('budget.yourShare', 'Your share')}
+                                </span>
+                              )}
                             </p>
                           </div>
                           <span className="font-semibold text-gray-900 dark:text-white">
-                            {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                            {(expense.isSharedShare ? sharedBudget?.currency : currentData.budget.currency) || '$'}{parseFloat(expense.amount).toFixed(2)}
                               {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                           </span>
                         </div>
@@ -1007,6 +1058,20 @@ const BudgetDashboard = () => {
 
           {/* Expenses list */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+            {/* Shared-splits toggle (personal view) */}
+            {activeBudgetTab === 'personal' && mySharedShares.length > 0 && (
+              <div className="mb-6 flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <span className="text-sm text-gray-700 dark:text-gray-200 truncate">
+                    {t('budget.includeShares', 'Include my shared splits')}
+                    <span className="text-gray-400"> ({mySharedShares.length})</span>
+                  </span>
+                </div>
+                <ToggleSwitch checked={includeSharedShares} onChange={toggleSharedShares} />
+              </div>
+            )}
+
             {/* Settle up — inline with the list, not tucked in the sidebar */}
             {activeBudgetTab === 'shared' && currentData.budget && (
               <div className="mb-6">
@@ -1058,8 +1123,10 @@ const BudgetDashboard = () => {
                   return (
                     <div
                       key={expense.id}
-                      className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
-                      onClick={() => currentData.canEdit && editExpense(expense)}
+                      className={`bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700 transition-all duration-200 group ${expense.isSharedShare
+                        ? 'opacity-90'
+                        : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'}`}
+                      onClick={() => currentData.canEdit && !expense.isSharedShare && editExpense(expense)}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl ${style.bg} ${style.text} flex items-center justify-center flex-shrink-0`}>
@@ -1072,15 +1139,21 @@ const BudgetDashboard = () => {
                               {expense.name}
                             </p>
                             <p className="font-semibold text-gray-900 dark:text-white flex-shrink-0">
-                              {currentData.budget.currency}{parseFloat(expense.amount).toFixed(2)}
+                              {(expense.isSharedShare ? sharedBudget?.currency : currentData.budget.currency) || '$'}{parseFloat(expense.amount).toFixed(2)}
                               {toHome && <span className="block text-[11px] font-normal text-gray-400">≈{toHome(expense.amount)}</span>}
                             </p>
                           </div>
                           <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
                               {dayjs(expense.date).format('MMM D, YYYY')} • {t(`budget.${expense.category}`, expense.category)}
+                              {expense.isSharedShare && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-medium">
+                                  <Users className="w-3 h-3" />
+                                  {t('budget.yourShare', 'Your share')}
+                                </span>
+                              )}
                             </p>
-                            {currentData.canEdit && (
+                            {currentData.canEdit && !expense.isSharedShare && (
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); editExpense(expense); }}
