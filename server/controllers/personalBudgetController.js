@@ -33,8 +33,14 @@ const getPersonalBudget = async (req, res) => {
     // expenses and toggle the stats between the two units. (The raw
     // totals above ignore per-expense currencies; the client recomputes.)
     let conversion = null;
-    const homeCode = db.prepare('SELECT home_currency_code FROM users WHERE id = ?')
+    // Home currency: profile first, then the trip's shared-budget home code
+    // as a fallback — so conversions work without touching the profile when
+    // the shared budget already knows the group's home currency
+    const profileHome = db.prepare('SELECT home_currency_code FROM users WHERE id = ?')
       .get(userId)?.home_currency_code;
+    const sharedHome = db.prepare('SELECT home_currency_code FROM budgets WHERE trip_id = ?')
+      .get(tripId)?.home_currency_code;
+    const homeCode = isValidCode(profileHome) ? profileHome : sharedHome;
     if (isValidCode(budget.currency_code) && isValidCode(homeCode)
         && budget.currency_code !== homeCode) {
       const rate = await getRate(budget.currency_code, homeCode);

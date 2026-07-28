@@ -212,3 +212,15 @@ test('personal budgets carry ISO codes and per-expense currencies', async () => 
   });
   assert.equal(badCode.status, 400);
 });
+
+test('personal conversion falls back to the shared budget home currency', async () => {
+  // Cara has no profile home currency; the trip's shared budget is EUR-homed
+  const pb = await cara.api.post(`/personal-budgets/trip/${tripId}`, {
+    total_amount: 100000, currency_code: 'JPY', trip_id: tripId,
+  });
+  assert.equal(pb.status, 201);
+
+  const data = (await cara.api.get(`/personal-budgets/trip/${tripId}`)).data;
+  assert.ok(data.conversion, 'fallback conversion expected');
+  assert.equal(data.conversion.home_currency_code, 'EUR');
+});
