@@ -380,6 +380,7 @@ const MyTrips = () => {
                     {f === 'active' && groupedTrips.active.length}
                     {f === 'upcoming' && groupedTrips.upcoming.length}
                     {f === 'past' && groupedTrips.past.length}
+                    {f === 'archived' && trips.filter(t => t.archived_at).length}
                   </span>
                 )}
               </button>
