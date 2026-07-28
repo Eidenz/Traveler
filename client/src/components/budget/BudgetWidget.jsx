@@ -5,15 +5,16 @@ import { Wallet, Users, User, ChevronRight } from 'lucide-react';
 import { budgetAPI, personalBudgetAPI } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import { useSocket } from '../../contexts/SocketContext';
+import { symbolFor } from '../../utils/currencyUtils';
 
 const BudgetWidget = ({ tripId }) => {
     const { t } = useTranslation();
     const { subscribe } = useSocket();
     const [loading, setLoading] = useState(true);
     const [sharedBudget, setSharedBudget] = useState(null);
-    const [personalBudget, setPersonalBudget] = useState(null);
+    const [sharedExpenses, setSharedExpenses] = useState([]);
     const [sharedTotalSpent, setSharedTotalSpent] = useState(0);
-    const [personalTotalSpent, setPersonalTotalSpent] = useState(0);
+    const [personalData, setPersonalData] = useState(null); // { budget, expenses, conversion }
 
     const fetchBudgets = useCallback(async () => {
         if (!tripId) return;
@@ -26,11 +27,15 @@ const BudgetWidget = ({ tripId }) => {
 
             if (sharedRes.status === 'fulfilled') {
                 setSharedBudget(sharedRes.value.data.budget);
+                setSharedExpenses(sharedRes.value.data.expenses || []);
                 setSharedTotalSpent(sharedRes.value.data.totalSpent || 0);
             }
             if (personalRes.status === 'fulfilled') {
-                setPersonalBudget(personalRes.value.data.budget);
-                setPersonalTotalSpent(personalRes.value.data.totalSpent || 0);
+                setPersonalData({
+                    budget: personalRes.value.data.budget,
+                    expenses: personalRes.value.data.expenses || [],
+                    conversion: personalRes.value.data.conversion || null,
+                });
             }
         } catch (error) {
             console.error('Error fetching budgets:', error);
@@ -109,7 +114,45 @@ const BudgetWidget = ({ tripId }) => {
     }
 
     const sharedRemaining = sharedBudget ? sharedBudget.total_amount - sharedTotalSpent : null;
-    const personalRemaining = personalBudget ? personalBudget.total_amount - personalTotalSpent : null;
+
+    // Personal numbers must match the budget page: expenses can mix trip and
+    // home currency, the total has its own denomination, and shared splits
+    // fold in (same localStorage preference the dashboard uses). Everything
+    // converts into the total's unit before comparing.
+    const personalView = (() => {
+        const budget = personalData?.budget;
+        if (!budget) return null;
+        const conversion = personalData.conversion;
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const includeShares = localStorage.getItem('personalIncludeSharedShares') !== 'false';
+
+        const tripCode = budget.currency_code || conversion?.trip_currency_code || null;
+        const targetCode = budget.total_currency_code || tripCode;
+        const toUnit = (amount, code) => {
+            const c = code || tripCode;
+            if (!conversion || !targetCode || c === targetCode) return amount;
+            if (c === conversion.trip_currency_code && targetCode === conversion.home_currency_code) return amount * conversion.rate;
+            if (c === conversion.home_currency_code && targetCode === conversion.trip_currency_code) return amount / conversion.rate;
+            return amount;
+        };
+
+        let spent = (personalData.expenses || [])
+            .reduce((sum, e) => sum + toUnit(e.amount, e.currency_code), 0);
+        if (includeShares) {
+            for (const e of sharedExpenses) {
+                if (e.paid_by != null && (e.split_user_ids || []).includes(currentUser.id)) {
+                    spent += toUnit(e.amount / e.split_user_ids.length, sharedBudget?.currency_code);
+                }
+            }
+        }
+
+        return {
+            budget,
+            spent,
+            remaining: budget.total_amount - spent,
+            symbol: (targetCode && symbolFor(targetCode)) || budget.currency || '$',
+        };
+    })();
 
     return (
         <Link
@@ -154,13 +197,13 @@ const BudgetWidget = ({ tripId }) => {
                 {/* Personal budget */}
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-700/50">
                     <User className="w-3 h-3 text-gray-400" />
-                    {personalBudget ? (
+                    {personalView ? (
                         <>
-                            <span className={`text-xs font-medium ${personalRemaining < 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {personalBudget.currency}{Math.abs(personalRemaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            <span className={`text-xs font-medium ${personalView.remaining < 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                                {personalView.symbol}{Math.abs(personalView.remaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
                             <span className="text-[10px] text-gray-400">{t('budget.left', 'left')}</span>
-                            <MiniProgress budget={personalBudget} spent={personalTotalSpent} />
+                            <MiniProgress budget={personalView.budget} spent={personalView.spent} />
                         </>
                     ) : (
                         <span className="text-xs text-gray-400">—</span>
