@@ -10,7 +10,9 @@ import { symbolFor } from '../../utils/currencyUtils';
 // currencyChoices: [{ code, symbol, label }] — when provided (personal
 // budgets), the total amount can be denominated in either currency (a €5000
 // envelope for a JPY trip)
-const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices = null }) => {
+// allowNoLimit (shared budgets): the budget can be a tracker-only pot with
+// no cap — total_amount 0 is the "no limit" sentinel
+const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices = null, allowNoLimit = false }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
     total_amount: '',
@@ -18,6 +20,7 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices =
     currency_code: ''
   });
   const [totalCurrency, setTotalCurrency] = useState('');
+  const [noLimit, setNoLimit] = useState(false);
 
   useEffect(() => {
     if (budget) {
@@ -27,6 +30,7 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices =
         currency_code: budget.currency_code || ''
       });
       setTotalCurrency(budget.total_currency_code || '');
+      setNoLimit(allowNoLimit && budget.total_amount === 0);
     } else {
       setFormData({
         total_amount: '',
@@ -34,8 +38,9 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices =
         currency_code: ''
       });
       setTotalCurrency('');
+      setNoLimit(false);
     }
-  }, [budget, isOpen]);
+  }, [budget, isOpen, allowNoLimit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,14 +56,15 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices =
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!formData.total_amount) {
+    // Validate required fields (a no-limit budget needs no amount)
+    if (!noLimit && !formData.total_amount) {
       return;
     }
-    
+
+    const base = noLimit ? { ...formData, total_amount: 0 } : formData;
     onSubmit(currencyChoices?.length
-      ? { ...formData, total_currency_code: totalCurrency }
-      : formData);
+      ? { ...base, total_currency_code: totalCurrency }
+      : base);
   };
 
   return (
@@ -69,7 +75,24 @@ const CreateBudgetForm = ({ isOpen, onClose, onSubmit, budget, currencyChoices =
       size="sm"
     >
       <form onSubmit={handleSubmit} className="p-6">
-        <div className="mb-4">
+        {allowNoLimit && (
+          <label className="mb-4 flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 cursor-pointer">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('budget.noLimit', 'No spending limit')}
+              <span className="block text-xs font-normal text-gray-400 dark:text-gray-500">
+                {t('budget.noLimitHint', 'Track and settle expenses without a cap')}
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={noLimit}
+              onChange={(e) => setNoLimit(e.target.checked)}
+              className="w-5 h-5 rounded border-gray-300 text-accent focus:ring-accent"
+            />
+          </label>
+        )}
+
+        <div className={`mb-4 ${noLimit ? 'hidden' : ''}`}>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             {t('budget.total')}
           </label>

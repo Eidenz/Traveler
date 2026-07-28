@@ -579,7 +579,10 @@
     "paymentRecorded": "Payment recorded",
     "tripCurrencyHint": "Amounts convert to each member's own home currency (set in Profile).",
     "yourShare": "Your share",
-    "includeShares": "Include my shared splits"
+    "includeShares": "Include my shared splits",
+    "noLimit": "No spending limit",
+    "noLimitHint": "Track and settle expenses without a cap",
+    "totalSpentLabel": "Total spent"
   },
   "errors": {
     "required": "{{field}} is required",

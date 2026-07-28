@@ -247,3 +247,21 @@ test('personal budget total can be denominated in the home currency', async () =
   });
   assert.equal(bad.status, 400);
 });
+
+test('a shared budget with no limit (total 0) is accepted', async () => {
+  const t5 = await createTrip(alice.api, { name: 'No Limit Trip' });
+  const created = await alice.api.post(`/budgets/trip/${t5}`, {
+    total_amount: 0, currency_code: 'JPY', trip_id: t5,
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.budget.total_amount, 0);
+
+  // Expenses and settlement work exactly the same without a cap
+  const e = await alice.api.post(`/budgets/${created.data.budget.id}/expenses`, {
+    name: 'Dinner', amount: 4000, category: 'food', date: '2026-08-08', trip_id: t5,
+    paid_by: alice.user.id,
+  });
+  assert.equal(e.status, 201);
+  const st = (await alice.api.get(`/budgets/trip/${t5}/settlement`)).data;
+  assert.ok(st.balances.length >= 0);
+});

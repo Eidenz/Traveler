@@ -598,11 +598,13 @@ const BudgetDashboard = () => {
     );
   }
 
-  // Main budget view - Split layout
-  const budgetPercentUsed = currentData.budget
+  // Main budget view - Split layout. total_amount === 0 means "no limit"
+  // (tracker-only budget: stats + settlement, no cap or progress bar)
+  const hasLimit = !!currentData.budget && currentData.budget.total_amount > 0;
+  const budgetPercentUsed = hasLimit
     ? (currentData.totalSpent / currentData.budget.total_amount) * 100
     : 0;
-  const isOverBudget = budgetPercentUsed > 100;
+  const isOverBudget = hasLimit && budgetPercentUsed > 100;
   const isNearLimit = budgetPercentUsed > 80 && !isOverBudget;
 
   return (
@@ -694,7 +696,7 @@ const BudgetDashboard = () => {
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {t('budget.remaining', 'Remaining')}
+                    {hasLimit ? t('budget.remaining', 'Remaining') : t('budget.totalSpentLabel', 'Total spent')}
                   </span>
                   <button
                     onClick={() => setShowCreateBudgetForm(true)}
@@ -706,26 +708,37 @@ const BudgetDashboard = () => {
                 <div className="flex items-baseline gap-2 mb-3">
                   <span className={`text-3xl font-display font-bold ${isOverBudget ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
                     {currentData.budget.currency}
-                    {Math.abs(currentData.budget.total_amount - currentData.totalSpent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {(hasLimit
+                      ? Math.abs(currentData.budget.total_amount - currentData.totalSpent)
+                      : currentData.totalSpent
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   {isOverBudget && <TrendingDown className="w-5 h-5 text-red-500" />}
                 </div>
-                <div className="relative h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
-                  <div
-                    className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isOverBudget ? 'bg-red-500' : isNearLimit ? 'bg-amber-500' : 'bg-accent'
-                      }`}
-                    style={{ width: `${Math.min(budgetPercentUsed, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {currentData.budget.currency}{currentData.totalSpent.toLocaleString()} {t('budget.spent', 'spent')}
-                    {toHome && <span className="text-gray-400"> · ≈{toHome(currentData.totalSpent)}</span>}
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    {currentData.budget.currency}{currentData.budget.total_amount.toLocaleString()} {t('budget.total', 'total')}
-                  </span>
-                </div>
+                {hasLimit ? (
+                  <>
+                    <div className="relative h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isOverBudget ? 'bg-red-500' : isNearLimit ? 'bg-amber-500' : 'bg-accent'
+                          }`}
+                        style={{ width: `${Math.min(budgetPercentUsed, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {currentData.budget.currency}{currentData.totalSpent.toLocaleString()} {t('budget.spent', 'spent')}
+                        {toHome && <span className="text-gray-400"> · ≈{toHome(currentData.totalSpent)}</span>}
+                      </span>
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {currentData.budget.currency}{currentData.budget.total_amount.toLocaleString()} {t('budget.total', 'total')}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  toHome && (
+                    <p className="text-sm text-gray-400">≈{toHome(currentData.totalSpent)}</p>
+                  )
+                )}
               </div>
 
               {/* Stats display-unit toggle (personal, mixed currencies) */}
@@ -947,12 +960,15 @@ const BudgetDashboard = () => {
                 {/* Main budget display */}
                 <div className="text-center">
                   <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    {t('budget.remaining', 'Remaining')}
+                    {hasLimit ? t('budget.remaining', 'Remaining') : t('budget.totalSpentLabel', 'Total spent')}
                   </p>
                   <div className="flex items-center justify-center gap-2">
                     <span className={`text-4xl font-display font-bold ${isOverBudget ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
                       {currentData.budget.currency}
-                      {Math.abs(currentData.budget.total_amount - currentData.totalSpent).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {(hasLimit
+                        ? Math.abs(currentData.budget.total_amount - currentData.totalSpent)
+                        : currentData.totalSpent
+                      ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {isOverBudget && <TrendingDown className="w-6 h-6 text-red-500" />}
                   </div>
@@ -961,9 +977,13 @@ const BudgetDashboard = () => {
                       {t('budget.overBudgetBy', 'Over budget')}
                     </p>
                   )}
+                  {!hasLimit && toHome && (
+                    <p className="text-sm text-gray-400 mt-1">≈{toHome(currentData.totalSpent)}</p>
+                  )}
                 </div>
 
-                {/* Visual progress */}
+                {/* Visual progress (only when a limit exists) */}
+                {hasLimit && (
                 <div>
                   <div className="relative h-4 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
@@ -984,6 +1004,7 @@ const BudgetDashboard = () => {
                     </span>
                   </div>
                 </div>
+                )}
 
                 {/* Category breakdown */}
                 <div>
@@ -1304,6 +1325,7 @@ const BudgetDashboard = () => {
         onClose={() => setShowCreateBudgetForm(false)}
         onSubmit={currentData.budget ? handleUpdateBudget : handleCreateBudget}
         budget={activeBudgetTab === 'shared' ? sharedBudget : personalBudget}
+        allowNoLimit={activeBudgetTab === 'shared'}
         currencyChoices={activeBudgetTab === 'personal' && personalConversion ? [
           {
             code: personalConversion.trip_currency_code,
