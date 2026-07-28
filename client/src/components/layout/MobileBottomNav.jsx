@@ -1,7 +1,7 @@
 // client/src/components/layout/MobileBottomNav.jsx
 import React, { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut, Lightbulb, FileText } from 'lucide-react';
+import { Map, DollarSign, PlusCircle, Calendar, Menu, X, User, LogOut, Lightbulb, FileText, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../stores/authStore';
 import toast from 'react-hot-toast';
@@ -28,6 +28,11 @@ const MobileBottomNav = () => {
   ];
 
   const isActive = (path) => location.pathname.startsWith(path);
+
+  // Inside a trip, the Calendar slot becomes the Today view for that trip
+  // (Calendar itself stays reachable from the More menu)
+  const tripMatch = location.pathname.match(/^\/trips\/([^/]+)/);
+  const currentTripId = tripMatch && tripMatch[1] !== 'new' ? tripMatch[1] : null;
 
   const handleLogout = () => {
     logout();
@@ -131,14 +136,24 @@ const MobileBottomNav = () => {
           </NavLink>
         )}
 
-        {/* Calendar */}
-        <NavLink
-          to="/calendar"
-          className={`bottom-nav-item ${isActive('/calendar') ? 'active' : ''}`}
-        >
-          <Calendar className="w-5 h-5" />
-          <span>{t('navigation.calendar', 'Calendar')}</span>
-        </NavLink>
+        {/* Today (inside a trip) / Calendar (elsewhere) */}
+        {currentTripId ? (
+          <NavLink
+            to={`/trips/${currentTripId}/today`}
+            className={`bottom-nav-item ${location.pathname.endsWith('/today') ? 'active' : ''}`}
+          >
+            <Sun className="w-5 h-5" />
+            <span>{t('navigation.today', 'Today')}</span>
+          </NavLink>
+        ) : (
+          <NavLink
+            to="/calendar"
+            className={`bottom-nav-item ${isActive('/calendar') ? 'active' : ''}`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span>{t('navigation.calendar', 'Calendar')}</span>
+          </NavLink>
+        )}
 
         {/* More menu */}
         <button

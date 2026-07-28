@@ -281,6 +281,8 @@ export const documentAPI = {
     responseType: 'blob',
   }),
   getAllTripDocuments: (tripId) => api.get(`/trips/${tripId}/documents`),
+  getDocumentsByReference: (referenceType, referenceId, tripId) =>
+    api.get(`/documents/reference/${referenceType}/${referenceId}`, { params: { tripId } }),
   updateDocument: (documentId, data) => api.put(`/documents/${documentId}`, data),
 };
 

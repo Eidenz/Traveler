@@ -76,7 +76,8 @@
     "dashboard": "Dashboard",
     "myTrips": "My Trips",
     "calendar": "Calendar",
-    "createTrip": "New Trip"
+    "createTrip": "New Trip",
+    "today": "Today"
   },
   "auth": {
     "login": "Sign in",
@@ -615,5 +616,16 @@
     "updated": "Item updated",
     "created": "Item created",
     "saveFailed": "Failed to save item"
+  },
+  "today": {
+    "title": "Today",
+    "dayOf": "Day {{n}} of {{total}}",
+    "nextUp": "Next up",
+    "startsIn": "Trip starts in {{count}} days",
+    "tripOver": "This trip is over — hope it was great!",
+    "viewTimeline": "View the timeline",
+    "freeDay": "Nothing planned — enjoy the free day!",
+    "documents": "Documents",
+    "allDocuments": "All trip documents"
   }
 }

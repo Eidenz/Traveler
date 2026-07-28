@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import MyTrips from './pages/trips/MyTrips';
 import TripDetail from './pages/trips/TripDetail';
+import TodayView from './pages/trips/TodayView';
 import CreateTrip from './pages/trips/CreateTrip';
 import EditTrip from './pages/trips/EditTrip';
 import Calendar from './pages/Calendar';
@@ -85,6 +86,7 @@ function App() {
           <Route path="trips/:tripId" element={<TripDetail />} />
           <Route path="trips/:tripId/edit" element={<EditTrip />} />
           <Route path="trips/:tripId/brainstorm" element={<Brainstorm />} />
+          <Route path="trips/:tripId/today" element={<TodayView />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="budgets" element={<BudgetDashboard />} />
           <Route path="budgets/:tripId" element={<BudgetDashboard />} />

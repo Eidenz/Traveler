@@ -76,7 +76,8 @@
     "dashboard": "Tableau de bord",
     "myTrips": "Mes voyages",
     "calendar": "Calendrier",
-    "createTrip": "Nouveau voyage"
+    "createTrip": "Nouveau voyage",
+    "today": "Aujourd'hui"
   },
   "auth": {
     "login": "Se connecter",
@@ -615,5 +616,16 @@
     "updated": "Élément mis à jour",
     "created": "Élément créé",
     "saveFailed": "Échec de l'enregistrement"
+  },
+  "today": {
+    "title": "Aujourd'hui",
+    "dayOf": "Jour {{n}} sur {{total}}",
+    "nextUp": "À suivre",
+    "startsIn": "Le voyage commence dans {{count}} jours",
+    "tripOver": "Ce voyage est terminé — on espère qu'il était super !",
+    "viewTimeline": "Voir la timeline",
+    "freeDay": "Rien de prévu — profitez de la journée libre !",
+    "documents": "Documents",
+    "allDocuments": "Tous les documents du voyage"
   }
 }
