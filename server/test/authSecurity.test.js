@@ -225,6 +225,23 @@ test('uploads beyond the per-user-per-trip quota are rejected', async () => {
   await api.post(`/trips/${tripId}/share`, { email: 'quotaeditor@example.com', role: 'editor' });
   const byEditor = await editor.api.post('/documents', makeDocForm(tripId, 'editor.txt', 700 * 1024));
   assert.strictEqual(byEditor.status, 201);
+
+  // The quota endpoint reports each member's own usage in this trip
+  const mine = await api.get(`/documents/quota?tripId=${tripId}`);
+  assert.strictEqual(mine.status, 200);
+  assert.strictEqual(mine.data.quota_bytes, 1024 * 1024);
+  assert.ok(
+    mine.data.used_bytes >= 710 * 1024 && mine.data.used_bytes <= 1024 * 1024,
+    `owner usage should reflect the two stored files, got ${mine.data.used_bytes}`
+  );
+  const theirs = await editor.api.get(`/documents/quota?tripId=${tripId}`);
+  assert.strictEqual(theirs.data.used_bytes, 700 * 1024);
+
+  // Non-members cannot query a trip's quota
+  const outsider = await registerUser(server.baseUrl, {
+    name: 'Outsider', email: 'quotaoutsider@example.com',
+  });
+  assert.strictEqual((await outsider.api.get(`/documents/quota?tripId=${tripId}`)).status, 403);
 });
 
 // ---------------------------------------------------------------------------

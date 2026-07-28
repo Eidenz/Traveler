@@ -9,6 +9,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
+import { uploadErrorMessage } from '../../utils/documentActions';
 import dayjs from 'dayjs';
 import { transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import { geocodeLocation } from '../../utils/geocoding';
@@ -687,7 +688,8 @@ const ItemWizard = ({
             onClose();
         } catch (error) {
             console.error('Error saving:', error);
-            toast.error(error.response?.data?.message || t('errors.saveFailed', { item: type }));
+            // A 413 here means a queued document hit the upload quota
+            toast.error(uploadErrorMessage(error, t, t('errors.saveFailed', { item: type })));
         } finally {
             setIsLoading(false);
         }

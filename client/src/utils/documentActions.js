@@ -68,3 +68,15 @@ export const revokePreviewUrl = (url) => {
     URL.revokeObjectURL(url);
   }
 };
+
+// Toast text for a failed document upload. A 413 means the per-user
+// per-trip storage quota is full — say so instead of a generic failure.
+export const uploadErrorMessage = (error, t, fallback) => {
+  if (error?.response?.status === 413) {
+    return t(
+      'documents.quotaFull',
+      'Storage limit reached — you have used your full upload quota for this trip. Delete some of your documents to free up space.'
+    );
+  }
+  return error?.response?.data?.message || fallback;
+};

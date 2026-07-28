@@ -310,7 +310,10 @@
     "invalidUrl": "URL invalide",
     "linkUrlPlaceholder": "https://exemple.com/mon-billet",
     "linkTitlePlaceholder": "Titre (optionnel, ex. \"QR code Shinkansen\")",
-    "newLinks": "Nouveaux liens à ajouter"
+    "newLinks": "Nouveaux liens à ajouter",
+    "quotaTooltip": "Votre espace de stockage pour ce voyage",
+    "quotaUsage": "{{used}} / {{total}} utilisés",
+    "quotaFull": "Limite de stockage atteinte — vous avez utilisé tout votre quota pour ce voyage. Supprimez certains de vos documents pour libérer de l'espace."
   },
   "offline": {
     "saveOffline": "Enreg. hors ligne",

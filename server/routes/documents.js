@@ -10,9 +10,10 @@ const {
   downloadDocument,
   viewDocument,
   getDocumentsByReference,
-  updateDocument
+  updateDocument,
+  getQuotaStatus
 } = require('../controllers/documentController');
-const { authenticate, requireEditAccess } = require('../middleware/auth');
+const { authenticate, requireEditAccess, checkTripAccess } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
 
 const router = express.Router();
@@ -94,6 +95,9 @@ router.post(
 );
 
 // Get a document's metadata
+// Quota status for the current user in a trip (?tripId=...)
+router.get('/quota', checkTripAccess(), getQuotaStatus);
+
 router.get('/:documentId', getDocument);
 
 // Download a document (with attachment header)

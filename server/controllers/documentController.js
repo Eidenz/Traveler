@@ -120,6 +120,23 @@ const getUserTripDocumentBytes = (userId, tripId) => {
   return total;
 };
 
+/**
+ * Quota status for the current user in a trip (trip access checked in the
+ * route). The client shows this on the documents view.
+ */
+const getQuotaStatus = (req, res) => {
+  try {
+    const tripId = req.query.tripId;
+    return res.status(200).json({
+      used_bytes: getUserTripDocumentBytes(req.user.id, tripId),
+      quota_bytes: UPLOAD_QUOTA_BYTES
+    });
+  } catch (error) {
+    console.error('Get quota status error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const uploadDocument = async (req, res) => { // Make async if needed later
   try {
     // ValidationResult check is now done in the route definition
@@ -643,6 +660,7 @@ const getAllTripDocuments = (req, res) => {
 };
 
 module.exports = {
+  getQuotaStatus,
   uploadDocument,
   createLinkDocument,
   getDocument,

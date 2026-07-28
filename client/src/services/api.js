@@ -72,6 +72,11 @@ export const authAPI = {
 };
 
 // API Key API
+export const quotaAPI = {
+  // Current user's document-upload usage/limit within a trip
+  getStatus: (tripId) => api.get('/documents/quota', { params: { tripId } }),
+};
+
 export const apiKeyAPI = {
   list: () => api.get('/api-keys'),
   create: (data) => api.post('/api-keys', data),

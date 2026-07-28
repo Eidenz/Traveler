@@ -5,7 +5,7 @@ import { documentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import PDFViewerModal from './PDFViewerModal';
-import { viewDocument, downloadDocument, revokePreviewUrl } from '../../utils/documentActions';
+import { viewDocument, downloadDocument, revokePreviewUrl, uploadErrorMessage } from '../../utils/documentActions';
 
 const DocumentPanel = ({
     documents = [],
@@ -102,7 +102,7 @@ const DocumentPanel = ({
             }
         } catch (error) {
             console.error('Error uploading document:', error);
-            toast.error(error.response?.data?.message || t('errors.saveFailed', { item: t('documents.title').toLowerCase() }));
+            toast.error(uploadErrorMessage(error, t, t('errors.saveFailed', { item: t('documents.title').toLowerCase() })));
         } finally {
             setIsUploading(false);
         }

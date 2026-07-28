@@ -310,7 +310,10 @@
     "invalidUrl": "Invalid URL",
     "linkUrlPlaceholder": "https://example.com/my-ticket",
     "linkTitlePlaceholder": "Title (optional, e.g. \"Shinkansen QR code\")",
-    "newLinks": "New links to add"
+    "newLinks": "New links to add",
+    "quotaTooltip": "Your upload allowance for this trip",
+    "quotaUsage": "{{used}} / {{total}} used",
+    "quotaFull": "Storage limit reached — you have used your full upload quota for this trip. Delete some of your documents to free up space."
   },
   "offline": {
     "saveOffline": "Save Offline",

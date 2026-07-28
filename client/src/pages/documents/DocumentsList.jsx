@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { documentAPI, activityAPI, transportAPI, lodgingAPI } from '../../services/api';
-import { viewDocument, downloadDocument, revokePreviewUrl } from '../../utils/documentActions';
-import { FileText, Download, Eye, Image, File, Lock, Users, Briefcase, Map, Home, Plus, X, Trash2, Link as LinkIcon, ExternalLink, AlertCircle, Search, ChevronDown } from 'lucide-react';
+import { documentAPI, activityAPI, transportAPI, lodgingAPI, quotaAPI } from '../../services/api';
+import { viewDocument, downloadDocument, revokePreviewUrl, uploadErrorMessage } from '../../utils/documentActions';
+import { FileText, Download, Eye, Image, File, Lock, Users, Briefcase, Map, Home, Plus, X, Trash2, Link as LinkIcon, ExternalLink, AlertCircle, Search, ChevronDown, HardDrive } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import PDFViewerModal from '../../components/trips/PDFViewerModal';
@@ -101,6 +101,13 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Select..." 
     );
 };
 
+const formatBytes = (bytes) => {
+    if (!bytes || bytes <= 0) return '0 MB';
+    const mb = bytes / (1024 * 1024);
+    if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+    return mb >= 100 ? `${Math.round(mb)} MB` : `${mb.toFixed(1)} MB`;
+};
+
 const DocumentsList = ({ tripId, trip }) => {
     const { t } = useTranslation();
     const [documents, setDocuments] = useState([]);
@@ -124,6 +131,7 @@ const DocumentsList = ({ tripId, trip }) => {
     const fileInputRef = useRef(null);
     const [uploadFile, setUploadFile] = useState(null);
     const [isPersonal, setIsPersonal] = useState(false);
+    const [quota, setQuota] = useState(null);
 
     // Link Document State
     const [showLinkForm, setShowLinkForm] = useState(false);
@@ -144,14 +152,16 @@ const DocumentsList = ({ tripId, trip }) => {
     const fetchAllData = async () => {
         try {
             setIsLoading(true);
-            const [docsRes, actRes, transRes, lodgRes] = await Promise.all([
+            const [docsRes, actRes, transRes, lodgRes, quotaRes] = await Promise.all([
                 documentAPI.getAllTripDocuments(tripId),
                 activityAPI.getTripActivities(tripId),
                 transportAPI.getTripTransportation(tripId),
-                lodgingAPI.getTripLodging(tripId)
+                lodgingAPI.getTripLodging(tripId),
+                quotaAPI.getStatus(tripId)
             ]);
 
             setDocuments(docsRes.data.documents);
+            setQuota(quotaRes.data);
             setActivities(actRes.data.activities);
             setTransportation(transRes.data.transportation);
             setLodging(lodgRes.data.lodging);
@@ -167,6 +177,10 @@ const DocumentsList = ({ tripId, trip }) => {
         try {
             const response = await documentAPI.getAllTripDocuments(tripId);
             setDocuments(response.data.documents);
+            // Usage changes with uploads/deletions; refresh quietly
+            quotaAPI.getStatus(tripId)
+                .then((res) => setQuota(res.data))
+                .catch(() => {});
         } catch (error) {
             console.error('Error fetching documents:', error);
         }
@@ -205,7 +219,7 @@ const DocumentsList = ({ tripId, trip }) => {
             fetchDocuments();
         } catch (error) {
             console.error('Upload error:', error);
-            toast.error(t('errors.uploadFailed', 'Failed to upload document'));
+            toast.error(uploadErrorMessage(error, t, t('errors.uploadFailed', 'Failed to upload document')));
         } finally {
             setUploading(false);
         }
@@ -494,6 +508,32 @@ const DocumentsList = ({ tripId, trip }) => {
                         <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                             Organize your files. Unlinked files will appear in the top section.
                         </p>
+                        {quota && (() => {
+                            const pct = quota.quota_bytes > 0
+                                ? Math.round((quota.used_bytes / quota.quota_bytes) * 100)
+                                : 0;
+                            const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+                            return (
+                                <div
+                                    className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                                    title={t('documents.quotaTooltip', 'Your upload allowance for this trip')}
+                                >
+                                    <HardDrive className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <div className="w-32 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${barColor}`}
+                                            style={{ width: `${Math.min(pct, 100)}%` }}
+                                        />
+                                    </div>
+                                    <span>
+                                        {t('documents.quotaUsage', '{{used}} / {{total}} used', {
+                                            used: formatBytes(quota.used_bytes),
+                                            total: formatBytes(quota.quota_bytes),
+                                        })}
+                                    </span>
+                                </div>
+                            );
+                        })()}
                     </div>
                     <div className="flex items-center gap-2">
                         <input
