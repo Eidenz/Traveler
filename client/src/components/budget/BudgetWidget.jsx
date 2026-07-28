@@ -78,7 +78,8 @@ const BudgetWidget = ({ tripId }) => {
     };
 
     const MiniProgress = ({ budget, spent }) => {
-        if (!budget) return null;
+        // total_amount 0 = no spending limit: nothing to fill or overflow
+        if (!budget || !(budget.total_amount > 0)) return null;
         const percent = Math.min((spent / budget.total_amount) * 100, 100);
         const color = getStatusColor(budget, spent);
         const colorClass = color === 'red' ? 'bg-red-500' : color === 'amber' ? 'bg-amber-500' : 'bg-emerald-500';
@@ -129,13 +130,22 @@ const BudgetWidget = ({ tripId }) => {
                 <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-700/50">
                     <Users className="w-3 h-3 text-gray-400" />
                     {sharedBudget ? (
-                        <>
-                            <span className={`text-xs font-medium ${sharedRemaining < 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
-                                {sharedBudget.currency}{Math.abs(sharedRemaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </span>
-                            <span className="text-[10px] text-gray-400">{t('budget.left', 'left')}</span>
-                            <MiniProgress budget={sharedBudget} spent={sharedTotalSpent} />
-                        </>
+                        sharedBudget.total_amount > 0 ? (
+                            <>
+                                <span className={`text-xs font-medium ${sharedRemaining < 0 ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                                    {sharedBudget.currency}{Math.abs(sharedRemaining).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                                <span className="text-[10px] text-gray-400">{t('budget.left', 'left')}</span>
+                                <MiniProgress budget={sharedBudget} spent={sharedTotalSpent} />
+                            </>
+                        ) : (
+                            <>
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    {sharedBudget.currency}{sharedTotalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                                <span className="text-[10px] text-gray-400">{t('budget.spent', 'spent')}</span>
+                            </>
+                        )
                     ) : (
                         <span className="text-xs text-gray-400">—</span>
                     )}
