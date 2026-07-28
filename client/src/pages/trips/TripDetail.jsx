@@ -787,6 +787,7 @@ const TripDetail = () => {
               lodging={lodging}
               onActivityClick={handleOpenActivityModal}
               selectedActivityId={selectedActivityId}
+              focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
               compact={mobileViewState === 'split'} // Full controls when in map mode
             />
           </div>
@@ -1198,6 +1199,7 @@ const TripDetail = () => {
                 lodging={lodging}
                 onActivityClick={handleOpenActivityModal}
                 selectedActivityId={selectedActivityId}
+                focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
               />
             )}
           </div>

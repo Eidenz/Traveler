@@ -187,7 +187,11 @@
     "checklists": "Trip Checklists",
     "map": "Map",
     "showMap": "Show map",
-    "timeline": "Timeline"
+    "timeline": "Timeline",
+    "photoAlbum": "Photo album link",
+    "photoAlbumHint": "Optional — a shared album (Google Photos, etc.) where everyone uploads their pictures. Appears in the trip header.",
+    "photoAlbumOpen": "Open the shared photo album",
+    "photos": "Photos"
   },
   "transportation": {
     "title": "Transportation",

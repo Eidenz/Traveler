@@ -334,3 +334,41 @@ test('guests cannot join when brainstorming is not public', async () => {
     guestSocket.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Trip photo album link
+// ---------------------------------------------------------------------------
+
+test('photo album link is validated, persisted, and kept off the public view', async () => {
+  const { api } = await registerUser(server.baseUrl, {
+    name: 'Album', email: 'album@example.com',
+  });
+  const tripId = await createTrip(api, { name: 'Album Trip' });
+  const base = { name: 'Album Trip', start_date: '2026-08-01', end_date: '2026-08-10' };
+
+  // javascript: URLs are rejected (the link is rendered as an href)
+  const evil = await api.put(`/trips/${tripId}`, {
+    ...base, photo_album_url: 'javascript:alert(1)',
+  });
+  assert.strictEqual(evil.status, 400);
+
+  // https persists
+  const ok = await api.put(`/trips/${tripId}`, {
+    ...base, photo_album_url: 'https://photos.example.com/album/abc',
+  });
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(ok.data.trip.photo_album_url, 'https://photos.example.com/album/abc');
+
+  // Omitting the field keeps it; empty string clears it
+  const keep = await api.put(`/trips/${tripId}`, base);
+  assert.strictEqual(keep.data.trip.photo_album_url, 'https://photos.example.com/album/abc');
+  const clear = await api.put(`/trips/${tripId}`, { ...base, photo_album_url: '' });
+  assert.strictEqual(clear.data.trip.photo_album_url, null);
+
+  // The public share payload must not include the album
+  await api.put(`/trips/${tripId}`, { ...base, photo_album_url: 'https://photos.example.com/album/abc' });
+  const share = await api.post(`/trips/${tripId}/public-share`);
+  const pub = await anon.get(`/trips/public/${share.data.token}`);
+  assert.strictEqual(pub.status, 200);
+  assert.strictEqual(pub.data.trip.photo_album_url, undefined);
+});

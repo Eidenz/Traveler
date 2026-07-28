@@ -1,6 +1,6 @@
 // client/src/components/trips/TripPanelHeader.jsx
 import React from 'react';
-import { Share2, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb } from 'lucide-react';
+import { Share2, Edit, Wifi, WifiOff, Download, Wallet, Lightbulb, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -127,6 +127,23 @@ const TripPanelHeader = ({
                 <span className="text-gray-500 dark:text-gray-400">
                   {duration.nights} {duration.label}
                 </span>
+              </>
+            )}
+
+            {/* Photo album chip — only when the trip has one (set in Edit Trip) */}
+            {trip?.photo_album_url && (
+              <>
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <a
+                  href={trip.photo_album_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-medium bg-fuchsia-50 dark:bg-fuchsia-900/20 text-fuchsia-600 dark:text-fuchsia-300 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/40 transition-colors"
+                  title={t('trips.photoAlbumOpen', 'Open the shared photo album')}
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>{t('trips.photos', 'Photos')}</span>
+                </a>
               </>
             )}
           </div>

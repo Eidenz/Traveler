@@ -16,6 +16,7 @@ const TripMap = ({
   lodging = [],
   onActivityClick,
   selectedActivityId,
+  focusCategory = null, // 'transport' | 'lodging' | null — dims other marker types
   compact = false, // Mobile/compact mode - hides controls and shows minimal legend
   className = ''
 }) => {
@@ -362,6 +363,8 @@ const TripMap = ({
     const el = document.createElement('div');
     el.className = 'map-marker-wrapper';
     el.dataset.pointId = point.id;
+    el.dataset.pointType = point.type;
+    el.style.transition = 'opacity 0.25s ease, filter 0.25s ease';
 
     const isMain = point.isMain;
 
@@ -709,6 +712,50 @@ const TripMap = ({
       initialFitDoneRef.current = true;
     }
   }, [getMapPoints, getPointsForZoom, isLoaded, selectedActivityId, onActivityClick, createMarkerElement]);
+
+  // Category focus: when the transport or lodging tab is open, dim every
+  // other marker (and the route lines that don't belong to the category) so
+  // the active category stands out. Runs against the live marker elements,
+  // so it must re-run after the marker-update effect rebuilds them.
+  const applyCategoryFocus = useCallback(() => {
+    const inFocus = (type) => {
+      if (!focusCategory) return true;
+      if (focusCategory === 'transport') return type === 'transport-from' || type === 'transport-to';
+      if (focusCategory === 'lodging') return type === 'lodging';
+      return true;
+    };
+
+    markersRef.current.forEach(({ element }) => {
+      if (!element) return;
+      const focused = inFocus(element.dataset.pointType);
+      element.style.opacity = focused ? '1' : '0.35';
+      element.style.filter = focused ? '' : 'grayscale(85%)';
+      element.style.zIndex = focused && focusCategory ? '2' : '';
+    });
+
+    // Route lines: the activity route belongs to no category; transport
+    // routes belong to 'transport'
+    if (map.current && map.current.isStyleLoaded()) {
+      try {
+        if (map.current.getLayer('route')) {
+          map.current.setPaintProperty('route', 'line-opacity', focusCategory ? 0.15 : 0.6);
+        }
+        if (map.current.getLayer('transport-routes')) {
+          map.current.setPaintProperty(
+            'transport-routes', 'line-opacity',
+            focusCategory === 'transport' ? 0.85 : focusCategory ? 0.15 : 0.5
+          );
+        }
+      } catch {
+        // Style mid-swap — the next marker update reapplies
+      }
+    }
+  }, [focusCategory]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    applyCategoryFocus();
+  });
 
   // Handle style change
   const toggleMapStyle = () => {

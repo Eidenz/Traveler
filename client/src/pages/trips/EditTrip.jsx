@@ -1,7 +1,7 @@
 // client/src/pages/trips/EditTrip.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Upload, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Upload, X, Image as ImageIcon } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
@@ -21,6 +21,7 @@ const EditTrip = () => {
     name: '',
     description: '',
     location: '',
+    photo_album_url: '',
     start_date: new Date(),
     end_date: new Date(new Date().setDate(new Date().getDate() + 7)),
   });
@@ -45,6 +46,7 @@ const EditTrip = () => {
           name: trip.name,
           description: trip.description || '',
           location: trip.location || '',
+          photo_album_url: trip.photo_album_url || '',
           start_date: new Date(trip.start_date),
           end_date: new Date(trip.end_date),
         });
@@ -132,7 +134,16 @@ const EditTrip = () => {
         startField: t('trips.startDate')
       });
     }
-    
+
+    if (formData.photo_album_url.trim()) {
+      try {
+        const parsed = new URL(formData.photo_album_url.trim());
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+      } catch {
+        newErrors.photo_album_url = t('errors.invalidUrl', 'Must be a valid http(s) link');
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -258,6 +269,24 @@ const EditTrip = () => {
                 placeholder={t('trips.locationPlaceholder', 'Tokyo, Japan')}
                 icon={<MapPin className="h-5 w-5 text-gray-400" />}
               />
+
+              {/* Photo album link — shown as a chip in the trip header */}
+              <div>
+                <Input
+                  label={t('trips.photoAlbum', 'Photo album link')}
+                  id="photo_album_url"
+                  name="photo_album_url"
+                  type="url"
+                  value={formData.photo_album_url}
+                  onChange={handleChange}
+                  placeholder="https://photos.app.goo.gl/…"
+                  icon={<ImageIcon className="h-5 w-5 text-gray-400" />}
+                  error={errors.photo_album_url}
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {t('trips.photoAlbumHint', 'Optional — a shared album (Google Photos, etc.) where everyone uploads their pictures. Appears in the trip header.')}
+                </p>
+              </div>
               
               {/* Trip Dates */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

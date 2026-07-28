@@ -171,12 +171,31 @@ const updateTrip = (req, res) => {
     }
 
     const { tripId } = req.params;
-    const { name, description, location, start_date, end_date } = req.body;
+    const { name, description, location, start_date, end_date, photo_album_url } = req.body;
 
     // Get current trip
     const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
     if (!trip) {
       return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    // Photo album link: http(s) only — it is rendered as an href, so a
+    // javascript: URL here would be stored XSS (same rule as link documents).
+    // Absent field keeps the current value; empty string clears it.
+    let albumUrl = trip.photo_album_url;
+    if (photo_album_url !== undefined) {
+      const trimmed = String(photo_album_url).trim();
+      if (trimmed === '') {
+        albumUrl = null;
+      } else {
+        try {
+          const parsed = new URL(trimmed);
+          if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('bad protocol');
+          albumUrl = trimmed;
+        } catch {
+          return res.status(400).json({ message: 'Photo album link must be a valid http(s) URL' });
+        }
+      }
     }
 
     // Handle cover image
@@ -195,11 +214,11 @@ const updateTrip = (req, res) => {
     // Update trip
     const updateTrip = db.prepare(`
       UPDATE trips
-      SET name = ?, description = ?, location = ?, start_date = ?, end_date = ?, cover_image = ?
+      SET name = ?, description = ?, location = ?, start_date = ?, end_date = ?, cover_image = ?, photo_album_url = ?
       WHERE id = ?
     `);
 
-    updateTrip.run(name, description, location, start_date, end_date, coverImage, tripId);
+    updateTrip.run(name, description, location, start_date, end_date, coverImage, albumUrl, tripId);
 
     // Get updated trip
     const updatedTrip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
