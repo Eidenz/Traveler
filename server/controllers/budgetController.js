@@ -4,7 +4,7 @@ const { db } = require('../db/database');
 const { authorizeTrip, getTripIdForExpense } = require('../utils/tripAuth');
 const { validationResult } = require('express-validator');
 const { emitToTrip } = require('../utils/socketService');
-const { getRate, isValidCode } = require('../utils/currencyService');
+const { getRate, isValidCode, symbolFor } = require('../utils/currencyService');
 
 /** Trip member ids for validation of payers/participants. */
 const getTripMemberIds = (tripId) =>
@@ -72,14 +72,19 @@ const getTripBudget = async (req, res) => {
       db.prepare('SELECT * FROM expenses WHERE budget_id = ? ORDER BY date DESC').all(budget.id)
     );
 
-    // Home-currency conversion, when both ISO codes are configured
+    // Home-currency conversion: the requester's own home currency wins,
+    // the budget-level code is only a fallback — friends in USD and EUR
+    // each see their own conversion of the same shared budget
     let conversion = null;
-    if (isValidCode(budget.currency_code) && isValidCode(budget.home_currency_code)
-        && budget.currency_code !== budget.home_currency_code) {
-      const rate = await getRate(budget.currency_code, budget.home_currency_code);
+    const userHome = db.prepare('SELECT home_currency_code FROM users WHERE id = ?')
+      .get(req.user.id)?.home_currency_code;
+    const homeCode = isValidCode(userHome) ? userHome : budget.home_currency_code;
+    if (isValidCode(budget.currency_code) && isValidCode(homeCode)
+        && budget.currency_code !== homeCode) {
+      const rate = await getRate(budget.currency_code, homeCode);
       if (rate) {
         conversion = {
-          home_currency_code: budget.home_currency_code,
+          home_currency_code: homeCode,
           rate: rate.rate,
           rate_fetched_at: rate.fetched_at,
         };
@@ -154,7 +159,9 @@ const createBudget = (req, res) => {
       VALUES (?, ?, ?, ?, ?)
     `);
 
-    const result = insert.run(tripId, total_amount, currency || '$', currency_code || null, home_currency_code || null);
+    // The display symbol follows the ISO code automatically ('JPY' -> '¥')
+    const symbol = currency_code ? symbolFor(currency_code) : (currency || '$');
+    const result = insert.run(tripId, total_amount, symbol, currency_code || null, home_currency_code || null);
 
     // Get the created budget
     const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(result.lastInsertRowid);
@@ -211,10 +218,11 @@ const updateBudget = (req, res) => {
       WHERE id = ?
     `);
 
+    const finalCode = nextCode(currency_code, budget.currency_code);
     update.run(
       total_amount,
-      currency || budget.currency,
-      nextCode(currency_code, budget.currency_code),
+      finalCode ? symbolFor(finalCode) : (currency || budget.currency),
+      finalCode,
       nextCode(home_currency_code, budget.home_currency_code),
       budgetId
     );
@@ -495,6 +503,25 @@ const getSettlement = (req, res) => {
       }
     }
 
+    // Total debt before recorded payments — the denominator of the
+    // settle-up progress bar
+    const totalDebt = [...balances.values()].reduce((sum, n) => sum + Math.max(0, -n), 0);
+
+    // Recorded payments ("A paid B") net against the balances
+    const payments = db.prepare(`
+      SELECT sp.*, uf.name as from_name, ut.name as to_name, uc.name as created_by_name
+      FROM settlement_payments sp
+      JOIN users uf ON uf.id = sp.from_user
+      JOIN users ut ON ut.id = sp.to_user
+      JOIN users uc ON uc.id = sp.created_by
+      WHERE sp.trip_id = ?
+      ORDER BY sp.created_at DESC
+    `).all(tripId);
+    for (const pmt of payments) {
+      balances.set(pmt.from_user, (balances.get(pmt.from_user) || 0) + pmt.amount);
+      balances.set(pmt.to_user, (balances.get(pmt.to_user) || 0) - pmt.amount);
+    }
+
     const members = db.prepare(`
       SELECT u.id, u.name FROM trip_members tm JOIN users u ON u.id = tm.user_id WHERE tm.trip_id = ?
     `).all(tripId);
@@ -523,9 +550,16 @@ const getSettlement = (req, res) => {
       if (creditors[j].owed < 0.01) j++;
     }
 
+    const remaining = balanceList.reduce((sum, b) => sum + Math.max(0, -b.net), 0);
+    const progress = totalDebt > 0.01
+      ? Math.min(1, Math.max(0, (totalDebt - remaining) / totalDebt))
+      : 1;
+
     return res.status(200).json({
       balances: balanceList,
       transfers,
+      payments,
+      progress: { total: round2(totalDebt), remaining: round2(remaining), ratio: progress },
       currency: budget.currency || '$',
       currency_code: budget.currency_code || null,
     });
@@ -535,9 +569,63 @@ const getSettlement = (req, res) => {
   }
 };
 
+/**
+ * Record a settlement payment (the "mark as paid" action on a transfer).
+ */
+const addSettlementPayment = (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { from_user, to_user, amount } = req.body;
+
+    const from = parseInt(from_user, 10);
+    const to = parseInt(to_user, 10);
+    const amt = Math.round(parseFloat(amount) * 100) / 100;
+    if (Number.isNaN(from) || Number.isNaN(to) || from === to || !(amt > 0)) {
+      return res.status(400).json({ message: 'Invalid payment' });
+    }
+    const members = new Set(getTripMemberIds(tripId));
+    if (!members.has(from) || !members.has(to)) {
+      return res.status(400).json({ message: 'Payer and receiver must be trip members' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO settlement_payments (trip_id, from_user, to_user, amount, created_by)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(tripId, from, to, amt, req.user.id);
+
+    return res.status(201).json({ id: result.lastInsertRowid });
+  } catch (error) {
+    console.error('Add settlement payment error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Undo a recorded settlement payment.
+ */
+const deleteSettlementPayment = (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const payment = db.prepare('SELECT * FROM settlement_payments WHERE id = ?').get(paymentId);
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
+    // Authorize against the payment's own trip (resource-id route rule)
+    if (!authorizeTrip(res, payment.trip_id, req.user.id, 'edit')) return;
+
+    db.prepare('DELETE FROM settlement_payments WHERE id = ?').run(paymentId);
+    return res.status(200).json({ message: 'Payment removed' });
+  } catch (error) {
+    console.error('Delete settlement payment error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getTripBudget,
   getSettlement,
+  addSettlementPayment,
+  deleteSettlementPayment,
   createBudget,
   updateBudget,
   addExpense,

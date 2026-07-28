@@ -197,6 +197,49 @@ const BudgetDashboard = () => {
     ? { budget: sharedBudget, expenses: sharedExpenses, categoryTotals: sharedCategoryTotals, totalSpent: sharedTotalSpent, canEdit: canEditShared }
     : { budget: personalBudget, expenses: personalExpenses, categoryTotals: personalCategoryTotals, totalSpent: personalTotalSpent, canEdit: true };
 
+  // Settlement payment actions ("mark paid" / undo)
+  const [settlementBusy, setSettlementBusy] = useState(false);
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const refreshSettlement = async () => {
+    if (!selectedTrip) return;
+    try {
+      const res = await budgetAPI.getSettlement(selectedTrip.id);
+      setSettlement(res.data);
+    } catch (error) {
+      console.error('Error refreshing settlement:', error);
+    }
+  };
+
+  const handleMarkPaid = async (transfer) => {
+    setSettlementBusy(true);
+    try {
+      await budgetAPI.addSettlementPayment(selectedTrip.id, {
+        from_user: transfer.from,
+        to_user: transfer.to,
+        amount: transfer.amount,
+      });
+      await refreshSettlement();
+      toast.success(t('budget.paymentRecorded', 'Payment recorded'));
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('errors.saveFailed'));
+    } finally {
+      setSettlementBusy(false);
+    }
+  };
+
+  const handleUndoPayment = async (payment) => {
+    setSettlementBusy(true);
+    try {
+      await budgetAPI.deleteSettlementPayment(payment.id, selectedTrip.id);
+      await refreshSettlement();
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('errors.deleteFailed', { item: 'payment' }));
+    } finally {
+      setSettlementBusy(false);
+    }
+  };
+
   // Home-currency conversion (shared budget only, when both ISO codes are set)
   const activeConversion = activeBudgetTab === 'shared' ? conversion : null;
   const toHome = activeConversion
@@ -630,7 +673,15 @@ const BudgetDashboard = () => {
 
               {/* Settle up - mobile */}
               {activeBudgetTab === 'shared' && (
-                <SettlementCard settlement={settlement} toHome={toHome} />
+                <SettlementCard
+                  settlement={settlement}
+                  toHome={toHome}
+                  canEdit={canEditShared}
+                  currentUserId={currentUser.id}
+                  onMarkPaid={handleMarkPaid}
+                  onUndoPayment={handleUndoPayment}
+                  busy={settlementBusy}
+                />
               )}
 
               {/* Expenses list - mobile */}
@@ -852,11 +903,6 @@ const BudgetDashboard = () => {
                   </div>
                 </div>
 
-                {/* Settle up */}
-                {activeBudgetTab === 'shared' && (
-                  <SettlementCard settlement={settlement} toHome={toHome} />
-                )}
-
                 {/* Budget actions */}
                 {currentData.canEdit && (
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
@@ -961,6 +1007,20 @@ const BudgetDashboard = () => {
 
           {/* Expenses list */}
           <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+            {/* Settle up — inline with the list, not tucked in the sidebar */}
+            {activeBudgetTab === 'shared' && currentData.budget && (
+              <div className="mb-6">
+                <SettlementCard
+                  settlement={settlement}
+                  toHome={toHome}
+                  canEdit={canEditShared}
+                  currentUserId={currentUser.id}
+                  onMarkPaid={handleMarkPaid}
+                  onUndoPayment={handleUndoPayment}
+                  busy={settlementBusy}
+                />
+              </div>
+            )}
             {!currentData.budget ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">

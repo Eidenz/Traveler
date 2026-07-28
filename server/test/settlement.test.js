@@ -103,3 +103,69 @@ test('budget carries ISO currency codes and validates them', async () => {
   assert.equal(ok.data.budget.currency_code, 'JPY');
   assert.equal(ok.data.budget.home_currency_code, 'EUR');
 });
+
+test('marking transfers paid drives balances, progress and undo', async () => {
+  // From the earlier tests: Cara owes 45, Bob owes 15, Alice is owed 60
+  const before = (await alice.api.get(`/budgets/trip/${tripId}/settlement`)).data;
+  assert.equal(before.progress.ratio, 0);
+  const caraTransfer = before.transfers.find(tr => tr.from_name === 'Cara');
+
+  // The bill payer (Alice) records Cara's payment herself
+  const rec = await alice.api.post(`/budgets/trip/${tripId}/settlement/payments`, {
+    from_user: caraTransfer.from, to_user: caraTransfer.to, amount: caraTransfer.amount,
+    trip_id: tripId,
+  });
+  assert.equal(rec.status, 201);
+
+  const after = (await alice.api.get(`/budgets/trip/${tripId}/settlement`)).data;
+  assert.ok(!after.transfers.some(tr => tr.from_name === 'Cara'), 'Cara transfer settled');
+  assert.equal(after.payments.length, 1);
+  assert.equal(after.payments[0].created_by_name, 'Alice');
+  assert.equal(after.progress.ratio, 0.75, '45 of 60 total debt settled');
+
+  // Undo restores the debt
+  const undo = await alice.api.delete(
+    `/budgets/settlement/payments/${after.payments[0].id}?tripId=${tripId}`);
+  assert.equal(undo.status, 200);
+  const restored = (await alice.api.get(`/budgets/trip/${tripId}/settlement`)).data;
+  assert.ok(restored.transfers.some(tr => tr.from_name === 'Cara'));
+  assert.equal(restored.progress.ratio, 0);
+});
+
+test('conversion follows each member´s own home currency', async () => {
+  // Budget is JPY (set in the ISO-codes test); seed the rate cache so no
+  // network is needed: JPY->USD and JPY->EUR
+  const sqlite3 = require('better-sqlite3');
+  const db = sqlite3(server.dbPath);
+  const seed = db.prepare(
+    'INSERT OR REPLACE INTO currency_rates (base, quote, rate, fetched_at) VALUES (?, ?, ?, ?)');
+  seed.run('JPY', 'USD', 0.0068, Date.now());
+  seed.run('JPY', 'EUR', 0.0061, Date.now());
+  db.close();
+
+  // Bob is a USD person, Alice stays on the budget fallback (EUR)
+  const profile = new FormData();
+  profile.append('name', 'Bob');
+  profile.append('home_currency_code', 'USD');
+  const upd = await bob.api.put('/users/profile', profile);
+  assert.equal(upd.status, 200);
+  assert.equal(upd.data.user.home_currency_code, 'USD');
+
+  const forBob = (await bob.api.get(`/budgets/trip/${tripId}`)).data;
+  assert.equal(forBob.conversion.home_currency_code, 'USD');
+  assert.equal(forBob.conversion.rate, 0.0068);
+
+  const forAlice = (await alice.api.get(`/budgets/trip/${tripId}`)).data;
+  assert.equal(forAlice.conversion.home_currency_code, 'EUR');
+  assert.equal(forAlice.conversion.rate, 0.0061);
+});
+
+test('setting a trip currency code derives the display symbol', async () => {
+  const t2 = await createTrip(alice.api, { name: 'Symbol Trip' });
+  const created = await alice.api.post(`/budgets/trip/${t2}`, {
+    total_amount: 100000, currency_code: 'JPY',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.budget.currency, '¥');
+  assert.equal(created.data.budget.currency_code, 'JPY');
+});

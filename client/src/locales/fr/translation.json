@@ -133,7 +133,9 @@
     "accountDeleted": "Votre compte a été supprimé",
     "timeFormat": "Format de l'heure",
     "timeFormatHelp": "Affichage des heures précises sur cet appareil",
-    "timeFormatAuto": "Auto"
+    "timeFormatAuto": "Auto",
+    "homeCurrency": "Devise locale",
+    "homeCurrencyHelp": "Les budgets partagés sont convertis dans cette devise pour vous (code ISO)"
   },
   "forgotPassword": {
     "title": "Mot de Passe Oublié",
@@ -564,7 +566,18 @@
     "splitNeedsOne": "Choisissez au moins un participant",
     "tripCurrency": "Devise du voyage",
     "homeCurrency": "Devise locale",
-    "currencyCodesHint": "Renseignez les deux codes pour voir les montants convertis dans votre devise (taux quotidien)."
+    "currencyCodesHint": "Renseignez les deux codes pour voir les montants convertis dans votre devise (taux quotidien).",
+    "youOwe": "Vous devez",
+    "youAreSettled": "Vous êtes à jour",
+    "groupSettled": "Groupe réglé",
+    "remainingDebt": "{{amount}} restant à régler",
+    "markPaid": "Payé",
+    "markPaidHint": "Enregistrer que ce paiement a eu lieu",
+    "recordedPayments": "Paiements enregistrés",
+    "paymentLine": "{{from}} a payé {{to}} {{amount}}",
+    "recordedBy": "par {{name}}",
+    "paymentRecorded": "Paiement enregistré",
+    "tripCurrencyHint": "Les montants sont convertis dans la devise de chaque membre (définie dans le profil)."
   },
   "errors": {
     "required": "{{field}} est requis",

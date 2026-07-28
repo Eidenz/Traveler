@@ -303,6 +303,10 @@ export const checklistAPI = {
 export const budgetAPI = {
   getTripBudget: (tripId) => api.get(`/budgets/trip/${tripId}`),
   getSettlement: (tripId) => api.get(`/budgets/trip/${tripId}/settlement`),
+  addSettlementPayment: (tripId, payment) =>
+    api.post(`/budgets/trip/${tripId}/settlement/payments`, { ...payment, trip_id: tripId }),
+  deleteSettlementPayment: (paymentId, tripId) =>
+    api.delete(`/budgets/settlement/payments/${paymentId}?tripId=${tripId}`),
   createBudget: (tripId, budgetData) => api.post(`/budgets/trip/${tripId}`, budgetData),
   updateBudget: (budgetId, budgetData, tripId) => api.put(`/budgets/${budgetId}?tripId=${tripId}`, budgetData), // Pass tripId
   addExpense: (budgetId, expenseData, tripId) => api.post(`/budgets/${budgetId}/expenses?tripId=${tripId}`, expenseData), // Pass tripId

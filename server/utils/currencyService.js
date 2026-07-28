@@ -46,4 +46,17 @@ const getRate = async (base, quote) => {
   }
 };
 
-module.exports = { getRate, isValidCode };
+/** Display symbol for an ISO code ('JPY' -> '¥'); falls back to the code. */
+const symbolFor = (code) => {
+  if (!isValidCode(code)) return null;
+  try {
+    const part = new Intl.NumberFormat('en', { style: 'currency', currency: code })
+      .formatToParts(0)
+      .find((p) => p.type === 'currency');
+    return part ? part.value : code;
+  } catch {
+    return code;
+  }
+};
+
+module.exports = { getRate, isValidCode, symbolFor };

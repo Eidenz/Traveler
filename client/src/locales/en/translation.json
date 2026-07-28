@@ -133,7 +133,9 @@
     "accountDeleted": "Your account has been deleted",
     "timeFormat": "Time format",
     "timeFormatHelp": "How exact times are displayed on this device",
-    "timeFormatAuto": "Auto"
+    "timeFormatAuto": "Auto",
+    "homeCurrency": "Home currency",
+    "homeCurrencyHelp": "Shared budget amounts are converted to this for you (ISO code)"
   },
   "forgotPassword": {
     "title": "Forgot Password",
@@ -564,7 +566,18 @@
     "splitNeedsOne": "Pick at least one participant",
     "tripCurrency": "Trip currency",
     "homeCurrency": "Home currency",
-    "currencyCodesHint": "Set both codes to see amounts converted to your home currency (daily rate)."
+    "currencyCodesHint": "Set both codes to see amounts converted to your home currency (daily rate).",
+    "youOwe": "You owe",
+    "youAreSettled": "You're settled up",
+    "groupSettled": "Group settled",
+    "remainingDebt": "{{amount}} still to settle",
+    "markPaid": "Paid",
+    "markPaidHint": "Record that this payment happened",
+    "recordedPayments": "Recorded payments",
+    "paymentLine": "{{from}} paid {{to}} {{amount}}",
+    "recordedBy": "by {{name}}",
+    "paymentRecorded": "Payment recorded",
+    "tripCurrencyHint": "Amounts convert to each member's own home currency (set in Profile)."
   },
   "errors": {
     "required": "{{field}} is required",

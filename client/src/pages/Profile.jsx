@@ -26,6 +26,7 @@ const Profile = () => {
     name: '',
     email: '',
     receiveEmails: true,
+    home_currency_code: '',
   });
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
@@ -74,6 +75,7 @@ const Profile = () => {
         name: userData.name || '',
         email: userData.email || '',
         receiveEmails: userData.receiveEmails !== undefined ? userData.receiveEmails : true,
+        home_currency_code: userData.home_currency_code || '',
       });
 
       if (userData.profile_image) {
@@ -130,6 +132,7 @@ const Profile = () => {
         const formData = new FormData();
         formData.append('name', profileForm.name);
         formData.append('receiveEmails', profileForm.receiveEmails);
+        formData.append('home_currency_code', profileForm.home_currency_code);
         if (removeProfileImageFlag) {
           formData.append('remove_profile_image', 'true');
         } else if (profileImage) {
@@ -330,6 +333,29 @@ const Profile = () => {
                     ${profileForm.receiveEmails ? 'left-6' : 'left-1'}
                   `} />
                 </button>
+              </div>
+
+              {/* Home currency: shared budgets convert into this for you */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {t('auth.homeCurrency', 'Home currency')}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t('auth.homeCurrencyHelp', 'Shared budget amounts are converted to this for you (ISO code)')}
+                  </p>
+                </div>
+                <input
+                  type="text"
+                  maxLength={3}
+                  value={profileForm.home_currency_code}
+                  onChange={(e) => setProfileForm(prev => ({
+                    ...prev,
+                    home_currency_code: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3),
+                  }))}
+                  placeholder="EUR"
+                  className="w-20 p-2.5 text-center font-medium uppercase border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                />
               </div>
 
               {/* Time format (device-local display preference) */}

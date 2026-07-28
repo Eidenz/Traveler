@@ -20,7 +20,7 @@ router.get('/profile', (req, res) => {
     const userId = req.user.id;
 
     // Get user without password, include receiveEmails
-    const user = db.prepare('SELECT id, name, email, profile_image, receiveEmails, created_at FROM users WHERE id = ?').get(userId);
+    const user = db.prepare('SELECT id, name, email, profile_image, receiveEmails, home_currency_code, created_at FROM users WHERE id = ?').get(userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -53,7 +53,12 @@ router.put(
 
     try {
       const userId = req.user.id;
-      const { name, receiveEmails } = req.body;
+      const { name, receiveEmails, home_currency_code } = req.body;
+
+      if (home_currency_code !== undefined && home_currency_code !== ''
+          && !/^[A-Z]{3}$/.test(home_currency_code)) {
+        return res.status(400).json({ message: 'Home currency must be a 3-letter ISO code' });
+      }
 
       // Get current user
       const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
@@ -97,12 +102,17 @@ router.put(
         ? (receiveEmails === 'true' || receiveEmails === true ? 1 : 0)
         : user.receiveEmails;
 
-      // Update user name, image, and email preference
-      db.prepare('UPDATE users SET name = ?, profile_image = ?, receiveEmails = ? WHERE id = ?')
-        .run(name, profileImage, receiveEmailsValue, userId);
+      // Home currency: absent keeps, empty string clears
+      const homeCurrency = home_currency_code === undefined
+        ? user.home_currency_code
+        : (home_currency_code || null);
+
+      // Update user name, image, email preference, and home currency
+      db.prepare('UPDATE users SET name = ?, profile_image = ?, receiveEmails = ?, home_currency_code = ? WHERE id = ?')
+        .run(name, profileImage, receiveEmailsValue, homeCurrency, userId);
 
       // Get updated user
-      const updatedUserResult = db.prepare('SELECT id, name, email, profile_image, receiveEmails, created_at FROM users WHERE id = ?').get(userId);
+      const updatedUserResult = db.prepare('SELECT id, name, email, profile_image, receiveEmails, home_currency_code, created_at FROM users WHERE id = ?').get(userId);
       updatedUserResult.receiveEmails = !!updatedUserResult.receiveEmails; // Convert back to boolean
 
       return res.status(200).json({

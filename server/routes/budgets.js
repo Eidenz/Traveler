@@ -5,6 +5,8 @@ const { body } = require('express-validator');
 const { 
   getTripBudget,
   getSettlement,
+  addSettlementPayment,
+  deleteSettlementPayment,
   createBudget,
   updateBudget,
   addExpense,
@@ -24,6 +26,10 @@ router.get('/trip/:tripId', checkTripAccess(), getTripBudget);
 
 // Who-owes-whom for the trip's shared expenses
 router.get('/trip/:tripId/settlement', checkTripAccess(), getSettlement);
+
+// Record / undo settlement payments ("mark as paid")
+router.post('/trip/:tripId/settlement/payments', requireEditAccess, addSettlementPayment);
+router.delete('/settlement/payments/:paymentId', requireEditAccess, deleteSettlementPayment);
 
 // Create a budget for a trip
 router.post(
