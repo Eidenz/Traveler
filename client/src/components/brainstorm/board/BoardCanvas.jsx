@@ -7,7 +7,9 @@
 //   shift+drag empty   marquee select (desktop)
 //   wheel              pan · ctrl/pinch-wheel zooms at cursor
 //   two fingers        pinch zoom + pan
-//   drag on item       move item — moves the whole selection if selected
+//   drag on item       mouse: moves only if the card is selected (click to
+//                      select first) — dragging an unselected card pans, so
+//                      sweeping across a crowded board never displaces cards
 //                      (touch: hold ~300ms to lift, otherwise the finger pans)
 //   drag group header  move group + all member items (touch: hold to lift)
 //   click / tap        select (shift toggles) · double: edit item / quick-add
@@ -120,8 +122,13 @@ const BoardCanvas = ({
     } else if (itemEl) {
       const id = Number(itemEl.dataset.itemId);
       const sel = store().selectedIds;
-      // Dragging a selected item drags the whole selection
-      const dragIds = canEdit ? (sel.has(id) ? [...sel] : [id]) : [];
+      // Mouse: only selected cards drag (select-then-move) — a drag starting
+      // on an unselected card pans the canvas instead. Touch keeps its
+      // hold-to-lift, which may lift an unselected card directly.
+      const isTouch = e.pointerType === 'touch';
+      const dragIds = canEdit
+        ? (sel.has(id) ? [...sel] : (isTouch ? [id] : []))
+        : [];
       plan = {
         type: 'drag-items',
         itemId: id,
@@ -422,7 +429,9 @@ const BoardCanvas = ({
           <div
             key={item.id}
             data-item-id={item.id}
-            className={`absolute ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+            className={`absolute ${canEdit && selectedIds.has(item.id)
+              ? 'cursor-grab active:cursor-grabbing'
+              : 'cursor-pointer'}`}
             style={{ left: item.position_x, top: item.position_y }}
           >
             <BoardItemCard
