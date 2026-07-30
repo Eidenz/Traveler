@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown
+  ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown, UserCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { hasMapbox } from '../../config/env';
@@ -96,6 +96,16 @@ const TripDetail = () => {
   });
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef(null);
+
+  // "Just my plans" filter — hides items whose participant subset doesn't
+  // include the viewer. Shared preference with the Today view.
+  const [onlyMine, setOnlyMine] = useState(() => localStorage.getItem('onlyMyItems') === '1');
+  const toggleOnlyMine = () => {
+    setOnlyMine((prev) => {
+      localStorage.setItem('onlyMyItems', prev ? '0' : '1');
+      return !prev;
+    });
+  };
 
   // Mobile view state: 'details' (fullscreen details) | 'split' (default) | 'map' (fullscreen map)
   const [mobileViewState, setMobileViewState] = useState('split');
@@ -748,11 +758,53 @@ const TripDetail = () => {
   };
 
 
+  // Participant filtering. An item with no participant subset belongs to
+  // everyone; the toggle only appears once some item targets a subset.
+  const isMineItem = useCallback(
+    (item) => !item.participant_ids?.length || item.participant_ids.includes(user?.id),
+    [user?.id]
+  );
+  const hasSubsetItems = useMemo(
+    () => [...transportation, ...lodging, ...activities].some((i) => i.participant_ids?.length > 0),
+    [transportation, lodging, activities]
+  );
+  const visibleTransportation = useMemo(
+    () => (onlyMine ? transportation.filter(isMineItem) : transportation),
+    [onlyMine, transportation, isMineItem]
+  );
+  const visibleLodging = useMemo(
+    () => (onlyMine ? lodging.filter(isMineItem) : lodging),
+    [onlyMine, lodging, isMineItem]
+  );
+  const visibleActivities = useMemo(
+    () => (onlyMine ? activities.filter(isMineItem) : activities),
+    [onlyMine, activities, isMineItem]
+  );
+
+  // Small pill under the tabs toggling the participant filter
+  const renderOnlyMineToggle = () => {
+    if (!hasSubsetItems || !['timeline', 'transport', 'lodging'].includes(activeTab)) return null;
+    return (
+      <div className="px-4 pt-2 flex justify-end">
+        <button
+          onClick={toggleOnlyMine}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${onlyMine
+            ? 'border-accent bg-accent/10 text-accent'
+            : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+            }`}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          {t('participants.onlyMine', 'Just my plans')}
+        </button>
+      </div>
+    );
+  };
+
   // Tab definitions
   const tabs = [
-    { id: 'timeline', label: t('trips.timeline', 'Timeline'), count: activities.length },
-    { id: 'transport', label: t('transportation.title', 'Transport'), count: transportation.length },
-    { id: 'lodging', label: t('lodging.title', 'Lodging'), count: lodging.length },
+    { id: 'timeline', label: t('trips.timeline', 'Timeline'), count: visibleActivities.length },
+    { id: 'transport', label: t('transportation.title', 'Transport'), count: visibleTransportation.length },
+    { id: 'lodging', label: t('lodging.title', 'Lodging'), count: visibleLodging.length },
     { id: 'checklist', label: t('checklists.title', 'Checklists'), count: checklists.length },
   ];
 
@@ -782,9 +834,9 @@ const TripDetail = () => {
           >
             <TripMap
               trip={trip}
-              activities={activities}
-              transportation={transportation}
-              lodging={lodging}
+              activities={visibleActivities}
+              transportation={visibleTransportation}
+              lodging={visibleLodging}
               onActivityClick={handleOpenActivityModal}
               selectedActivityId={selectedActivityId}
               focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
@@ -878,15 +930,17 @@ const TripDetail = () => {
               onChange={setActiveTab}
               tabs={tabs}
             />
+            {renderOnlyMineToggle()}
 
             {/* Tab content */}
             <div className="min-h-[50vh]">
               {activeTab === 'timeline' && (
                 <TripTimeline
                   trip={trip}
-                  transportation={transportation}
-                  lodging={lodging}
-                  activities={activities}
+                  transportation={visibleTransportation}
+                  lodging={visibleLodging}
+                  activities={visibleActivities}
+                  members={members}
                   onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                   onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
                   onActivityClick={handleOpenActivityModal}
@@ -906,7 +960,7 @@ const TripDetail = () => {
                     </div>
                   )}
 
-                  {transportation.length === 0 ? (
+                  {visibleTransportation.length === 0 ? (
                     <div className="text-center py-12">
                       <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
@@ -918,10 +972,11 @@ const TripDetail = () => {
                     </div>
                   ) : (
                     <DateGroupedList
-                      items={transportation}
+                      items={visibleTransportation}
                       type="transport"
                       tripStartDate={trip?.start_date}
                       onItemClick={handleOpenTransportModal}
+                      members={members}
                     />
                   )}
                 </div>
@@ -937,7 +992,7 @@ const TripDetail = () => {
                     </div>
                   )}
 
-                  {lodging.length === 0 ? (
+                  {visibleLodging.length === 0 ? (
                     <div className="text-center py-12">
                       <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                       <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
@@ -949,10 +1004,11 @@ const TripDetail = () => {
                     </div>
                   ) : (
                     <DateGroupedList
-                      items={lodging}
+                      items={visibleLodging}
                       type="lodging"
                       tripStartDate={trip?.start_date}
                       onItemClick={handleOpenLodgingModal}
+                      members={members}
                     />
                   )}
                 </div>
@@ -1036,6 +1092,7 @@ const TripDetail = () => {
               onChange={setActiveTab}
               tabs={tabs}
             />
+            {renderOnlyMineToggle()}
           </div>
 
           {/* Tab content */}
@@ -1043,9 +1100,10 @@ const TripDetail = () => {
             {activeTab === 'timeline' && (
               <TripTimeline
                 trip={trip}
-                transportation={transportation}
-                lodging={lodging}
-                activities={activities}
+                transportation={visibleTransportation}
+                lodging={visibleLodging}
+                activities={visibleActivities}
+                members={members}
                 onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                 onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
                 onActivityClick={handleOpenActivityModal}
@@ -1066,7 +1124,7 @@ const TripDetail = () => {
                   </div>
                 )}
 
-                {transportation.length === 0 ? (
+                {visibleTransportation.length === 0 ? (
                   <div className="text-center py-12">
                     <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
@@ -1078,10 +1136,11 @@ const TripDetail = () => {
                   </div>
                 ) : (
                   <DateGroupedList
-                    items={transportation}
+                    items={visibleTransportation}
                     type="transport"
                     tripStartDate={trip?.start_date}
                     onItemClick={handleOpenTransportModal}
+                    members={members}
                   />
                 )}
               </div>
@@ -1098,7 +1157,7 @@ const TripDetail = () => {
                   </div>
                 )}
 
-                {lodging.length === 0 ? (
+                {visibleLodging.length === 0 ? (
                   <div className="text-center py-12">
                     <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
@@ -1110,10 +1169,11 @@ const TripDetail = () => {
                   </div>
                 ) : (
                   <DateGroupedList
-                    items={lodging}
+                    items={visibleLodging}
                     type="lodging"
                     tripStartDate={trip?.start_date}
                     onItemClick={handleOpenLodgingModal}
+                    members={members}
                   />
                 )}
               </div>
@@ -1171,6 +1231,7 @@ const TripDetail = () => {
                 defaultDate={activityDefaultDate}
                 tripStartDate={trip?.start_date}
                 tripEndDate={trip?.end_date}
+                members={members}
                 onSuccess={() => {
                   fetchTripData();
                   handleCloseWizard();
@@ -1198,9 +1259,9 @@ const TripDetail = () => {
             ) : (
               <TripMap
                 trip={trip}
-                activities={activities}
-                transportation={transportation}
-                lodging={lodging}
+                activities={visibleActivities}
+                transportation={visibleTransportation}
+                lodging={visibleLodging}
                 onActivityClick={handleOpenActivityModal}
                 selectedActivityId={selectedActivityId}
                 focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
@@ -1218,6 +1279,7 @@ const TripDetail = () => {
         transportId={selectedTransportId}
         tripStartDate={trip?.start_date}
         tripEndDate={trip?.end_date}
+        members={members}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitTransportDelete(deletedItemId)}
       />
@@ -1229,6 +1291,7 @@ const TripDetail = () => {
         lodgingId={selectedLodgingId}
         tripStartDate={trip?.start_date}
         tripEndDate={trip?.end_date}
+        members={members}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitLodgingDelete(deletedItemId)}
       />
@@ -1244,6 +1307,7 @@ const TripDetail = () => {
         defaultDate={activityDefaultDate}
         tripStartDate={trip?.start_date}
         tripEndDate={trip?.end_date}
+        members={members}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitActivityDelete(deletedItemId)}
       />

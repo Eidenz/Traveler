@@ -1,6 +1,9 @@
 // server/controllers/lodgingController.js
 const { db } = require('../db/database');
 const { authorizeTrip } = require('../utils/tripAuth');
+const {
+  attachParticipants, applyParticipantsFromRequest, getParticipantIds, deleteParticipants
+} = require('../utils/itemParticipants');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -23,6 +26,8 @@ const getTripLodging = (req, res) => {
       WHERE l.trip_id = ?
       ORDER BY l.check_in
     `).all(userId, tripId);
+
+    attachParticipants('lodging', lodging);
 
     return res.status(200).json({ lodging });
   } catch (error) {
@@ -60,6 +65,8 @@ const getLodging = (req, res) => {
       WHERE d.reference_type = 'lodging' AND d.reference_id = ?
         AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)
     `).all(lodgingId, req.user.id);
+
+    lodging.participant_ids = getParticipantIds('lodging', lodgingId);
 
     return res.status(200).json({
       lodging,
@@ -119,6 +126,10 @@ const createLodging = (req, res) => {
 
     // Get the created lodging
     const lodging = db.prepare('SELECT * FROM lodging WHERE id = ?').get(result.lastInsertRowid);
+
+    // Participants (subset of trip members; absent/empty field = everyone)
+    if (!applyParticipantsFromRequest(res, 'lodging', lodging.id, tripId, req.body.participant_ids)) return;
+    lodging.participant_ids = getParticipantIds('lodging', lodging.id);
 
     // Queue notification emails for other trip members (batched)
     const updateData = {
@@ -224,8 +235,12 @@ const updateLodging = (req, res) => {
       name, address, check_in, check_out, confirmation_code, notes, bannerImage, lodgingId
     );
 
+    // Participants (subset of trip members; absent field = leave unchanged)
+    if (!applyParticipantsFromRequest(res, 'lodging', lodgingId, lodging.trip_id, req.body.participant_ids)) return;
+
     // Get updated lodging
     const updatedLodging = db.prepare('SELECT * FROM lodging WHERE id = ?').get(lodgingId);
+    updatedLodging.participant_ids = getParticipantIds('lodging', lodgingId);
 
     // Broadcast to other users viewing this trip
     emitToTrip(updatedLodging.trip_id, 'lodging:updated', updatedLodging);
@@ -285,6 +300,9 @@ const deleteLodging = (req, res) => {
         SET reference_type = 'trip', reference_id = ?
         WHERE reference_type = 'lodging' AND reference_id = ?
       `).run(lodging.trip_id, lodgingId);
+
+      // Delete participant rows (no FK to the polymorphic item tables)
+      deleteParticipants('lodging', lodgingId);
 
       // Delete lodging
       db.prepare('DELETE FROM lodging WHERE id = ?').run(lodgingId);

@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen, Compass
+  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen, Compass, UserCheck
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
@@ -16,16 +16,28 @@ import { useTranslation } from 'react-i18next';
 import { tripAPI, documentAPI } from '../../services/api';
 import { displayTime, effectiveTime } from '../../utils/timeFormat';
 import DocumentsModal from '../../components/trips/DocumentsModal';
+import ParticipantAvatars from '../../components/trips/ParticipantAvatars';
+import useAuthStore from '../../stores/authStore';
 
 const TodayView = () => {
   const { tripId } = useParams();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
 
   const [trip, setTrip] = useState(null);
+  const [members, setMembers] = useState([]);
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [docsFor, setDocsFor] = useState(null); // { title, documents }
   const [docsLoading, setDocsLoading] = useState(null); // entry key while fetching
+  // Same stored preference as the trip detail "Just my plans" toggle
+  const [onlyMine, setOnlyMine] = useState(() => localStorage.getItem('onlyMyItems') === '1');
+  const toggleOnlyMine = () => {
+    setOnlyMine((prev) => {
+      localStorage.setItem('onlyMyItems', prev ? '0' : '1');
+      return !prev;
+    });
+  };
 
   const today = dayjs().format('YYYY-MM-DD');
 
@@ -33,8 +45,9 @@ const TodayView = () => {
     try {
       setLoading(true);
       const res = await tripAPI.getTripById(tripId);
-      const { trip: t_, transportation, lodging, activities } = res.data;
+      const { trip: t_, transportation, lodging, activities, members: members_ } = res.data;
       setTrip(t_);
+      setMembers(members_ || []);
 
       const list = [];
       const sameDay = (d) => d && dayjs(d).format('YYYY-MM-DD') === today;
@@ -50,6 +63,7 @@ const TodayView = () => {
             sortKey: effectiveTime(tr.departure_time_exact, tr.departure_time),
             clock: tr.departure_time_exact,
             hasDocuments: tr.has_documents > 0,
+            participantIds: tr.participant_ids,
             reference: { type: 'transportation', id: tr.id },
           });
         }
@@ -66,6 +80,7 @@ const TodayView = () => {
             sortKey: '10:00', // typical morning checkout — ordering only
             clock: null,
             hasDocuments: l.has_documents > 0,
+            participantIds: l.participant_ids,
             reference: { type: 'lodging', id: l.id },
           });
         }
@@ -79,6 +94,7 @@ const TodayView = () => {
             sortKey: '15:00', // typical afternoon check-in — ordering only
             clock: null,
             hasDocuments: l.has_documents > 0,
+            participantIds: l.participant_ids,
             reference: { type: 'lodging', id: l.id },
           });
         }
@@ -95,6 +111,7 @@ const TodayView = () => {
             sortKey: effectiveTime(a.time_exact, a.time),
             clock: a.time_exact,
             hasDocuments: a.has_documents > 0,
+            participantIds: a.participant_ids,
             reference: { type: 'activity', id: a.id },
           });
         }
@@ -142,9 +159,15 @@ const TodayView = () => {
   const dayNumber = trip ? dayjs(today).diff(dayjs(trip.start_date), 'day') + 1 : 0;
   const totalDays = trip ? dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day') + 1 : 0;
 
+  // Participant filter: entries with no subset belong to everyone
+  const hasSubsetEntries = entries.some((e) => e.participantIds?.length > 0);
+  const visibleEntries = onlyMine
+    ? entries.filter((e) => !e.participantIds?.length || e.participantIds.includes(user?.id))
+    : entries;
+
   // First clocked entry still ahead of now gets the "next up" treatment
   const nowHM = dayjs().format('HH:mm');
-  const nextKey = entries.find((e) => e.clock && e.clock >= nowHM)?.key;
+  const nextKey = visibleEntries.find((e) => e.clock && e.clock >= nowHM)?.key;
 
   const KIND_STYLE = {
     transport: { icon: Plane, chip: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' },
@@ -197,9 +220,25 @@ const TodayView = () => {
           </div>
         )}
 
+        {/* Participant filter — same preference as the trip detail toggle */}
+        {inTrip && hasSubsetEntries && (
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={toggleOnlyMine}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium transition-colors ${onlyMine
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400'
+                }`}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              {t('participants.onlyMine', 'Just my plans')}
+            </button>
+          </div>
+        )}
+
         {/* Today's entries */}
         {inTrip && (
-          entries.length === 0 ? (
+          visibleEntries.length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
               <Sun className="w-10 h-10 text-amber-400 mx-auto mb-3" />
               <p className="font-medium text-gray-900 dark:text-white">
@@ -208,7 +247,7 @@ const TodayView = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {entries.map((entry) => {
+              {visibleEntries.map((entry) => {
                 const style = KIND_STYLE[entry.kind];
                 const isNext = entry.key === nextKey;
                 return (
@@ -235,6 +274,7 @@ const TodayView = () => {
                           {entry.subtitle}
                         </p>
                       </div>
+                      <ParticipantAvatars ids={entry.participantIds} members={members} />
                     </div>
 
                     {/* Big documents button — boarding passes and bookings are

@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { displayTime, effectiveTime } from '../../utils/timeFormat';
+import ParticipantAvatars from './ParticipantAvatars';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 
@@ -43,7 +44,7 @@ const formatTransportTime = (transport) => {
 };
 
 // Activity card component
-const ActivityCard = ({ activity, onClick, onDocumentClick }) => {
+const ActivityCard = ({ activity, onClick, onDocumentClick, members }) => {
   return (
     <div
       onClick={() => onClick?.(activity)}
@@ -77,6 +78,12 @@ const ActivityCard = ({ activity, onClick, onDocumentClick }) => {
               <Ticket className="w-3 h-3" />
               {activity.confirmation_code}
             </p>
+          )}
+
+          {activity.participant_ids?.length > 0 && (
+            <div className="mt-1.5">
+              <ParticipantAvatars ids={activity.participant_ids} members={members} />
+            </div>
           )}
         </div>
 
@@ -112,7 +119,7 @@ const ActivityCard = ({ activity, onClick, onDocumentClick }) => {
 };
 
 // Transport mini card
-const TransportMini = ({ transport, onClick, onDocumentClick }) => (
+const TransportMini = ({ transport, onClick, onDocumentClick, members }) => (
   <div
     onClick={() => onClick?.(transport)}
     className="flex items-center gap-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors overflow-hidden"
@@ -128,6 +135,7 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
         {formatTransportTime(transport)}
       </p>
     </div>
+    <ParticipantAvatars ids={transport.participant_ids} members={members} />
     {transport.has_documents > 0 && (
       <button
         onClick={(e) => {
@@ -146,7 +154,7 @@ const TransportMini = ({ transport, onClick, onDocumentClick }) => (
 );
 
 // Lodging mini card
-const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
+const LodgingMini = ({ lodging, onClick, onDocumentClick, members }) => {
   const nights = dayjs(lodging.check_out).diff(dayjs(lodging.check_in), 'day');
 
   return (
@@ -165,6 +173,7 @@ const LodgingMini = ({ lodging, onClick, onDocumentClick }) => {
           {nights} {nights === 1 ? 'night' : 'nights'}
         </p>
       </div>
+      <ParticipantAvatars ids={lodging.participant_ids} members={members} />
       {lodging.has_documents > 0 && (
         <button
           onClick={(e) => {
@@ -307,7 +316,8 @@ const DayGroup = ({
   onLodgingClick,
   onAddActivity,
   onDocumentClick,
-  canEdit
+  canEdit,
+  members
 }) => {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -397,6 +407,7 @@ const DayGroup = ({
                   transport={transport}
                   onClick={onTransportClick}
                   onDocumentClick={onDocumentClick}
+                  members={members}
                 />
               ))}
 
@@ -406,6 +417,7 @@ const DayGroup = ({
                   lodging={lodging}
                   onClick={onLodgingClick}
                   onDocumentClick={onDocumentClick}
+                  members={members}
                 />
               )}
 
@@ -417,6 +429,7 @@ const DayGroup = ({
                   onClick={onActivityClick}
                   onDocumentClick={onDocumentClick}
                   canEdit={canEdit}
+                  members={members}
                 />
               ))}
 
@@ -462,6 +475,7 @@ const TripTimeline = ({
   onAddActivity,
   onDocumentClick,
   canEdit = true,
+  members = [],
 }) => {
   const { t } = useTranslation();
 
@@ -591,6 +605,7 @@ const TripTimeline = ({
                     transport={transport}
                     onClick={onTransportClick}
                     onDocumentClick={onDocumentClick}
+                    members={members}
                   />
                 ))}
               </div>
@@ -608,6 +623,7 @@ const TripTimeline = ({
             onAddActivity={onAddActivity}
             onDocumentClick={onDocumentClick}
             canEdit={canEdit}
+            members={members}
           />
         ))}
 

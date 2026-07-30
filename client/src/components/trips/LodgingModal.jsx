@@ -16,7 +16,8 @@ const LodgingModal = ({
   onDelete,
   defaultDate = null,
   tripStartDate,
-  tripEndDate
+  tripEndDate,
+  members = []
 }) => {
   if (!isOpen) return null;
 
@@ -33,6 +34,7 @@ const LodgingModal = ({
           onClose={onClose}
           tripStartDate={tripStartDate}
           tripEndDate={tripEndDate}
+          members={members}
         />
       </div>
     </Modal>

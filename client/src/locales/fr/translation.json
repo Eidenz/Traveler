@@ -708,5 +708,12 @@
     "closest": "Au plus près",
     "noneInRadius": "Rien à moins de {{km}} km.",
     "beyond": "{{count}} de plus au-delà de {{km}} km — tout afficher"
+  },
+  "participants": {
+    "whoGoing": "Qui participe ?",
+    "everyone": "Tout le monde",
+    "countOf": "{{count}} sur {{total}}",
+    "subsetHint": "Seuls les voyageurs sélectionnés sont concernés — les autres peuvent le masquer de leur vue.",
+    "onlyMine": "Mes plans uniquement"
   }
 }

@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const { generateTripId, isValidTripId } = require('../utils/idGenerator');
 const { sendEmail } = require('../utils/emailService'); // Added
 const { getRate, isValidCode } = require('../utils/currencyService');
+const { attachParticipants } = require('../utils/itemParticipants');
 const { computeSettlement } = require('./budgetController');
 
 // Helper function to get user details
@@ -86,6 +87,11 @@ const getTripById = (req, res) => {
       WHERE a.trip_id = ?
       ORDER BY a.date, COALESCE(NULLIF(a.time_exact, ''), a.time)
     `).all(userId, tripId);
+
+    // Who takes part in each item ([] = everyone)
+    attachParticipants('transportation', transportation);
+    attachParticipants('lodging', lodging);
+    attachParticipants('activity', activities);
 
     return res.status(200).json({
       trip,
@@ -533,6 +539,15 @@ const deleteTrip = (req, res) => {
         }
       }
 
+      // Participant rows don't cascade from the item tables (polymorphic) —
+      // clear them before the items go
+      db.prepare(`
+        DELETE FROM item_participants
+        WHERE (item_type = 'activity' AND item_id IN (SELECT id FROM activities WHERE trip_id = ?)) OR
+              (item_type = 'lodging' AND item_id IN (SELECT id FROM lodging WHERE trip_id = ?)) OR
+              (item_type = 'transportation' AND item_id IN (SELECT id FROM transportation WHERE trip_id = ?))
+      `).run(tripId, tripId, tripId);
+
       // Delete trip (cascades to transportation, lodging, activities, trip_members)
       db.prepare('DELETE FROM trips WHERE id = ?').run(tripId);
 
@@ -676,6 +691,17 @@ const removeTripMember = (req, res) => {
     // Remove member
     db.prepare('DELETE FROM trip_members WHERE trip_id = ? AND user_id = ?')
       .run(tripId, userId);
+
+    // Drop them from this trip's item participant lists so items don't stay
+    // pinned to someone who left
+    db.prepare(`
+      DELETE FROM item_participants
+      WHERE user_id = ? AND (
+        (item_type = 'activity' AND item_id IN (SELECT id FROM activities WHERE trip_id = ?)) OR
+        (item_type = 'lodging' AND item_id IN (SELECT id FROM lodging WHERE trip_id = ?)) OR
+        (item_type = 'transportation' AND item_id IN (SELECT id FROM transportation WHERE trip_id = ?))
+      )
+    `).run(userId, tripId, tripId, tripId);
 
     return res.status(200).json({
       message: 'User removed from trip'

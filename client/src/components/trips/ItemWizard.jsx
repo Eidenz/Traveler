@@ -14,6 +14,7 @@ import TimeInput from '../ui/TimeInput';
 import dayjs from 'dayjs';
 import { transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
 import { geocodeLocation } from '../../utils/geocoding';
+import { getImageUrl } from '../../utils/imageUtils';
 
 /**
  * Step-based wizard for creating/editing activities, lodging, and transport.
@@ -28,7 +29,8 @@ const ItemWizard = ({
     onClose,
     onDelete, // Callback for deletion with (type, itemId) - allows parent to emit socket events
     tripStartDate,
-    tripEndDate
+    tripEndDate,
+    members = [] // Trip members, for the participants picker
 }) => {
     const { t } = useTranslation();
     const isEditMode = !!itemId;
@@ -40,6 +42,8 @@ const ItemWizard = ({
 
     // Form data based on type
     const [formData, setFormData] = useState(() => getInitialFormData(type, defaultDate));
+    // Who takes part: null = everyone (the default), otherwise a subset of member ids
+    const [participantIds, setParticipantIds] = useState(null);
     const [bannerImage, setBannerImage] = useState(null);
     const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
     const [documentLinks, setDocumentLinks] = useState([]); // Array of {url, title, isPersonal} for NEW link documents
@@ -114,6 +118,7 @@ const ItemWizard = ({
     useEffect(() => {
         if (!isEditMode) {
             setFormData(getInitialFormData(type, defaultDate));
+            setParticipantIds(null);
             setDocumentFiles([]);
             setExistingDocuments([]);
             setBannerImage(null);
@@ -143,6 +148,7 @@ const ItemWizard = ({
             if (type === 'activity') {
                 response = await activityAPI.getActivity(itemId);
                 const activity = response.data.activity;
+                setParticipantIds(activity.participant_ids?.length ? activity.participant_ids : null);
                 setFormData({
                     name: activity.name || '',
                     date: activity.date ? parseLocalDate(activity.date) : new Date(),
@@ -161,6 +167,7 @@ const ItemWizard = ({
             } else if (type === 'lodging') {
                 response = await lodgingAPI.getLodging(itemId);
                 const lodging = response.data.lodging;
+                setParticipantIds(lodging.participant_ids?.length ? lodging.participant_ids : null);
                 setFormData({
                     name: lodging.name || '',
                     address: lodging.address || '',
@@ -178,6 +185,7 @@ const ItemWizard = ({
             } else if (type === 'transport') {
                 response = await transportAPI.getTransportation(itemId);
                 const transport = response.data.transportation;
+                setParticipantIds(transport.participant_ids?.length ? transport.participant_ids : null);
                 setFormData({
                     type: transport.type || 'Flight',
                     company: transport.company || '',
@@ -370,6 +378,20 @@ const ItemWizard = ({
     // mutually exclusive; exactly one is non-empty)
     const handleTimeChange = (exactField, textField) => ({ exact, text }) => {
         setFormData(prev => ({ ...prev, [exactField]: exact, [textField]: text }));
+    };
+
+    // Toggle a member in the participants selection. Full or empty selections
+    // collapse back to null (= everyone) so the default stays the default.
+    const toggleParticipant = (id) => {
+        setParticipantIds(prev => {
+            const all = members.map(m => m.id);
+            const current = prev === null ? all : prev;
+            const next = current.includes(id)
+                ? current.filter(x => x !== id)
+                : [...current, id];
+            if (next.length === 0 || next.length === all.length) return null;
+            return next;
+        });
     };
 
     // Allowed file extensions for document uploads
@@ -647,6 +669,8 @@ const ItemWizard = ({
             setIsLoading(true);
 
             let formattedData = { ...formData };
+            // '[]' means the whole group; a JSON id list pins a subset
+            formattedData.participant_ids = JSON.stringify(participantIds ?? []);
             let response;
 
             if (type === 'activity') {
@@ -1407,6 +1431,15 @@ const ItemWizard = ({
             green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 focus:ring-green-500',
             blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 focus:ring-blue-500',
         };
+        // Selected participant chips carry the wizard's type color (full class
+        // names — Tailwind can't build them dynamically)
+        const chipActiveClasses = {
+            purple: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300',
+            green: 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300',
+            blue: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
+        };
+        const isEveryone = participantIds === null;
+        const isSelected = (id) => isEveryone || participantIds.includes(id);
 
         return (
             <div className="space-y-6">
@@ -1423,6 +1456,68 @@ const ItemWizard = ({
                 </div>
 
                 <div className="space-y-4">
+                    {/* Participants - only worth showing with company */}
+                    {members.length > 1 && (
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {t('participants.whoGoing', "Who's going?")}
+                                </label>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    {isEveryone
+                                        ? t('participants.everyone', 'Everyone')
+                                        : t('participants.countOf', '{{count}} of {{total}}', {
+                                            count: participantIds.length, total: members.length
+                                        })}
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setParticipantIds(null)}
+                                    className={`flex items-center gap-1.5 pl-2 pr-3 py-1.5 rounded-full border text-sm font-medium transition-all ${isEveryone
+                                        ? chipActiveClasses[color]
+                                        : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                                        }`}
+                                >
+                                    <Users className="w-4 h-4" />
+                                    {t('participants.everyone', 'Everyone')}
+                                </button>
+                                {members.map((member) => (
+                                    <button
+                                        key={member.id}
+                                        type="button"
+                                        onClick={() => toggleParticipant(member.id)}
+                                        className={`flex items-center gap-1.5 pl-1.5 pr-3 py-1 rounded-full border text-sm font-medium transition-all ${isSelected(member.id)
+                                            ? chipActiveClasses[color]
+                                            : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 opacity-60 hover:opacity-100 hover:border-gray-300 dark:hover:border-gray-500'
+                                            }`}
+                                    >
+                                        <span className="w-6 h-6 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-600 flex items-center justify-center flex-shrink-0">
+                                            {member.profile_image ? (
+                                                <img
+                                                    src={getImageUrl(member.profile_image)}
+                                                    alt={member.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                                                    {member.name?.charAt(0)?.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </span>
+                                        {member.name}
+                                    </button>
+                                ))}
+                            </div>
+                            {!isEveryone && (
+                                <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                    {t('participants.subsetHint', 'Only the selected travelers are part of this — others can hide it from their view.')}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Notes */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

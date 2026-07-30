@@ -2,6 +2,9 @@
 const { db } = require('../db/database');
 const { authorizeTrip } = require('../utils/tripAuth');
 const { normalizeExactTime } = require('../utils/timeFields');
+const {
+  attachParticipants, applyParticipantsFromRequest, getParticipantIds, deleteParticipants
+} = require('../utils/itemParticipants');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -24,6 +27,8 @@ const getTripActivities = (req, res) => {
       WHERE a.trip_id = ?
       ORDER BY a.date, COALESCE(NULLIF(a.time_exact, ''), a.time)
     `).all(userId, tripId);
+
+    attachParticipants('activity', activities);
 
     return res.status(200).json({ activities });
   } catch (error) {
@@ -61,6 +66,8 @@ const getActivity = (req, res) => {
       WHERE d.reference_type = 'activity' AND d.reference_id = ?
         AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)
     `).all(activityId, req.user.id);
+
+    activity.participant_ids = getParticipantIds('activity', activityId);
 
     return res.status(200).json({
       activity,
@@ -131,6 +138,10 @@ const createActivity = (req, res) => {
 
     // Get the created activity
     const activity = db.prepare('SELECT * FROM activities WHERE id = ?').get(result.lastInsertRowid);
+
+    // Participants (subset of trip members; absent/empty field = everyone)
+    if (!applyParticipantsFromRequest(res, 'activity', activity.id, tripId, req.body.participant_ids)) return;
+    activity.participant_ids = getParticipantIds('activity', activity.id);
 
     // Queue notification emails for other trip members (batched)
     const updateData = {
@@ -253,8 +264,12 @@ const updateActivity = (req, res) => {
       name, date, time, timeExact, location, confirmation_code, notes, bannerImage, activityId
     );
 
+    // Participants (subset of trip members; absent field = leave unchanged)
+    if (!applyParticipantsFromRequest(res, 'activity', activityId, activity.trip_id, req.body.participant_ids)) return;
+
     // Get updated activity
     const updatedActivity = db.prepare('SELECT * FROM activities WHERE id = ?').get(activityId);
+    updatedActivity.participant_ids = getParticipantIds('activity', activityId);
 
     // Broadcast to other users viewing this trip
     emitToTrip(updatedActivity.trip_id, 'activity:updated', updatedActivity);
@@ -316,6 +331,9 @@ const deleteActivity = (req, res) => {
         SET reference_type = 'trip', reference_id = ?
         WHERE reference_type = 'activity' AND reference_id = ?
       `).run(activity.trip_id, activityId);
+
+      // Delete participant rows (no FK to the polymorphic item tables)
+      deleteParticipants('activity', activityId);
 
       // Delete activity
       db.prepare('DELETE FROM activities WHERE id = ?').run(activityId);

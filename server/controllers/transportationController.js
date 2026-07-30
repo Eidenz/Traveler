@@ -2,6 +2,9 @@
 const { db } = require('../db/database');
 const { authorizeTrip } = require('../utils/tripAuth');
 const { normalizeExactTime } = require('../utils/timeFields');
+const {
+  attachParticipants, applyParticipantsFromRequest, getParticipantIds, deleteParticipants
+} = require('../utils/itemParticipants');
 const { validationResult } = require('express-validator');
 const { queueNotificationsForTripMembers } = require('../utils/emailQueueService');
 const { emitToTrip } = require('../utils/socketService');
@@ -43,6 +46,8 @@ const getTripTransportation = (req, res) => {
       ORDER BY t.departure_date, COALESCE(NULLIF(t.departure_time_exact, ''), t.departure_time)
     `).all(userId, tripId);
 
+    attachParticipants('transportation', transportation);
+
     return res.status(200).json({ transportation });
   } catch (error) {
     console.error('Get transportation error:', error);
@@ -79,6 +84,8 @@ const getTransportation = (req, res) => {
       WHERE d.reference_type = 'transportation' AND d.reference_id = ?
         AND (d.is_personal = 0 OR d.is_personal IS NULL OR d.uploaded_by = ?)
     `).all(transportId, req.user.id);
+
+    transportation.participant_ids = getParticipantIds('transportation', transportId);
 
     return res.status(200).json({
       transportation,
@@ -165,6 +172,10 @@ const createTransportation = (req, res) => {
 
     // Get the created transportation
     const transportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(result.lastInsertRowid);
+
+    // Participants (subset of trip members; absent/empty field = everyone)
+    if (!applyParticipantsFromRequest(res, 'transportation', transportation.id, tripId, req.body.participant_ids)) return;
+    transportation.participant_ids = getParticipantIds('transportation', transportation.id);
 
     // Queue notification emails for other trip members (batched)
     const updateData = {
@@ -298,8 +309,12 @@ const updateTransportation = (req, res) => {
       transportId
     );
 
+    // Participants (subset of trip members; absent field = leave unchanged)
+    if (!applyParticipantsFromRequest(res, 'transportation', transportId, transportation.trip_id, req.body.participant_ids)) return;
+
     // Get updated transportation
     const updatedTransportation = db.prepare('SELECT * FROM transportation WHERE id = ?').get(transportId);
+    updatedTransportation.participant_ids = getParticipantIds('transportation', transportId);
 
     // Broadcast to other users viewing this trip
     emitToTrip(updatedTransportation.trip_id, 'transport:updated', updatedTransportation);
@@ -359,6 +374,9 @@ const deleteTransportation = (req, res) => {
         SET reference_type = 'trip', reference_id = ?
         WHERE reference_type = 'transportation' AND reference_id = ?
       `).run(transportation.trip_id, transportId);
+
+      // Delete participant rows (no FK to the polymorphic item tables)
+      deleteParticipants('transportation', transportId);
 
       // Delete transportation
       db.prepare('DELETE FROM transportation WHERE id = ?').run(transportId);

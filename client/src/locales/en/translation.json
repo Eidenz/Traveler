@@ -708,5 +708,12 @@
     "closest": "Closest",
     "noneInRadius": "Nothing within {{km}} km.",
     "beyond": "{{count}} more beyond {{km}} km — show all"
+  },
+  "participants": {
+    "whoGoing": "Who's going?",
+    "everyone": "Everyone",
+    "countOf": "{{count}} of {{total}}",
+    "subsetHint": "Only the selected travelers are part of this — others can hide it from their view.",
+    "onlyMine": "Just my plans"
   }
 }

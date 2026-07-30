@@ -4,53 +4,60 @@ import { displayTime, effectiveTime } from '../../utils/timeFormat';
 import dayjs from 'dayjs';
 import { Plane, Bed, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import ParticipantAvatars from './ParticipantAvatars';
 
 // Transport card component
-const TransportCard = ({ item, onClick }) => (
+const TransportCard = ({ item, onClick, members }) => (
     <div
         className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
         onClick={() => onClick?.(item.id)}
     >
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                     <Plane className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{item.from_location} → {item.to_location}</p>
+                <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate">{item.from_location} → {item.to_location}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         {displayTime(item.departure_time_exact, item.departure_time) || item.company || item.type}
                     </p>
                 </div>
             </div>
-            {item.has_documents > 0 && (
-                <FileText className="w-4 h-4 text-gray-400" />
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+                <ParticipantAvatars ids={item.participant_ids} members={members} size="sm" />
+                {item.has_documents > 0 && (
+                    <FileText className="w-4 h-4 text-gray-400" />
+                )}
+            </div>
         </div>
     </div>
 );
 
 // Lodging card component
-const LodgingCard = ({ item, onClick }) => (
+const LodgingCard = ({ item, onClick, members }) => (
     <div
         className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
         onClick={() => onClick?.(item.id)}
     >
         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
                     <Bed className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{item.name}</p>
+                <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate">{item.name}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                         {dayjs(item.check_in).format('MMM D')} - {dayjs(item.check_out).format('MMM D')}
                     </p>
                 </div>
             </div>
-            {item.has_documents > 0 && (
-                <FileText className="w-4 h-4 text-gray-400" />
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+                <ParticipantAvatars ids={item.participant_ids} members={members} size="sm" />
+                {item.has_documents > 0 && (
+                    <FileText className="w-4 h-4 text-gray-400" />
+                )}
+            </div>
         </div>
     </div>
 );
@@ -63,7 +70,7 @@ const LodgingCard = ({ item, onClick }) => (
  * @param {Date} props.tripStartDate - Trip start date for day number calculation
  * @param {Function} props.onItemClick - Click handler for items
  */
-const DateGroupedList = ({ items, type, tripStartDate, onItemClick }) => {
+const DateGroupedList = ({ items, type, tripStartDate, onItemClick, members = [] }) => {
     const { t } = useTranslation();
     if (!items || items.length === 0) return null;
 
@@ -150,12 +157,14 @@ const DateGroupedList = ({ items, type, tripStartDate, onItemClick }) => {
                                                 key={item.id}
                                                 item={item}
                                                 onClick={onItemClick}
+                                                members={members}
                                             />
                                         ) : (
                                             <LodgingCard
                                                 key={item.id}
                                                 item={item}
                                                 onClick={onItemClick}
+                                                members={members}
                                             />
                                         )
                                     ))}
