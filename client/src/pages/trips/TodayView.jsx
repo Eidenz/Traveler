@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen
+  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen, Compass
 } from 'lucide-react';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
@@ -257,6 +257,21 @@ const TodayView = () => {
             </div>
           )
         )}
+
+        {/* Nearby brainstorm ideas */}
+        <Link
+          to={`/trips/${tripId}/nearby`}
+          className="mt-5 w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-accent to-rose-400 text-white shadow-lg shadow-accent/25 active:scale-[0.99] transition-transform"
+        >
+          <Compass className="w-6 h-6 flex-shrink-0" />
+          <span className="flex-1">
+            <span className="block font-semibold">{t('nearby.title', "What's nearby?")}</span>
+            <span className="text-xs text-white/80">
+              {t('nearby.entryHint', 'Brainstorm ideas around you, closest first')}
+            </span>
+          </span>
+          <ChevronRight className="w-5 h-5 flex-shrink-0" />
+        </Link>
 
         {/* All trip documents */}
         <Link

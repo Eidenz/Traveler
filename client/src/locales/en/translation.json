@@ -677,6 +677,30 @@
     "ideasHint": "The board, as you left it",
     "checklists": "{{done}}/{{total}} checklist items done",
     "documents": "{{count}} documents kept",
-    "footer": "Made together. See you on the next one."
+    "footer": "Made together. See you on the next one.",
+    "ideasDone": "{{done}} of {{count}} ideas done"
+  },
+  "nearby": {
+    "title": "What's nearby?",
+    "subtitle": "Ideas from your brainstorm, closest first",
+    "entryHint": "Brainstorm ideas around you, closest first",
+    "refresh": "Refresh location",
+    "denied": "Location denied — showing ideas unsorted. Allow location access to sort by distance.",
+    "empty": "No located ideas on the board yet — pin some places in the brainstorm!",
+    "allHandled": "Every located idea is done or passed. Impressive.",
+    "maps": "Maps",
+    "done": "Done",
+    "pass": "Pass",
+    "doneSection": "Done",
+    "hiddenSection": "Passed",
+    "markDoneTitle": "Mark as done",
+    "passTitle": "Pass on this",
+    "justMe": "Just me",
+    "justMeHint": "Others still see it recommended",
+    "wholeGroup": "Whole group",
+    "wholeGroupDoneHint": "Counts in the trip recap",
+    "wholeGroupPassHint": "Hidden for everyone",
+    "undoGroup": "Undo for the group",
+    "undoMe": "Undo for me"
   }
 }

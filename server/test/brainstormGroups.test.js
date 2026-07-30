@@ -78,3 +78,43 @@ test('deleting a group orphans its members instead of deleting them', async () =
   assert.ok(survivor, 'item must survive its group');
   assert.equal(survivor.group_id, null);
 });
+
+test('item status: personal scope is private, group scope is shared', async () => {
+  const item = (await owner.api.post(`/brainstorm/trip/${tripId}`, {
+    type: 'place', title: 'Status Shrine', position_x: 0, position_y: 0,
+    latitude: 35.0, longitude: 135.0,
+  })).data.item;
+
+  // Personal done
+  const me = await owner.api.patch(`/brainstorm/${item.id}/status`, {
+    status: 'done', scope: 'me', trip_id: tripId,
+  });
+  assert.equal(me.status, 200);
+  assert.equal(me.data.item.my_status, 'done');
+  assert.equal(me.data.item.done_at, null, 'personal status must not touch group fields');
+
+  // Group dismiss
+  const grp = await owner.api.patch(`/brainstorm/${item.id}/status`, {
+    status: 'dismissed', scope: 'group', trip_id: tripId,
+  });
+  assert.ok(grp.data.item.dismissed_at);
+  assert.equal(grp.data.item.dismissed_by, owner.user.id);
+
+  // Group done replaces group dismiss
+  const done = await owner.api.patch(`/brainstorm/${item.id}/status`, {
+    status: 'done', scope: 'group', trip_id: tripId,
+  });
+  assert.ok(done.data.item.done_at);
+  assert.equal(done.data.item.dismissed_at, null);
+
+  // Clear both scopes
+  await owner.api.patch(`/brainstorm/${item.id}/status`, { status: null, scope: 'me', trip_id: tripId });
+  const cleared = await owner.api.patch(`/brainstorm/${item.id}/status`, { status: null, scope: 'group', trip_id: tripId });
+  assert.equal(cleared.data.item.my_status, null);
+  assert.equal(cleared.data.item.done_at, null);
+
+  // List carries my_status per requester
+  await owner.api.patch(`/brainstorm/${item.id}/status`, { status: 'dismissed', scope: 'me', trip_id: tripId });
+  const list = (await owner.api.get(`/brainstorm/trip/${tripId}`)).data.items;
+  assert.equal(list.find(i => i.id === item.id).my_status, 'dismissed');
+});

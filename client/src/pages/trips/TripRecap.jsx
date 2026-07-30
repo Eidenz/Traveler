@@ -286,7 +286,9 @@ const TripRecap = () => {
               <Lightbulb className="w-6 h-6 text-amber-500 flex-shrink-0" />
               <span>
                 <span className="block font-medium text-gray-900 dark:text-white">
-                  {t('recap.ideas', '{{count}} ideas pinned', { count: counts.brainstorm_items })}
+                  {counts.brainstorm_done > 0
+                    ? t('recap.ideasDone', '{{done}} of {{count}} ideas done', { done: counts.brainstorm_done, count: counts.brainstorm_items })
+                    : t('recap.ideas', '{{count}} ideas pinned', { count: counts.brainstorm_items })}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {t('recap.ideasHint', 'The board, as you left it')}

@@ -302,6 +302,7 @@ const getTripRecap = async (req, res) => {
       WHERE trip_id = ? AND (is_personal = 0 OR is_personal IS NULL OR uploaded_by = ?)
     `).get(tripId, userId).c;
     const brainstormItems = db.prepare('SELECT COUNT(*) as c FROM brainstorm_items WHERE trip_id = ?').get(tripId).c;
+    const brainstormDone = db.prepare('SELECT COUNT(*) as c FROM brainstorm_items WHERE trip_id = ? AND done_at IS NOT NULL').get(tripId).c;
     const brainstormGroups = db.prepare('SELECT COUNT(*) as c FROM brainstorm_groups WHERE trip_id = ?').get(tripId).c;
 
     // Checklist completion (shared lists, collective status)
@@ -451,6 +452,7 @@ const getTripRecap = async (req, res) => {
         lodgings,
         documents,
         brainstorm_items: brainstormItems,
+        brainstorm_done: brainstormDone,
         brainstorm_groups: brainstormGroups,
       },
       transport_types: transportTypes,

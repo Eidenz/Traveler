@@ -365,6 +365,8 @@ export const brainstormAPI = {
     api.patch(`/brainstorm/batch/positions?tripId=${tripId}`, { positions }),
   deleteBrainstormItem: (itemId, tripId) =>
     api.delete(`/brainstorm/${itemId}?tripId=${tripId}`),
+  setItemStatus: (itemId, status, scope, tripId) =>
+    api.patch(`/brainstorm/${itemId}/status?tripId=${tripId}`, { status, scope, trip_id: tripId }),
   getPublicBrainstormItems: (token) => api.get(`/brainstorm/public/${token}`),
 
   // Groups

@@ -1,6 +1,7 @@
 // server/routes/brainstorm.js
 const express = require('express');
 const {
+    setItemStatus,
     getBrainstormItems,
     getBrainstormItem,
     createBrainstormItem,
@@ -48,6 +49,9 @@ router.put(
 
 // Update item position (for drag and drop)
 router.patch('/:itemId/position', updateItemPosition);
+
+// Field status (done/dismissed) in 'me' or 'group' scope
+router.patch('/:itemId/status', setItemStatus);
 
 // Batch update positions
 router.patch('/batch/positions', batchUpdatePositions);

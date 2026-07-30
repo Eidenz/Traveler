@@ -4,7 +4,7 @@
 // coordinates inside the transformed layer.
 
 import React from 'react';
-import { MapPin, Link2, Lightbulb, StickyNote, Star } from 'lucide-react';
+import { MapPin, Link2, Lightbulb, StickyNote, Star, CheckCircle2 } from 'lucide-react';
 import { getImageUrl } from '../../../utils/imageUtils';
 
 const TYPE_ICONS = {
@@ -28,7 +28,7 @@ const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
 
   return (
     <div
-      className={`board-item-card group/card w-[230px] select-none rounded-xl border bg-white dark:bg-gray-800 shadow-sm overflow-hidden transition-shadow
+      className={`board-item-card group/card relative w-[230px] select-none rounded-xl border bg-white dark:bg-gray-800 shadow-sm overflow-visible transition-shadow
         ${selected
           ? 'border-accent ring-2 ring-accent/60 shadow-md'
           : 'border-gray-200 dark:border-gray-700 hover:shadow-md'}
@@ -37,6 +37,12 @@ const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
         ${lifted ? 'scale-105 shadow-xl ring-2 ring-accent/50' : ''}`}
       style={accent ? { borderColor: accent, borderLeftWidth: 4 } : undefined}
     >
+      {/* Group "we did this" badge (set from the nearby view) */}
+      {item.done_at && (
+        <span className="absolute -top-1.5 -right-1.5 z-10 w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow">
+          <CheckCircle2 className="w-3.5 h-3.5" />
+        </span>
+      )}
       {/* Image (lazy — hundreds of these can exist on one board) */}
       {item.image_path && (
         <img

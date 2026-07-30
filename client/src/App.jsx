@@ -19,6 +19,7 @@ import MyTrips from './pages/trips/MyTrips';
 import TripDetail from './pages/trips/TripDetail';
 import TodayView from './pages/trips/TodayView';
 import TripRecap from './pages/trips/TripRecap';
+import NearbyIdeas from './pages/trips/NearbyIdeas';
 import CreateTrip from './pages/trips/CreateTrip';
 import EditTrip from './pages/trips/EditTrip';
 import Calendar from './pages/Calendar';
@@ -89,6 +90,7 @@ function App() {
           <Route path="trips/:tripId/brainstorm" element={<Brainstorm />} />
           <Route path="trips/:tripId/today" element={<TodayView />} />
           <Route path="trips/:tripId/recap" element={<TripRecap />} />
+          <Route path="trips/:tripId/nearby" element={<NearbyIdeas />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="budgets" element={<BudgetDashboard />} />
           <Route path="budgets/:tripId" element={<BudgetDashboard />} />

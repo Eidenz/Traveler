@@ -61,12 +61,14 @@ const getBrainstormItems = async (req, res) => {
         const { tripId } = req.params;
 
         const items = db.prepare(`
-      SELECT bi.*, u.name as creator_name, u.profile_image as creator_image
+      SELECT bi.*, u.name as creator_name, u.profile_image as creator_image,
+        (SELECT status FROM brainstorm_item_user_status s
+          WHERE s.item_id = bi.id AND s.user_id = ?) as my_status
       FROM brainstorm_items bi
       LEFT JOIN users u ON bi.created_by = u.id
       WHERE bi.trip_id = ?
       ORDER BY bi.created_at DESC
-    `).all(tripId);
+    `).all(req.user.id, tripId);
 
         res.json({ items });
     } catch (error) {
@@ -604,7 +606,81 @@ const deleteBrainstormGroup = async (req, res) => {
     }
 };
 
+/**
+ * Field status for an idea (done / dismissed), in one of two scopes:
+ *   scope 'me'    -> a personal row, invisible to the rest of the group
+ *   scope 'group' -> stamped on the item itself, visible to everyone
+ * status null clears the chosen scope. Any trip member may use either
+ * scope — same trust-of-the-party rule as settlement payments.
+ */
+const setItemStatus = (req, res) => {
+    try {
+        const { itemId } = req.params;
+        const { status, scope } = req.body;
+        const userId = req.user.id;
+
+        if (status !== null && !['done', 'dismissed'].includes(status)) {
+            return res.status(400).json({ message: 'status must be done, dismissed or null' });
+        }
+        if (!['me', 'group'].includes(scope)) {
+            return res.status(400).json({ message: 'scope must be me or group' });
+        }
+
+        const item = db.prepare('SELECT * FROM brainstorm_items WHERE id = ?').get(itemId);
+        if (!item) {
+            return res.status(404).json({ message: 'Brainstorm item not found' });
+        }
+        const member = db.prepare(
+            'SELECT role FROM trip_members WHERE trip_id = ? AND user_id = ?'
+        ).get(item.trip_id, userId);
+        if (!member) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        if (scope === 'me') {
+            if (status === null) {
+                db.prepare('DELETE FROM brainstorm_item_user_status WHERE item_id = ? AND user_id = ?')
+                    .run(itemId, userId);
+            } else {
+                db.prepare(`
+          INSERT INTO brainstorm_item_user_status (item_id, user_id, status) VALUES (?, ?, ?)
+          ON CONFLICT(item_id, user_id) DO UPDATE SET status = excluded.status, created_at = CURRENT_TIMESTAMP
+        `).run(itemId, userId, status);
+            }
+        } else {
+            const now = new Date().toISOString();
+            db.prepare(`
+        UPDATE brainstorm_items SET
+          done_at = ?, done_by = ?,
+          dismissed_at = ?, dismissed_by = ?
+        WHERE id = ?
+      `).run(
+                status === 'done' ? now : null,
+                status === 'done' ? userId : null,
+                status === 'dismissed' ? now : null,
+                status === 'dismissed' ? userId : null,
+                itemId
+            );
+        }
+
+        const updated = db.prepare(`
+      SELECT bi.*, u.name as creator_name, u.profile_image as creator_image,
+        (SELECT s.status FROM brainstorm_item_user_status s
+          WHERE s.item_id = bi.id AND s.user_id = ?) as my_status
+      FROM brainstorm_items bi
+      LEFT JOIN users u ON bi.created_by = u.id
+      WHERE bi.id = ?
+    `).get(userId, itemId);
+
+        res.json({ item: updated, scope });
+    } catch (error) {
+        console.error('Error setting item status:', error);
+        res.status(500).json({ message: 'Failed to update status' });
+    }
+};
+
 module.exports = {
+    setItemStatus,
     getBrainstormItems,
     getBrainstormItem,
     createBrainstormItem,

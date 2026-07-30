@@ -677,6 +677,30 @@
     "ideasHint": "Le tableau, tel que vous l'avez laissé",
     "checklists": "{{done}}/{{total}} éléments de checklist faits",
     "documents": "{{count}} documents conservés",
-    "footer": "Fait ensemble. À la prochaine !"
+    "footer": "Fait ensemble. À la prochaine !",
+    "ideasDone": "{{done}} idées faites sur {{count}}"
+  },
+  "nearby": {
+    "title": "À proximité ?",
+    "subtitle": "Les idées du brainstorm, les plus proches d'abord",
+    "entryHint": "Les idées du brainstorm autour de vous, les plus proches d'abord",
+    "refresh": "Actualiser la position",
+    "denied": "Localisation refusée — idées non triées. Autorisez la localisation pour trier par distance.",
+    "empty": "Aucune idée localisée sur le tableau — épinglez des lieux dans le brainstorm !",
+    "allHandled": "Toutes les idées localisées sont faites ou passées. Impressionnant.",
+    "maps": "Maps",
+    "done": "Fait",
+    "pass": "Passer",
+    "doneSection": "Fait",
+    "hiddenSection": "Passées",
+    "markDoneTitle": "Marquer comme fait",
+    "passTitle": "Passer cette idée",
+    "justMe": "Juste moi",
+    "justMeHint": "Les autres la voient toujours recommandée",
+    "wholeGroup": "Tout le groupe",
+    "wholeGroupDoneHint": "Compte dans la rétrospective",
+    "wholeGroupPassHint": "Masquée pour tout le monde",
+    "undoGroup": "Annuler pour le groupe",
+    "undoMe": "Annuler pour moi"
   }
 }
