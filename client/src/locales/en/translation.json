@@ -664,7 +664,8 @@
     "viewTimeline": "View the timeline",
     "freeDay": "Nothing planned — enjoy the free day!",
     "documents": "Documents",
-    "allDocuments": "All trip documents"
+    "allDocuments": "All trip documents",
+    "sleepingTonight": "Sleeping tonight"
   },
   "recap": {
     "title": "Trip recap",

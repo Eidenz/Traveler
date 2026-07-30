@@ -7,12 +7,16 @@ import { getImageUrl } from '../../utils/imageUtils';
 import { tripAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 const TripPanelHeader = ({
   trip,
   members = [],
   isAvailableOffline = false,
   isSavingOffline = false,
+  offlineSavedAt = null, // ISO timestamp of the last snapshot write
   onShare,
   onSaveOffline,
   canEdit = true,
@@ -21,6 +25,14 @@ const TripPanelHeader = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // "Available offline · 2 hours ago" — the snapshot auto-refreshes on every
+  // online open, so this is really "how stale could my data be"
+  const offlineLabel = isAvailableOffline
+    ? offlineSavedAt
+      ? `${t('offline.availableOffline', 'Available offline')} · ${dayjs(offlineSavedAt).fromNow()}`
+      : t('offline.availableOffline', 'Available offline')
+    : t('offline.saveOffline', 'Save offline');
 
   const isOwner = !!members.find((m) => m.id === currentUserId && m.role === 'owner');
   const tripEnded = trip?.end_date && dayjs(trip.end_date).isBefore(dayjs(), 'day');
@@ -204,12 +216,7 @@ const TripPanelHeader = ({
               ) : (
                 <Wifi className="w-3.5 h-3.5" />
               )}
-              <span>
-                {isAvailableOffline
-                  ? t('offline.availableOffline', 'Available offline')
-                  : t('offline.saveOffline', 'Save offline')
-                }
-              </span>
+              <span>{offlineLabel}</span>
             </button>
           </div>
         </div>
@@ -269,12 +276,7 @@ const TripPanelHeader = ({
             ) : (
               <Wifi className="w-4 h-4" />
             )}
-            <span>
-              {isAvailableOffline
-                ? t('offline.availableOffline', 'Available offline')
-                : t('offline.saveOffline', 'Save for offline')
-              }
-            </span>
+            <span>{offlineLabel}</span>
           </button>
         </div>
       </div>

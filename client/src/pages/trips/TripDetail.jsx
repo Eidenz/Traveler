@@ -59,6 +59,7 @@ const TripDetail = () => {
   // Offline state
   const [isAvailableOffline, setIsAvailableOffline] = useState(false);
   const [isSavingOffline, setIsSavingOffline] = useState(false);
+  const [offlineSavedAt, setOfflineSavedAt] = useState(null); // snapshot freshness (ISO)
 
   // Modal state
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -238,9 +239,42 @@ const TripDetail = () => {
   }, [tripId]);
 
   const checkOfflineAvailability = async (isStale = () => false) => {
-    const available = await isTripAvailableOffline(tripId);
+    const offlineTrip = await getTripOffline(tripId).catch(() => null);
     if (isStale()) return;
-    setIsAvailableOffline(available);
+    setIsAvailableOffline(!!offlineTrip);
+    setOfflineSavedAt(offlineTrip?.offlineSavedAt || null);
+  };
+
+  // Keep the offline snapshot fresh: whenever the trip is opened online and a
+  // snapshot exists, silently re-save the data (documents keep whatever the
+  // last manual save downloaded — they're heavy and rarely change).
+  const refreshOfflineSnapshot = async (data) => {
+    try {
+      let checklistsWithItems = [];
+      try {
+        const cls = (await checklistAPI.getTripChecklists(tripId)).data.checklists || [];
+        checklistsWithItems = await Promise.all(
+          cls.map(async (checklist) => {
+            const res = await checklistAPI.getChecklist(checklist.id);
+            return { ...checklist, items: res.data.items || [] };
+          })
+        );
+      } catch (error) {
+        console.error('Error refreshing checklists for offline snapshot:', error);
+      }
+      await saveTripOffline({
+        id: tripId,
+        ...data.trip,
+        members: data.members,
+        transportation: data.transportation,
+        lodging: data.lodging,
+        activities: data.activities,
+        checklists: checklistsWithItems,
+      });
+      setOfflineSavedAt(new Date().toISOString());
+    } catch (error) {
+      console.error('Error auto-refreshing offline snapshot:', error);
+    }
   };
 
   const fetchChecklists = async (isStale = () => false) => {
@@ -295,6 +329,11 @@ const TripDetail = () => {
       setTransportation(response.data.transportation);
       setLodging(response.data.lodging);
       setActivities(response.data.activities);
+
+      // Fire-and-forget snapshot refresh when one exists
+      if (offlineAvailable) {
+        refreshOfflineSnapshot(response.data);
+      }
     } catch (error) {
       if (isStale()) return;
       console.error('Error fetching trip:', error);
@@ -698,6 +737,7 @@ const TripDetail = () => {
         setIsSavingOffline(true);
         await removeTripOffline(tripId);
         setIsAvailableOffline(false);
+        setOfflineSavedAt(null);
         toast.success(t('offline.removed', 'Removed from offline storage'));
       } catch {
         toast.error(t('offline.removeFailed', 'Failed to remove offline data'));
@@ -759,6 +799,7 @@ const TripDetail = () => {
         }
 
         setIsAvailableOffline(true);
+        setOfflineSavedAt(new Date().toISOString());
         if (docErrors > 0) {
           toast.success(t('offline.savedPartialDocs', 'Saved for offline use ({{count}} documents, some could not be downloaded)', { count: docCount }));
         } else if (docCount > 0) {
@@ -934,6 +975,7 @@ const TripDetail = () => {
               members={members}
               isAvailableOffline={isAvailableOffline}
               isSavingOffline={isSavingOffline}
+              offlineSavedAt={offlineSavedAt}
               onShare={() => setIsShareModalOpen(true)}
               onSaveOffline={handleSaveOffline}
               currentUserId={user?.id}
@@ -1035,6 +1077,7 @@ const TripDetail = () => {
               members={members}
               isAvailableOffline={isAvailableOffline}
               isSavingOffline={isSavingOffline}
+              offlineSavedAt={offlineSavedAt}
               onShare={() => setIsShareModalOpen(true)}
               onSaveOffline={handleSaveOffline}
               currentUserId={user?.id}

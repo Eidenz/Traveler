@@ -7,9 +7,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen, Compass, UserCheck
+  ArrowLeft, Plane, Bed, MapPin, FileText, Sun, ChevronRight, Loader2, FolderOpen, Compass, UserCheck,
+  Moon, WifiOff
 } from 'lucide-react';
 import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +22,8 @@ import { displayTime, effectiveTime } from '../../utils/timeFormat';
 import DocumentsModal from '../../components/trips/DocumentsModal';
 import ParticipantAvatars from '../../components/trips/ParticipantAvatars';
 import useAuthStore from '../../stores/authStore';
+import { isOnline } from '../../stores/onlineStore';
+import { getTripOffline, getDocumentsForReference } from '../../utils/offlineStorage';
 
 const TodayView = () => {
   const { tripId } = useParams();
@@ -27,6 +33,9 @@ const TodayView = () => {
   const [trip, setTrip] = useState(null);
   const [members, setMembers] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [lodgings, setLodgings] = useState([]); // full list, for the sleeping-tonight card
+  const [usingOffline, setUsingOffline] = useState(false);
+  const [offlineSavedAt, setOfflineSavedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [docsFor, setDocsFor] = useState(null); // { title, documents }
   const [docsLoading, setDocsLoading] = useState(null); // entry key while fetching
@@ -44,10 +53,40 @@ const TodayView = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await tripAPI.getTripById(tripId);
-      const { trip: t_, transportation, lodging, activities, members: members_ } = res.data;
+
+      // Online first; fall back to the offline snapshot saved from the trip
+      // page (which auto-refreshes on every online open)
+      let data = null;
+      let snapshot = null;
+      if (!isOnline()) {
+        snapshot = await getTripOffline(tripId).catch(() => null);
+      } else {
+        try {
+          data = (await tripAPI.getTripById(tripId)).data;
+        } catch (error) {
+          snapshot = await getTripOffline(tripId).catch(() => null);
+          if (!snapshot) throw error;
+        }
+      }
+      if (!data && snapshot) {
+        data = {
+          trip: snapshot,
+          members: snapshot.members || [],
+          transportation: snapshot.transportation || [],
+          lodging: snapshot.lodging || [],
+          activities: snapshot.activities || [],
+        };
+      }
+      if (!data) {
+        throw new Error('Offline and no saved snapshot for this trip');
+      }
+      setUsingOffline(!!snapshot);
+      setOfflineSavedAt(snapshot?.offlineSavedAt || null);
+
+      const { trip: t_, transportation, lodging, activities, members: members_ } = data;
       setTrip(t_);
       setMembers(members_ || []);
+      setLodgings(lodging);
 
       const list = [];
       const sameDay = (d) => d && dayjs(d).format('YYYY-MM-DD') === today;
@@ -134,6 +173,15 @@ const TodayView = () => {
   const openDocuments = async (entry) => {
     try {
       setDocsLoading(entry.key);
+      if (usingOffline) {
+        const offlineDocs = await getDocumentsForReference(entry.reference.type, entry.reference.id);
+        if (!offlineDocs?.length) {
+          toast.error(t('documents.notAvailableOffline', 'Documents not available offline'));
+          return;
+        }
+        setDocsFor({ title: entry.title, documents: offlineDocs });
+        return;
+      }
       const res = await documentAPI.getDocumentsByReference(
         entry.reference.type, entry.reference.id, tripId
       );
@@ -164,6 +212,16 @@ const TodayView = () => {
   const visibleEntries = onlyMine
     ? entries.filter((e) => !e.participantIds?.length || e.participantIds.includes(user?.id))
     : entries;
+
+  // Where the group sleeps tonight: checked in on/before today, out after today
+  const isMineLodging = (l) => !l.participant_ids?.length || l.participant_ids.includes(user?.id);
+  const tonightLodgings = lodgings
+    .filter((l) => {
+      const checkIn = dayjs(l.check_in).format('YYYY-MM-DD');
+      const checkOut = dayjs(l.check_out).format('YYYY-MM-DD');
+      return checkIn <= today && checkOut > today;
+    })
+    .filter((l) => (onlyMine ? isMineLodging(l) : true));
 
   // First clocked entry still ahead of now gets the "next up" treatment
   const nowHM = dayjs().format('HH:mm');
@@ -200,6 +258,19 @@ const TodayView = () => {
           )}
           {trip?.name && <span> · {trip.name}</span>}
         </p>
+
+        {/* Offline snapshot notice with freshness */}
+        {usingOffline && (
+          <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs font-medium">
+            <WifiOff className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>{t('offline.usingOfflineData', 'Using offline data')}</span>
+            {offlineSavedAt && (
+              <span className="text-amber-600/70 dark:text-amber-400/70">
+                · {dayjs(offlineSavedAt).fromNow()}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Outside the trip range */}
         {!inTrip && (
@@ -321,6 +392,53 @@ const TodayView = () => {
           <FolderOpen className="w-5 h-5 text-gray-400" />
           {t('today.allDocuments', 'All trip documents')}
         </Link>
+
+        {/* Sleeping tonight — tap a row to open the address in Google Maps */}
+        {inTrip && tonightLodgings.length > 0 && (
+          <div className="mt-5 bg-white dark:bg-gray-800 rounded-2xl p-4">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-400 mb-3">
+              <Moon className="w-4 h-4" />
+              {t('today.sleepingTonight', 'Sleeping tonight')}
+            </p>
+            <div className="space-y-1">
+              {tonightLodgings.map((l) => {
+                const mapsUrl = l.address
+                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.address)}`
+                  : null;
+                const inner = (
+                  <>
+                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                      <Bed className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-white truncate">{l.name}</p>
+                      {l.address && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{l.address}</p>
+                      )}
+                    </div>
+                    <ParticipantAvatars ids={l.participant_ids} members={members} />
+                    {mapsUrl && <MapPin className="w-4 h-4 text-indigo-400 flex-shrink-0" />}
+                  </>
+                );
+                return mapsUrl ? (
+                  <a
+                    key={l.id}
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 p-2 rounded-xl active:bg-indigo-50 dark:active:bg-indigo-900/20 transition-colors"
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div key={l.id} className="flex items-center gap-3 p-2">
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Read-only documents modal */}
@@ -329,6 +447,7 @@ const TodayView = () => {
         onClose={() => setDocsFor(null)}
         documents={docsFor?.documents || []}
         tripId={tripId}
+        isOfflineMode={usingOffline}
         canEdit={false}
       />
     </div>

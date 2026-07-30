@@ -664,7 +664,8 @@
     "viewTimeline": "Voir la timeline",
     "freeDay": "Rien de prévu — profitez de la journée libre !",
     "documents": "Documents",
-    "allDocuments": "Tous les documents du voyage"
+    "allDocuments": "Tous les documents du voyage",
+    "sleepingTonight": "Dodo ce soir"
   },
   "recap": {
     "title": "Rétrospective",
