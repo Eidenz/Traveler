@@ -452,42 +452,48 @@ const BrainstormMap = ({
                 </button>
             </div>
 
-            {/* Legend - positioned higher when there's a bottom offset */}
+            {/* Bottom row: legend and add-hint share one wrapping flex row,
+                so on a narrow pane the hint stacks above the legend instead
+                of overlapping it. Positioned higher when there's a bottom
+                offset. pointer-events pass through the gaps to the map. */}
             <div
-                className={`absolute left-4 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-lg ${compact ? 'px-2.5 py-1.5' : 'p-3'} border border-gray-200 dark:border-gray-700`}
+                className="absolute left-4 right-4 flex flex-wrap-reverse items-end justify-between gap-2 pointer-events-none"
                 style={{
                     bottom: bottomOffset > 0 ? `${bottomOffset + 16}px` : (compact ? '32px' : '16px'),
                 }}
             >
-                {!compact && (
-                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                        {t('brainstorm.legend', 'Item types')}
+                <div
+                    className={`pointer-events-auto bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl shadow-lg ${compact ? 'px-2.5 py-1.5' : 'p-3'} border border-gray-200 dark:border-gray-700`}
+                >
+                    {!compact && (
+                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                            {t('brainstorm.legend', 'Item types')}
+                        </div>
+                    )}
+                    <div className={`flex ${compact ? 'gap-2' : 'flex-wrap gap-2'}`}>
+                        {Object.entries(MARKER_COLORS).map(([type, color]) => (
+                            <div key={type} className="flex items-center gap-1">
+                                <div
+                                    className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full flex-shrink-0`}
+                                    style={{ backgroundColor: color }}
+                                />
+                                <span className={`${compact ? 'text-[10px]' : 'text-xs'} text-gray-600 dark:text-gray-300 capitalize`}>
+                                    {type}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {canEdit && !compact && showAddHint && (
+                    <div className="pointer-events-auto ml-auto bg-accent/90 text-white rounded-xl px-3 py-2 text-sm shadow-lg">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 flex-shrink-0" />
+                            {t('brainstorm.clickToAdd', 'Click anywhere to add an item')}
+                        </div>
                     </div>
                 )}
-                <div className={`flex ${compact ? 'gap-2' : 'flex-wrap gap-2'}`}>
-                    {Object.entries(MARKER_COLORS).map(([type, color]) => (
-                        <div key={type} className="flex items-center gap-1">
-                            <div
-                                className={`${compact ? 'w-2 h-2' : 'w-3 h-3'} rounded-full flex-shrink-0`}
-                                style={{ backgroundColor: color }}
-                            />
-                            <span className={`${compact ? 'text-[10px]' : 'text-xs'} text-gray-600 dark:text-gray-300 capitalize`}>
-                                {type}
-                            </span>
-                        </div>
-                    ))}
-                </div>
             </div>
-
-            {/* Click hint - hidden on compact/mobile */}
-            {canEdit && !compact && showAddHint && (
-                <div className="absolute bottom-4 right-4 bg-accent/90 text-white rounded-xl px-3 py-2 text-sm shadow-lg">
-                    <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        {t('brainstorm.clickToAdd', 'Click anywhere to add an item')}
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
