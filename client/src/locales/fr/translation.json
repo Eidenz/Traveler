@@ -715,5 +715,26 @@
     "countOf": "{{count}} sur {{total}}",
     "subsetHint": "Seuls les voyageurs sélectionnés sont concernés — les autres peuvent le masquer de leur vue.",
     "onlyMine": "Mes plans uniquement"
+  },
+  "itemExpense": {
+    "title": "Dépense partagée",
+    "noBudget": "Créez un budget partagé dans l'onglet Budget pour y rattacher des dépenses.",
+    "modeNone": "Aucune",
+    "modeNew": "Nouvelle dépense",
+    "modeLink": "Lier une existante",
+    "amount": "Montant",
+    "paidBy": "payée par",
+    "paidByOption": "Payée par {{name}}",
+    "newHint": "Nommée et datée d'après cet élément, partagée à parts égales entre {{who}}.",
+    "splitSelected": "les {{count}} voyageurs sélectionnés",
+    "searchPlaceholder": "Rechercher les dépenses partagées...",
+    "noMatches": "Aucune dépense partagée non liée ne correspond.",
+    "linkHint": "Sera liée à cet élément à l'enregistrement.",
+    "unlink": "Délier",
+    "willUnlink": "« {{name}} » sera déliée à l'enregistrement.",
+    "editHint": "Les montants et partages se modifient dans l'onglet Budget.",
+    "fallbackName": "Dépense du voyage",
+    "amountRequired": "Indiquez un montant pour la dépense partagée, ou repassez sur Aucune",
+    "saveFailed": "Enregistré, mais la dépense partagée n'a pas pu être rattachée"
   }
 }

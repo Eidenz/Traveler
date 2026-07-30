@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
-    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download, Link2
+    FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download, Link2,
+    Wallet, Search
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -12,9 +13,11 @@ import toast from 'react-hot-toast';
 import { uploadErrorMessage } from '../../utils/documentActions';
 import TimeInput from '../ui/TimeInput';
 import dayjs from 'dayjs';
-import { transportAPI, lodgingAPI, activityAPI, documentAPI } from '../../services/api';
+import { transportAPI, lodgingAPI, activityAPI, documentAPI, budgetAPI } from '../../services/api';
 import { geocodeLocation } from '../../utils/geocoding';
 import { getImageUrl } from '../../utils/imageUtils';
+import { symbolFor } from '../../utils/currencyUtils';
+import useAuthStore from '../../stores/authStore';
 
 /**
  * Step-based wizard for creating/editing activities, lodging, and transport.
@@ -33,6 +36,7 @@ const ItemWizard = ({
     members = [] // Trip members, for the participants picker
 }) => {
     const { t } = useTranslation();
+    const { user } = useAuthStore();
     const isEditMode = !!itemId;
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +48,20 @@ const ItemWizard = ({
     const [formData, setFormData] = useState(() => getInitialFormData(type, defaultDate));
     // Who takes part: null = everyone (the default), otherwise a subset of member ids
     const [participantIds, setParticipantIds] = useState(null);
+
+    // Shared-expense attachment (group budget only — personal money stays in
+    // the budget tab). An item carries at most one linked expense.
+    const [budgetInfo, setBudgetInfo] = useState(null); // { budget, expenses } once loaded
+    const [expenseMode, setExpenseMode] = useState('none'); // 'none' | 'new' | 'link'
+    const [expenseAmount, setExpenseAmount] = useState('');
+    const [expensePaidBy, setExpensePaidBy] = useState(null); // null = current user
+    const [expenseLinkQuery, setExpenseLinkQuery] = useState('');
+    const [expenseLinkId, setExpenseLinkId] = useState(null);
+    const [linkedExpense, setLinkedExpense] = useState(null); // already linked (edit mode)
+    const [unlinkOnSave, setUnlinkOnSave] = useState(false);
+
+    // The server stores transport references as 'transportation'
+    const expenseRefType = type === 'transport' ? 'transportation' : type;
     const [bannerImage, setBannerImage] = useState(null);
     const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
     const [documentLinks, setDocumentLinks] = useState([]); // Array of {url, title, isPersonal} for NEW link documents
@@ -114,11 +132,43 @@ const ItemWizard = ({
         }
     }, [itemId, type]);
 
+    // Shared budget + expenses, for the expense attachment section
+    useEffect(() => {
+        let cancelled = false;
+        budgetAPI.getTripBudget(tripId)
+            .then((res) => {
+                if (!cancelled) setBudgetInfo({ budget: res.data.budget, expenses: res.data.expenses || [] });
+            })
+            .catch(() => {
+                if (!cancelled) setBudgetInfo({ budget: null, expenses: [] });
+            });
+        return () => { cancelled = true; };
+    }, [tripId]);
+
+    // In edit mode, surface the expense already linked to this item
+    useEffect(() => {
+        if (!isEditMode || !budgetInfo) {
+            setLinkedExpense(null);
+            setUnlinkOnSave(false);
+            return;
+        }
+        const linked = budgetInfo.expenses.find(
+            (e) => e.reference_type === expenseRefType && e.reference_id === Number(itemId)
+        );
+        setLinkedExpense(linked || null);
+        setUnlinkOnSave(false);
+    }, [isEditMode, budgetInfo, expenseRefType, itemId]);
+
     // Reset form when switching from edit to create mode or when defaultDate changes
     useEffect(() => {
         if (!isEditMode) {
             setFormData(getInitialFormData(type, defaultDate));
             setParticipantIds(null);
+            setExpenseMode('none');
+            setExpenseAmount('');
+            setExpensePaidBy(null);
+            setExpenseLinkQuery('');
+            setExpenseLinkId(null);
             setDocumentFiles([]);
             setExistingDocuments([]);
             setBannerImage(null);
@@ -498,6 +548,57 @@ const ItemWizard = ({
         }
     };
 
+    // Expense name/category/date come from the item itself
+    const expenseDefaults = () => {
+        if (type === 'activity') {
+            return { name: formData.name, category: 'activities', date: formData.date };
+        }
+        if (type === 'lodging') {
+            return { name: formData.name, category: 'lodging', date: formData.check_in };
+        }
+        return {
+            name: formData.company || `${formData.from_location} → ${formData.to_location}`,
+            category: 'transport',
+            date: formData.departure_date,
+        };
+    };
+
+    // Apply the expense choices after the item itself is saved: unlink,
+    // create-and-link, or link an existing shared expense
+    const saveExpenseAttachment = async (referenceId) => {
+        const budget = budgetInfo?.budget;
+        if (!budget) return;
+        try {
+            if (unlinkOnSave && linkedExpense) {
+                await budgetAPI.updateExpense(linkedExpense.id, {
+                    reference_type: '', reference_id: '', trip_id: tripId,
+                }, tripId);
+            }
+            if (expenseMode === 'new' && parseFloat(expenseAmount) > 0) {
+                const defaults = expenseDefaults();
+                await budgetAPI.addExpense(budget.id, {
+                    name: defaults.name || t('itemExpense.fallbackName', 'Trip expense'),
+                    amount: parseFloat(expenseAmount),
+                    category: defaults.category,
+                    date: dayjs(defaults.date || new Date()).format('YYYY-MM-DD'),
+                    paid_by: expensePaidBy ?? user?.id,
+                    // Split follows the item's participants ([] = everyone)
+                    split_user_ids: participantIds ?? [],
+                    reference_type: expenseRefType,
+                    reference_id: referenceId,
+                    trip_id: tripId,
+                }, tripId);
+            } else if (expenseMode === 'link' && expenseLinkId) {
+                await budgetAPI.updateExpense(expenseLinkId, {
+                    reference_type: expenseRefType, reference_id: referenceId, trip_id: tripId,
+                }, tripId);
+            }
+        } catch (error) {
+            console.error('Error attaching expense:', error);
+            toast.error(t('itemExpense.saveFailed', 'Saved, but the shared expense could not be attached'));
+        }
+    };
+
     // Delete an existing document from the server
     const deleteExistingDocument = async (documentId) => {
         if (!confirm(t('common.confirmDelete'))) return;
@@ -665,6 +766,13 @@ const ItemWizard = ({
     const handleSubmit = async () => {
         if (!validateStep()) return;
 
+        // "New expense" chosen but no usable amount: make the user decide
+        // instead of silently dropping the expense
+        if (budgetInfo?.budget && expenseMode === 'new' && !(parseFloat(expenseAmount) > 0)) {
+            toast.error(t('itemExpense.amountRequired', 'Enter an amount for the shared expense, or switch it back to None'));
+            return;
+        }
+
         try {
             setIsLoading(true);
 
@@ -686,7 +794,9 @@ const ItemWizard = ({
                 }
 
                 // Upload documents / create links if any queued
-                await savePendingDocuments('activity', isEditMode ? itemId : response.data.activity.id);
+                const activityId = isEditMode ? itemId : response.data.activity.id;
+                await savePendingDocuments('activity', activityId);
+                await saveExpenseAttachment(activityId);
             } else if (type === 'lodging') {
                 formattedData.check_in = formData.check_in ? dayjs(formData.check_in).format('YYYY-MM-DD') : null;
                 formattedData.check_out = formData.check_out ? dayjs(formData.check_out).format('YYYY-MM-DD') : null;
@@ -701,7 +811,9 @@ const ItemWizard = ({
                 }
 
                 // Upload documents / create links if any queued
-                await savePendingDocuments('lodging', isEditMode ? itemId : response.data.lodging.id);
+                const lodgingId = isEditMode ? itemId : response.data.lodging.id;
+                await savePendingDocuments('lodging', lodgingId);
+                await saveExpenseAttachment(lodgingId);
             } else if (type === 'transport') {
                 formattedData.departure_date = formData.departure_date ? dayjs(formData.departure_date).format('YYYY-MM-DD') : null;
                 formattedData.arrival_date = formData.arrival_date
@@ -718,7 +830,9 @@ const ItemWizard = ({
                 }
 
                 // Upload documents / create links if any queued
-                await savePendingDocuments('transportation', isEditMode ? itemId : response.data.transportation.id);
+                const transportId = isEditMode ? itemId : response.data.transportation.id;
+                await savePendingDocuments('transportation', transportId);
+                await saveExpenseAttachment(transportId);
             }
 
             if (onSuccess) onSuccess();
@@ -1424,6 +1538,188 @@ const ItemWizard = ({
         }
     };
 
+    // Shared-expense section of the Extras step: show the linked expense,
+    // or offer "new" (amount + payer, everything else derived from the item)
+    // and "link existing" (fuzzy search over unlinked shared expenses).
+    const renderExpenseSection = (color, chipActiveClasses) => {
+        if (!budgetInfo) return null; // still loading — the section pops in
+        const budget = budgetInfo.budget;
+        const label = (
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {t('itemExpense.title', 'Shared expense')}
+            </label>
+        );
+        if (!budget) {
+            return (
+                <div>
+                    {label}
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                        {t('itemExpense.noBudget', 'Create a shared budget in the Budget tab to attach expenses here.')}
+                    </p>
+                </div>
+            );
+        }
+
+        const currencySymbol = budget.currency || symbolFor(budget.currency_code) || '';
+        const memberName = (id) => members.find((m) => m.id === id)?.name || '?';
+
+        // Already linked: show it, allow unlinking
+        if (linkedExpense && !unlinkOnSave) {
+            return (
+                <div>
+                    {label}
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
+                        <Wallet className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{linkedExpense.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {linkedExpense.amount}{currencySymbol}
+                                {linkedExpense.paid_by != null && ` · ${t('itemExpense.paidBy', 'paid by')} ${memberName(linkedExpense.paid_by)}`}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setUnlinkOnSave(true)}
+                            className="text-xs font-medium text-red-500 hover:text-red-600 flex-shrink-0"
+                        >
+                            {t('itemExpense.unlink', 'Unlink')}
+                        </button>
+                    </div>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        {t('itemExpense.editHint', 'Amounts and splits are edited in the Budget tab.')}
+                    </p>
+                </div>
+            );
+        }
+
+        // Candidates for "link existing": shared expenses not tied to another item
+        const normalize = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const query = normalize(expenseLinkQuery.trim());
+        const tokens = query.split(/\s+/).filter(Boolean);
+        const linkCandidates = budgetInfo.expenses
+            .filter((e) => !e.reference_type)
+            .filter((e) => tokens.every((tok) => normalize(e.name).includes(tok)))
+            .slice(0, 8);
+
+        const modes = [
+            { id: 'none', label: t('itemExpense.modeNone', 'None') },
+            { id: 'new', label: t('itemExpense.modeNew', 'New expense') },
+            { id: 'link', label: t('itemExpense.modeLink', 'Link existing') },
+        ];
+        const splitLabel = participantIds === null
+            ? t('participants.everyone', 'Everyone')
+            : t('itemExpense.splitSelected', 'the {{count}} selected travelers', { count: participantIds.length });
+
+        return (
+            <div>
+                {label}
+                {unlinkOnSave && (
+                    <p className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+                        {t('itemExpense.willUnlink', '"{{name}}" will be unlinked when you save.', { name: linkedExpense?.name })}
+                    </p>
+                )}
+                <div className="flex flex-wrap gap-2 mb-3">
+                    {modes.map((mode) => (
+                        <button
+                            key={mode.id}
+                            type="button"
+                            onClick={() => setExpenseMode(mode.id)}
+                            className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${expenseMode === mode.id
+                                ? chipActiveClasses[color]
+                                : 'border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-500'
+                                }`}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </div>
+
+                {expenseMode === 'new' && (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0"
+                                    step="any"
+                                    value={expenseAmount}
+                                    onChange={(e) => setExpenseAmount(e.target.value)}
+                                    placeholder={t('itemExpense.amount', 'Amount')}
+                                    className="w-full pl-4 pr-9 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                                    {currencySymbol}
+                                </span>
+                            </div>
+                            <select
+                                value={expensePaidBy ?? user?.id ?? ''}
+                                onChange={(e) => setExpensePaidBy(Number(e.target.value))}
+                                className="w-full px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                            >
+                                {members.map((member) => (
+                                    <option key={member.id} value={member.id}>
+                                        {t('itemExpense.paidByOption', 'Paid by {{name}}', { name: member.name })}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {t('itemExpense.newHint', 'Named and dated after this item, split equally between {{who}}.', { who: splitLabel })}
+                        </p>
+                    </div>
+                )}
+
+                {expenseMode === 'link' && (
+                    <div className="space-y-2">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                                type="text"
+                                value={expenseLinkQuery}
+                                onChange={(e) => setExpenseLinkQuery(e.target.value)}
+                                placeholder={t('itemExpense.searchPlaceholder', 'Search shared expenses...')}
+                                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
+                            />
+                        </div>
+                        {linkCandidates.length === 0 ? (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 py-1">
+                                {t('itemExpense.noMatches', 'No unlinked shared expenses match.')}
+                            </p>
+                        ) : (
+                            <div className="space-y-1.5 max-h-52 overflow-y-auto custom-scrollbar">
+                                {linkCandidates.map((expense) => (
+                                    <button
+                                        key={expense.id}
+                                        type="button"
+                                        onClick={() => setExpenseLinkId(expense.id === expenseLinkId ? null : expense.id)}
+                                        className={`w-full flex items-center gap-3 p-2.5 rounded-xl border text-left transition-all ${expenseLinkId === expense.id
+                                            ? chipActiveClasses[color]
+                                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                                            }`}
+                                    >
+                                        <Wallet className={`w-4 h-4 flex-shrink-0 ${expenseLinkId === expense.id ? '' : 'text-gray-400'}`} />
+                                        <span className="flex-1 min-w-0 text-sm font-medium text-gray-900 dark:text-white truncate">
+                                            {expense.name}
+                                        </span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+                                            {expense.amount}{currencySymbol} · {dayjs(expense.date).format('MMM D')}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {expenseLinkId && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {t('itemExpense.linkHint', 'Will be linked to this item when you save.')}
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Extras step (shared across types)
     const renderExtrasStep = (color) => {
         const colorClasses = {
@@ -1517,6 +1813,9 @@ const ItemWizard = ({
                             )}
                         </div>
                     )}
+
+                    {/* Shared expense (group budget only) */}
+                    {renderExpenseSection(color, chipActiveClasses)}
 
                     {/* Notes */}
                     <div>

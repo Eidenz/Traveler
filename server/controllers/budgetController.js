@@ -37,6 +37,27 @@ const writeSplits = db.transaction((expenseId, splitIds) => {
   for (const uid of splitIds) ins.run(expenseId, uid);
 });
 
+// An expense can point at the trip item it pays for
+const REFERENCE_TABLES = { activity: 'activities', lodging: 'lodging', transportation: 'transportation' };
+
+/**
+ * Normalize reference fields from a request body.
+ * Returns null (fields absent — leave unchanged), { refType, refId } (set or
+ * explicit clear with nulls), or `false` when the type is unknown or the item
+ * doesn't belong to the budget's trip.
+ */
+const resolveExpenseReference = (body, tripId) => {
+  if (body.reference_type === undefined && body.reference_id === undefined) return null;
+  const refType = body.reference_type || null;
+  const refId = parseInt(body.reference_id, 10) || null;
+  if (!refType || !refId) return { refType: null, refId: null }; // clear the link
+  const table = REFERENCE_TABLES[refType];
+  if (!table) return false;
+  const item = db.prepare(`SELECT trip_id FROM ${table} WHERE id = ?`).get(refId);
+  if (!item || String(item.trip_id) !== String(tripId)) return false;
+  return { refType, refId };
+};
+
 /** Attach split_user_ids to a list of expenses. */
 const attachSplits = (expenses) => {
   if (expenses.length === 0) return expenses;
@@ -272,13 +293,22 @@ const addExpense = (req, res) => {
       return res.status(400).json({ message: 'Payer and participants must be trip members' });
     }
 
+    // Optional link to the trip item this expense pays for
+    const reference = resolveExpenseReference(req.body, budget.trip_id);
+    if (reference === false) {
+      return res.status(400).json({ message: 'Linked item must belong to the same trip' });
+    }
+
     // Insert expense
     const insert = db.prepare(`
-      INSERT INTO expenses (budget_id, name, amount, category, date, notes, paid_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO expenses (budget_id, name, amount, category, date, notes, paid_by, reference_type, reference_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const result = insert.run(budgetId, name, amount, category, date, notes || null, settlement.paidBy);
+    const result = insert.run(
+      budgetId, name, amount, category, date, notes || null, settlement.paidBy,
+      reference?.refType ?? null, reference?.refId ?? null
+    );
     if (settlement.splitIds) writeSplits(result.lastInsertRowid, settlement.splitIds);
 
     // Get the created expense
@@ -341,10 +371,23 @@ const updateExpense = (req, res) => {
       writeSplits(expenseId, settlement.splitIds || []);
     }
 
+    // Reference fields: absent keeps current, '' / null clears the link
+    let refType = expense.reference_type;
+    let refId = expense.reference_id;
+    const reference = resolveExpenseReference(req.body, budget.trip_id);
+    if (reference === false) {
+      return res.status(400).json({ message: 'Linked item must belong to the same trip' });
+    }
+    if (reference) {
+      refType = reference.refType;
+      refId = reference.refId;
+    }
+
     // Update expense
     const update = db.prepare(`
       UPDATE expenses
-      SET name = ?, amount = ?, category = ?, date = ?, notes = ?, paid_by = ?
+      SET name = ?, amount = ?, category = ?, date = ?, notes = ?, paid_by = ?,
+          reference_type = ?, reference_id = ?
       WHERE id = ?
     `);
 
@@ -355,6 +398,8 @@ const updateExpense = (req, res) => {
       date || expense.date,
       notes !== undefined ? notes : expense.notes,
       paidBy,
+      refType,
+      refId,
       expenseId
     );
 

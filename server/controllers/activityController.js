@@ -335,6 +335,12 @@ const deleteActivity = (req, res) => {
       // Delete participant rows (no FK to the polymorphic item tables)
       deleteParticipants('activity', activityId);
 
+      // Linked expenses survive as plain budget entries
+      db.prepare(`
+        UPDATE expenses SET reference_type = NULL, reference_id = NULL
+        WHERE reference_type = 'activity' AND reference_id = ?
+      `).run(activityId);
+
       // Delete activity
       db.prepare('DELETE FROM activities WHERE id = ?').run(activityId);
 
