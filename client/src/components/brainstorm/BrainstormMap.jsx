@@ -41,7 +41,10 @@ const BrainstormMap = ({
         const focusing = focusItemIds && focusItemIds.size > 0;
         markersRef.current.forEach(({ id, element }) => {
             if (!element) return;
-            const focused = !focusing || focusItemIds.has(id);
+            // Marker ids are 'brainstorm-<itemId>'; the selection holds
+            // numeric item ids
+            const itemId = Number(String(id).replace('brainstorm-', ''));
+            const focused = !focusing || focusItemIds.has(itemId);
             element.style.transition = 'opacity 0.25s ease, filter 0.25s ease';
             element.style.opacity = focused ? '1' : '0.3';
             element.style.filter = focused ? '' : 'grayscale(85%)';
