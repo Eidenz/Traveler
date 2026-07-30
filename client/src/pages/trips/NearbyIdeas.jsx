@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Compass, MapPin, Navigation, Check, X, Loader2,
-  RefreshCw, ChevronDown, Undo2, User, Users, LocateOff
+  RefreshCw, ChevronDown, Undo2, User, Users, LocateOff, Star
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,23 @@ const NearbyIdeas = () => {
   const [showDone, setShowDone] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Filters: how far you're willing to go + closest-first vs top picks
+  const [radiusKm, setRadiusKm] = useState(() => {
+    const saved = parseFloat(localStorage.getItem('nearbyRadiusKm'));
+    return Number.isFinite(saved) ? saved : 10;
+  });
+  const [sortMode, setSortMode] = useState(
+    () => localStorage.getItem('nearbySortMode') === 'priority' ? 'priority' : 'distance'
+  );
+  const pickRadius = (km) => {
+    setRadiusKm(km);
+    localStorage.setItem('nearbyRadiusKm', String(km));
+  };
+  const pickSort = (mode) => {
+    setSortMode(mode);
+    localStorage.setItem('nearbySortMode', mode);
+  };
 
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
@@ -105,9 +122,21 @@ const NearbyIdeas = () => {
 
   const isDone = (i) => !!i.done_at || i.my_status === 'done';
   const isHidden = (i) => !isDone(i) && (!!i.dismissed_at || i.my_status === 'dismissed');
-  const active = located.filter((i) => !isDone(i) && !isHidden(i));
+  const allActive = located.filter((i) => !isDone(i) && !isHidden(i));
   const doneList = located.filter(isDone);
   const hiddenList = located.filter(isHidden);
+
+  // Radius applies only when we know where you are; "Top picks" sorts by
+  // priority stars first, distance as the tiebreaker
+  const withinRadius = position && Number.isFinite(radiusKm)
+    ? allActive.filter((i) => i.distance_km != null && i.distance_km <= radiusKm)
+    : allActive;
+  const beyondCount = allActive.length - withinRadius.length;
+  const active = sortMode === 'priority'
+    ? [...withinRadius].sort((a, b) =>
+        (b.priority || 0) - (a.priority || 0) ||
+        (a.distance_km ?? Infinity) - (b.distance_km ?? Infinity))
+    : withinRadius;
 
   const StatusChips = ({ item }) => (
     <span className="flex items-center gap-1 flex-shrink-0">
@@ -158,6 +187,12 @@ const NearbyIdeas = () => {
           {item.distance_km != null && (
             <span className="text-sm font-semibold text-accent whitespace-nowrap">
               {fmtDistance(item.distance_km)}
+            </span>
+          )}
+          {item.priority > 0 && (
+            <span className="flex items-center gap-0.5 text-[11px] font-semibold text-amber-500">
+              <Star className="w-3 h-3 fill-current" />
+              {item.priority}
             </span>
           )}
           <StatusChips item={item} />
@@ -223,6 +258,30 @@ const NearbyIdeas = () => {
           {t('nearby.subtitle', 'Ideas from your brainstorm, closest first')}
         </p>
 
+        {/* Filters: radius + sort */}
+        <div className="mb-4 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+          {[1, 5, 10, 25, Infinity].map((km) => (
+            <button
+              key={km}
+              onClick={() => pickRadius(km)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${radiusKm === km
+                ? 'bg-nav dark:bg-white text-white dark:text-gray-900'
+                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
+            >
+              {Number.isFinite(km) ? `≤ ${km} km` : t('nearby.anyDistance', 'Any distance')}
+            </button>
+          ))}
+          <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+          <button
+            onClick={() => pickSort(sortMode === 'distance' ? 'priority' : 'distance')}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
+          >
+            {sortMode === 'priority'
+              ? (<><Star className="w-3 h-3 text-amber-500 fill-current" />{t('nearby.topPicks', 'Top picks')}</>)
+              : (<><Navigation className="w-3 h-3" />{t('nearby.closest', 'Closest')}</>)}
+          </button>
+        </div>
+
         {/* Geolocation state */}
         {geoState === 'denied' && (
           <div className="mb-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
@@ -247,15 +306,36 @@ const NearbyIdeas = () => {
             {/* Active recommendations */}
             {active.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
-                <Check className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-                <p className="text-gray-500 dark:text-gray-400">
-                  {t('nearby.allHandled', 'Every located idea is done or passed. Impressive.')}
-                </p>
+                {beyondCount > 0 ? (
+                  <>
+                    <Compass className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {t('nearby.noneInRadius', 'Nothing within {{km}} km.', { km: radiusKm })}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {t('nearby.allHandled', 'Every located idea is done or passed. Impressive.')}
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
                 {active.map((item) => <IdeaCard key={item.id} item={item} />)}
               </div>
+            )}
+
+            {/* Ideas beyond the radius */}
+            {beyondCount > 0 && (
+              <button
+                onClick={() => pickRadius(Infinity)}
+                className="mt-3 w-full py-2.5 rounded-xl text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-dashed border-gray-200 dark:border-gray-700 hover:text-accent"
+              >
+                {t('nearby.beyond', '{{count}} more beyond {{km}} km — show all', { count: beyondCount, km: radiusKm })}
+              </button>
             )}
 
             {/* Done */}

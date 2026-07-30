@@ -701,6 +701,11 @@
     "wholeGroupDoneHint": "Counts in the trip recap",
     "wholeGroupPassHint": "Hidden for everyone",
     "undoGroup": "Undo for the group",
-    "undoMe": "Undo for me"
+    "undoMe": "Undo for me",
+    "anyDistance": "Any distance",
+    "topPicks": "Top picks",
+    "closest": "Closest",
+    "noneInRadius": "Nothing within {{km}} km.",
+    "beyond": "{{count}} more beyond {{km}} km — show all"
   }
 }

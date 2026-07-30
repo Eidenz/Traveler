@@ -701,6 +701,11 @@
     "wholeGroupDoneHint": "Compte dans la rétrospective",
     "wholeGroupPassHint": "Masquée pour tout le monde",
     "undoGroup": "Annuler pour le groupe",
-    "undoMe": "Annuler pour moi"
+    "undoMe": "Annuler pour moi",
+    "anyDistance": "Toutes distances",
+    "topPicks": "Priorités",
+    "closest": "Au plus près",
+    "noneInRadius": "Rien à moins de {{km}} km.",
+    "beyond": "{{count}} de plus au-delà de {{km}} km — tout afficher"
   }
 }
