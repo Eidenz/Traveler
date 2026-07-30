@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
-  ArrowLeft, WifiOff, Plane, Bed, FileText, Plus, Map, ChevronDown, UserCheck
+  ArrowLeft, WifiOff, Map, UserCheck
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { hasMapbox } from '../../config/env';
@@ -22,14 +22,12 @@ import usePanelWidth from '../../hooks/usePanelWidth';
 import useOnlineStore, { isOnline } from '../../stores/onlineStore';
 
 // Components
-import Button from '../../components/ui/Button';
 import TripMap from '../../components/trips/TripMap';
 import TripTimeline from '../../components/trips/TripTimeline';
 import TripPanelHeader from '../../components/trips/TripPanelHeader';
 import TripMembers from '../../components/trips/TripMembers';
 import TabNav from '../../components/trips/TabNav';
 import TripChecklist from '../../components/trips/TripChecklist';
-import DateGroupedList from '../../components/trips/DateGroupedList';
 import BudgetWidget from '../../components/budget/BudgetWidget';
 
 // Modals
@@ -40,6 +38,7 @@ import DocumentsModal from '../../components/trips/DocumentsModal';
 import DocumentPanel from '../../components/trips/DocumentPanel';
 import ShareModal from '../../components/trips/ShareModal';
 import ItemWizard from '../../components/trips/ItemWizard';
+import AddItemModal from '../../components/trips/AddItemModal';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -81,8 +80,11 @@ const TripDetail = () => {
 
   // Wizard state (replaces modals on desktop)
   const [showWizard, setShowWizard] = useState(false);
-  const [wizardType, setWizardType] = useState(null); // 'activity' | 'lodging' | 'transport'
+  const [wizardType, setWizardType] = useState(null); // 'activity' | 'lodging' | 'transport' | null = type chooser
   const [wizardItemId, setWizardItemId] = useState(null);
+
+  // Mobile create flow: wizard-in-modal, optionally starting on the type chooser
+  const [addModal, setAddModal] = useState(null); // { type, date } | null
 
   // Panel resize state. Rendered width is viewport-clamped so the resize
   // edge never disappears on a smaller monitor; the saved preference keeps
@@ -556,6 +558,21 @@ const TripDetail = () => {
     }
   };
 
+  // Per-day add from the timeline: presetType comes from a filtered tab
+  // (transport/lodging), null opens the wizard on its type chooser
+  const handleAddItem = (date = null, presetType = null) => {
+    const defaultDate = date || trip?.start_date || null;
+    if (window.innerWidth >= 768 && hasMapboxToken) {
+      setWizardType(presetType);
+      setWizardItemId(null);
+      setActivityDefaultDate(defaultDate);
+      setShowWizard(true);
+      setShowDocumentPanel(false);
+    } else {
+      setAddModal({ type: presetType, date: defaultDate });
+    }
+  };
+
   // Close wizard
   const handleCloseWizard = () => {
     setShowWizard(false);
@@ -934,7 +951,7 @@ const TripDetail = () => {
 
             {/* Tab content */}
             <div className="min-h-[50vh]">
-              {activeTab === 'timeline' && (
+              {['timeline', 'transport', 'lodging'].includes(activeTab) && (
                 <TripTimeline
                   trip={trip}
                   transportation={visibleTransportation}
@@ -945,77 +962,14 @@ const TripDetail = () => {
                   allActivities={activities}
                   currentUserId={user?.id}
                   members={members}
+                  categoryFilter={activeTab === 'timeline' ? null : activeTab}
                   onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                   onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
                   onActivityClick={handleOpenActivityModal}
-                  onAddActivity={handleOpenActivityModal}
+                  onAddItem={(date) => handleAddItem(date, activeTab === 'timeline' ? null : activeTab)}
                   onDocumentClick={handleViewDocument}
                   canEdit={canEdit()}
                 />
-              )}
-
-              {activeTab === 'transport' && (
-                <div className="p-4 space-y-3">
-                  {canEdit() && (
-                    <div className="flex justify-end mb-2">
-                      <Button size="sm" onClick={() => handleOpenTransportModal()} icon={<Plus className="w-4 h-4" />}>
-                        {t('transportation.add', 'Add transport')}
-                      </Button>
-                    </div>
-                  )}
-
-                  {visibleTransportation.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
-                      {canEdit() && (
-                        <Button onClick={() => handleOpenTransportModal()} className="mt-4">
-                          {t('transportation.add', 'Add transport')}
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <DateGroupedList
-                      items={visibleTransportation}
-                      type="transport"
-                      tripStartDate={trip?.start_date}
-                      onItemClick={handleOpenTransportModal}
-                      members={members}
-                    />
-                  )}
-                </div>
-              )}
-
-              {activeTab === 'lodging' && (
-                <div className="p-4 space-y-3">
-                  {canEdit() && (
-                    <div className="flex justify-end mb-2">
-                      <Button size="sm" onClick={() => handleOpenLodgingModal()} icon={<Plus className="w-4 h-4" />}>
-                        {t('lodging.add', 'Add lodging')}
-                      </Button>
-                    </div>
-                  )}
-
-                  {visibleLodging.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
-                      {canEdit() && (
-                        <Button onClick={() => handleOpenLodgingModal()} className="mt-4">
-                          {t('lodging.add', 'Add lodging')}
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    <DateGroupedList
-                      items={visibleLodging}
-                      type="lodging"
-                      tripStartDate={trip?.start_date}
-                      onItemClick={handleOpenLodgingModal}
-                      members={members}
-                    />
-                  )}
-                </div>
               )}
 
               {activeTab === 'checklist' && (
@@ -1101,7 +1055,7 @@ const TripDetail = () => {
 
           {/* Tab content */}
           <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-            {activeTab === 'timeline' && (
+            {['timeline', 'transport', 'lodging'].includes(activeTab) && (
               <TripTimeline
                 trip={trip}
                 transportation={visibleTransportation}
@@ -1112,79 +1066,14 @@ const TripDetail = () => {
                 allActivities={activities}
                 currentUserId={user?.id}
                 members={members}
+                categoryFilter={activeTab === 'timeline' ? null : activeTab}
                 onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                 onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
                 onActivityClick={handleOpenActivityModal}
-                onAddActivity={handleOpenActivityModal}
+                onAddItem={(date) => handleAddItem(date, activeTab === 'timeline' ? null : activeTab)}
                 onDocumentClick={handleViewDocument}
                 canEdit={canEdit()}
               />
-            )}
-
-            {activeTab === 'transport' && (
-              <div className="p-4 space-y-3">
-                {/* Add button */}
-                {canEdit() && (
-                  <div className="flex justify-end mb-2">
-                    <Button size="sm" onClick={() => handleOpenTransportModal()} icon={<Plus className="w-4 h-4" />}>
-                      {t('transportation.add', 'Add transport')}
-                    </Button>
-                  </div>
-                )}
-
-                {visibleTransportation.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Plane className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">{t('transportation.noTransportation', 'No transportation added')}</p>
-                    {canEdit() && (
-                      <Button onClick={() => handleOpenTransportModal()} className="mt-4">
-                        {t('transportation.add', 'Add transport')}
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <DateGroupedList
-                    items={visibleTransportation}
-                    type="transport"
-                    tripStartDate={trip?.start_date}
-                    onItemClick={handleOpenTransportModal}
-                    members={members}
-                  />
-                )}
-              </div>
-            )}
-
-            {activeTab === 'lodging' && (
-              <div className="p-4 space-y-3">
-                {/* Add button */}
-                {canEdit() && (
-                  <div className="flex justify-end mb-2">
-                    <Button size="sm" onClick={() => handleOpenLodgingModal()} icon={<Plus className="w-4 h-4" />}>
-                      {t('lodging.add', 'Add lodging')}
-                    </Button>
-                  </div>
-                )}
-
-                {visibleLodging.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Bed className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                    <p className="text-gray-500 dark:text-gray-400">{t('lodging.noLodging', 'No lodging added')}</p>
-                    {canEdit() && (
-                      <Button onClick={() => handleOpenLodgingModal()} className="mt-4">
-                        {t('lodging.add', 'Add lodging')}
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <DateGroupedList
-                    items={visibleLodging}
-                    type="lodging"
-                    tripStartDate={trip?.start_date}
-                    onItemClick={handleOpenLodgingModal}
-                    members={members}
-                  />
-                )}
-              </div>
             )}
 
             {activeTab === 'checklist' && (
@@ -1318,6 +1207,23 @@ const TripDetail = () => {
         members={members}
         onSuccess={fetchTripData}
         onDelete={(itemType, deletedItemId) => emitActivityDelete(deletedItemId)}
+      />
+
+      {/* Create-from-timeline modal (mobile) — starts on the type chooser
+          unless a filtered tab preset the type */}
+      <AddItemModal
+        isOpen={!!addModal}
+        onClose={() => setAddModal(null)}
+        tripId={tripId}
+        type={addModal?.type || null}
+        defaultDate={addModal?.date || null}
+        tripStartDate={trip?.start_date}
+        tripEndDate={trip?.end_date}
+        members={members}
+        onSuccess={() => {
+          fetchTripData();
+          setAddModal(null);
+        }}
       />
 
       <DocumentsModal

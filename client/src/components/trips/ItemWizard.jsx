@@ -4,7 +4,7 @@ import {
     ChevronLeft, ChevronRight, X, Check, Calendar, Clock, MapPin,
     Plane, Train, Bus, Car, Ship, Bed, Coffee, Upload, Image as ImageIcon,
     FileText, Lock, Users, Tag, Building, Trash2, MoreHorizontal, Loader2, Eye, Download, Link2,
-    Wallet, Search
+    Wallet, Search, Plus
 } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -23,7 +23,7 @@ import { symbolFor } from '../../utils/currencyUtils';
  * Replaces the map in the split view for a more user-friendly experience.
  */
 const ItemWizard = ({
-    type, // 'activity' | 'lodging' | 'transport'
+    type: typeProp, // 'activity' | 'lodging' | 'transport', or null = ask first (create only)
     itemId = null, // For editing
     tripId,
     defaultDate = null,
@@ -36,6 +36,10 @@ const ItemWizard = ({
 }) => {
     const { t } = useTranslation();
     const isEditMode = !!itemId;
+    // With no type prop the wizard opens on a "what are you adding?" panel;
+    // the choice is create-time only (the item's kind can't be edited later)
+    const [chosenType, setChosenType] = useState(null);
+    const type = typeProp || chosenType;
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
@@ -404,6 +408,7 @@ const ItemWizard = ({
 
     // Get step definitions based on type
     const getSteps = () => {
+        if (!type) return [];
         if (type === 'activity') {
             return [
                 { id: 'basics', title: t('wizard.basics', 'Basics'), icon: <Coffee className="w-5 h-5" /> },
@@ -861,6 +866,9 @@ const ItemWizard = ({
 
     // Get wizard title
     const getWizardTitle = () => {
+        if (!type) {
+            return t('wizard.addToTrip', 'Add to trip');
+        }
         if (type === 'activity') {
             return isEditMode ? t('activities.edit', 'Edit Activity') : t('activities.add', 'Add Activity');
         } else if (type === 'lodging') {
@@ -901,8 +909,77 @@ const ItemWizard = ({
 
     const colorScheme = colorSchemes[type] || colorSchemes.activity;
 
+    // First panel when no type was preset: pick what to add
+    const renderTypeChooser = () => {
+        const kinds = [
+            {
+                id: 'activity', icon: Coffee,
+                label: t('wizard.kindActivity', 'Activity'),
+                desc: t('wizard.kindActivityDesc', 'Visits, food, anything with a time and place'),
+                classes: 'hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/10',
+                iconClasses: 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+            },
+            {
+                id: 'lodging', icon: Bed,
+                label: t('wizard.kindLodging', 'Lodging'),
+                desc: t('wizard.kindLodgingDesc', 'Hotels, ryokan, anywhere you sleep'),
+                classes: 'hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/10',
+                iconClasses: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+            },
+            {
+                id: 'transport', icon: Plane,
+                label: t('wizard.kindTransport', 'Transport'),
+                desc: t('wizard.kindTransportDesc', 'Flights, trains, buses and the rest'),
+                classes: 'hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10',
+                iconClasses: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+            },
+        ];
+
+        return (
+            <div className="space-y-6">
+                <div className="text-center mb-8">
+                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <Plus className="w-8 h-8 text-gray-500 dark:text-gray-300" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {t('wizard.whatAdding', 'What are you adding?')}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {t('wizard.whatAddingDesc', 'Pick a type to get started')}
+                    </p>
+                </div>
+
+                <div className="space-y-3">
+                    {kinds.map((kind) => {
+                        const Icon = kind.icon;
+                        return (
+                            <button
+                                key={kind.id}
+                                type="button"
+                                onClick={() => setChosenType(kind.id)}
+                                className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 border-gray-200 dark:border-gray-600 text-left transition-all ${kind.classes}`}
+                            >
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${kind.iconClasses}`}>
+                                    <Icon className="w-6 h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="font-medium text-gray-900 dark:text-white">{kind.label}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">{kind.desc}</p>
+                                </div>
+                                <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-500 ml-auto flex-shrink-0" />
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     // Render step content
     const renderStepContent = () => {
+        if (!type) {
+            return renderTypeChooser();
+        }
         if (type === 'activity') {
             return renderActivityStep();
         } else if (type === 'lodging') {
@@ -2150,14 +2227,18 @@ const ItemWizard = ({
                     {/* Form Content */}
                     {renderStepContent()}
 
-                    {/* Navigation Buttons - inline below content */}
+                    {/* Navigation Buttons - inline below content (the type
+                        chooser advances on its own, so no nav there) */}
+                    {type && (
                     <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                         <button
-                            onClick={currentStep === 0 ? onClose : goToPrevStep}
+                            onClick={currentStep === 0
+                                ? (chosenType ? () => setChosenType(null) : onClose)
+                                : goToPrevStep}
                             className="flex items-center gap-2 px-4 py-2.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
                         >
                             <ChevronLeft className="w-5 h-5" />
-                            {currentStep === 0 ? t('common.cancel', 'Cancel') : t('common.back', 'Back')}
+                            {currentStep === 0 && !chosenType ? t('common.cancel', 'Cancel') : t('common.back', 'Back')}
                         </button>
 
                         {currentStep < steps.length - 1 ? (
@@ -2183,6 +2264,7 @@ const ItemWizard = ({
                             </button>
                         )}
                     </div>
+                    )}
                 </div>
             </div>
         </div>

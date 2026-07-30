@@ -314,28 +314,39 @@ const DayGroup = ({
   dayNumber,
   activities,
   transports = [],
-  lodging,
-  lodgingCheckout,
+  lodgingCheckIns = [],
+  lodgingCheckouts = [],
   isToday,
   isPast,
   onActivityClick,
   onTransportClick,
   onLodgingClick,
-  onAddActivity,
+  onAddItem,
   onDocumentClick,
   canEdit,
   members,
   hasAny,
-  hasMine
+  hasMine,
+  categoryFilter = null // null = full timeline, 'transport' | 'lodging' = filtered view
 }) => {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const hasContent = activities.length > 0;
-  const hasTransports = transports.length > 0;
-  const hasLodging = !!lodging;
-  const hasLodgingCheckout = !!lodgingCheckout;
+  const showActivities = !categoryFilter;
+  const showTransports = !categoryFilter || categoryFilter === 'transport';
+  const showLodging = !categoryFilter || categoryFilter === 'lodging';
+
+  const hasContent = showActivities && activities.length > 0;
+  const hasTransports = showTransports && transports.length > 0;
+  const hasLodging = showLodging && lodgingCheckIns.length > 0;
+  const hasLodgingCheckout = showLodging && lodgingCheckouts.length > 0;
   const hasAnyContent = hasContent || hasTransports || hasLodging || hasLodgingCheckout;
+
+  const addLabel = categoryFilter === 'transport'
+    ? t('transportation.add', 'Add transport')
+    : categoryFilter === 'lodging'
+      ? t('lodging.add', 'Add lodging')
+      : t('timeline.addToDay', 'Add to this day');
 
   return (
     <div className="relative">
@@ -397,10 +408,11 @@ const DayGroup = ({
 
           {isExpanded && (
             <div className="space-y-2">
-              {/* Lodging checkout (orange) - show first */}
-              {hasLodgingCheckout && (
+              {/* Lodging checkouts (orange) - show first */}
+              {showLodging && lodgingCheckouts.map(checkout => (
                 <div
-                  onClick={() => onLodgingClick?.(lodgingCheckout)}
+                  key={`out-${checkout.id}`}
+                  onClick={() => onLodgingClick?.(checkout)}
                   className="flex items-center gap-2 px-2 py-1.5 bg-orange-50 dark:bg-orange-900/20 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 >
                   <div className="w-6 h-6 rounded bg-orange-100 dark:bg-orange-900/50 flex items-center justify-center flex-shrink-0">
@@ -409,14 +421,15 @@ const DayGroup = ({
                   <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
                     {t('lodging.checkOut', 'Check-out')}:
                   </span>
-                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                    {lodgingCheckout.name}
+                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">
+                    {checkout.name}
                   </span>
+                  <ParticipantAvatars ids={checkout.participant_ids} members={members} />
                 </div>
-              )}
+              ))}
 
               {/* Transports */}
-              {transports.map(transport => (
+              {showTransports && transports.map(transport => (
                 <TransportMini
                   key={transport.id}
                   transport={transport}
@@ -426,18 +439,19 @@ const DayGroup = ({
                 />
               ))}
 
-              {/* Lodging check-in (green) */}
-              {hasLodging && (
+              {/* Lodging check-ins (green) */}
+              {showLodging && lodgingCheckIns.map(checkIn => (
                 <LodgingMini
-                  lodging={lodging}
+                  key={`in-${checkIn.id}`}
+                  lodging={checkIn}
                   onClick={onLodgingClick}
                   onDocumentClick={onDocumentClick}
                   members={members}
                 />
-              )}
+              ))}
 
               {/* Activities */}
-              {activities.map(activity => (
+              {showActivities && activities.map(activity => (
                 <ActivityCard
                   key={activity.id}
                   activity={activity}
@@ -448,14 +462,15 @@ const DayGroup = ({
                 />
               ))}
 
-              {/* Add activity button */}
+              {/* Add button — generic on the full timeline (type chosen in
+                  the wizard), pre-typed on filtered views */}
               {canEdit && (
                 <button
-                  onClick={() => onAddActivity?.(date)}
+                  onClick={() => onAddItem?.(date)}
                   className="w-full p-2 border border-dashed border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all flex items-center justify-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
-                  {t('activities.add', 'Add activity')}
+                  {addLabel}
                 </button>
               )}
             </div>
@@ -464,13 +479,13 @@ const DayGroup = ({
           {/* Collapsed state */}
           {!isExpanded && hasAnyContent && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {activities.length > 0 && `${activities.length} ${activities.length === 1 ? 'activity' : 'activities'}`}
-              {activities.length > 0 && (hasTransports || hasLodging || hasLodgingCheckout) && ' • '}
+              {hasContent && `${activities.length} ${activities.length === 1 ? 'activity' : 'activities'}`}
+              {hasContent && (hasTransports || hasLodging || hasLodgingCheckout) && ' • '}
               {hasTransports && `${transports.length} transport${transports.length > 1 ? 's' : ''}`}
               {hasTransports && (hasLodging || hasLodgingCheckout) && ', '}
-              {hasLodging && t('lodging.checkIn', 'Check-in')}
+              {hasLodging && `${t('lodging.checkIn', 'Check-in')}${lodgingCheckIns.length > 1 ? ` ×${lodgingCheckIns.length}` : ''}`}
               {hasLodging && hasLodgingCheckout && ', '}
-              {hasLodgingCheckout && t('lodging.checkOut', 'Check-out')}
+              {hasLodgingCheckout && `${t('lodging.checkOut', 'Check-out')}${lodgingCheckouts.length > 1 ? ` ×${lodgingCheckouts.length}` : ''}`}
             </p>
           )}
         </div>
@@ -494,12 +509,15 @@ const TripTimeline = ({
   onTransportClick,
   onLodgingClick,
   onActivityClick,
-  onAddActivity,
+  onAddActivity, // legacy name, kept for older callers
+  onAddItem,
   onDocumentClick,
   canEdit = true,
   members = [],
+  categoryFilter = null, // 'transport' | 'lodging' turn the timeline into a filtered view
 }) => {
   const { t } = useTranslation();
+  const addItem = onAddItem || onAddActivity;
 
   if (!trip) return null;
 
@@ -531,13 +549,12 @@ const TripTimeline = ({
         .sort((a, b) => effectiveTime(a.departure_time_exact, a.departure_time)
           .localeCompare(effectiveTime(b.departure_time_exact, b.departure_time)));
 
-      // Get lodging checking in this day
-      const dayLodging = lodging.find(l =>
+      // ALL lodgings checking in / out this day — a group splitting across
+      // places means several lodgings can share a date
+      const dayLodgingCheckIns = lodging.filter(l =>
         dayjs(l.check_in).format('YYYY-MM-DD') === dateStr
       );
-
-      // Get lodging checking out this day
-      const dayLodgingCheckout = lodging.find(l =>
+      const dayLodgingCheckouts = lodging.filter(l =>
         dayjs(l.check_out).format('YYYY-MM-DD') === dateStr
       );
 
@@ -562,8 +579,8 @@ const TripTimeline = ({
         dayNumber,
         activities: dayActivities,
         transports: dayTransports,
-        lodging: dayLodging,
-        lodgingCheckout: dayLodgingCheckout,
+        lodgingCheckIns: dayLodgingCheckIns,
+        lodgingCheckouts: dayLodgingCheckouts,
         hasAny,
         hasMine,
         isToday: current.isSame(today, 'day'),
@@ -603,6 +620,7 @@ const TripTimeline = ({
       <div className="relative">
         {/* Pre-trip transports - those departing before trip but arriving during or after */}
         {(() => {
+          if (categoryFilter === 'lodging') return null;
           const preTripTransports = transportation.filter(t => {
             const depDate = dayjs(t.departure_date);
             const tripStart = dayjs(trip.start_date);
@@ -650,10 +668,11 @@ const TripTimeline = ({
             onActivityClick={onActivityClick}
             onTransportClick={onTransportClick}
             onLodgingClick={onLodgingClick}
-            onAddActivity={onAddActivity}
+            onAddItem={addItem}
             onDocumentClick={onDocumentClick}
             canEdit={canEdit}
             members={members}
+            categoryFilter={categoryFilter}
           />
         ))}
 

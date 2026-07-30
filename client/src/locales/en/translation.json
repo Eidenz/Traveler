@@ -68,7 +68,16 @@
     "whenTraveling": "When are you traveling?",
     "scheduleDesc": "Set your departure and arrival times",
     "anythingElse": "Anything else?",
-    "extrasDesc": "Add notes or attach documents"
+    "extrasDesc": "Add notes or attach documents",
+    "addToTrip": "Add to trip",
+    "whatAdding": "What are you adding?",
+    "whatAddingDesc": "Pick a type to get started",
+    "kindActivity": "Activity",
+    "kindActivityDesc": "Visits, food, anything with a time and place",
+    "kindLodging": "Lodging",
+    "kindLodgingDesc": "Hotels, ryokan, anywhere you sleep",
+    "kindTransport": "Transport",
+    "kindTransportDesc": "Flights, trains, buses and the rest"
   },
   "navigation": {
     "main": "Main",
@@ -737,5 +746,8 @@
     "saveFailed": "Saved, but the shared expense could not be attached",
     "notTracked": "No settlement — just record it",
     "splitBetween": "Split equally between"
+  },
+  "timeline": {
+    "addToDay": "Add to this day"
   }
 }

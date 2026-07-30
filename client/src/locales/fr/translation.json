@@ -68,7 +68,16 @@
     "whenTraveling": "Quand voyagez-vous ?",
     "scheduleDesc": "Définissez vos horaires de départ et d'arrivée",
     "anythingElse": "Autre chose ?",
-    "extrasDesc": "Ajoutez des notes ou joignez des documents"
+    "extrasDesc": "Ajoutez des notes ou joignez des documents",
+    "addToTrip": "Ajouter au voyage",
+    "whatAdding": "Qu'ajoutez-vous ?",
+    "whatAddingDesc": "Choisissez un type pour commencer",
+    "kindActivity": "Activité",
+    "kindActivityDesc": "Visites, restos, tout ce qui a une heure et un lieu",
+    "kindLodging": "Hébergement",
+    "kindLodgingDesc": "Hôtels, ryokan, partout où vous dormez",
+    "kindTransport": "Transport",
+    "kindTransportDesc": "Avions, trains, bus et le reste"
   },
   "navigation": {
     "main": "Principal",
@@ -737,5 +746,8 @@
     "saveFailed": "Enregistré, mais la dépense partagée n'a pas pu être rattachée",
     "notTracked": "Sans règlement — juste l'enregistrer",
     "splitBetween": "Partagée à parts égales entre"
+  },
+  "timeline": {
+    "addToDay": "Ajouter à ce jour"
   }
 }
