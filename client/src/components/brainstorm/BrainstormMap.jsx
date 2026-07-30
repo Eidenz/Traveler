@@ -27,11 +27,30 @@ const BrainstormMap = ({
     compact = false, // Compact mode for mobile
     bottomOffset = 0, // Extra bottom offset for legend when panel covers bottom
     showAddHint = true, // The "click anywhere to add" bubble (off in mobile fullscreen)
+    focusItemIds = null, // Set of item ids selected on the canvas; others dim
 }) => {
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
     const markersRef = useRef([]); // Now stores { id, marker, element } objects
+
+    // Canvas selection focus: dim markers outside the selected set. Kept in
+    // a ref so the marker-update effect can reapply after rebuilding elements.
+    const applyFocusRef = useRef(() => {});
+    applyFocusRef.current = () => {
+        const focusing = focusItemIds && focusItemIds.size > 0;
+        markersRef.current.forEach(({ id, element }) => {
+            if (!element) return;
+            const focused = !focusing || focusItemIds.has(id);
+            element.style.transition = 'opacity 0.25s ease, filter 0.25s ease';
+            element.style.opacity = focused ? '1' : '0.3';
+            element.style.filter = focused ? '' : 'grayscale(85%)';
+            element.style.zIndex = focused && focusing ? '2' : '';
+        });
+    };
+    useEffect(() => {
+        applyFocusRef.current();
+    }, [focusItemIds]);
     const initialFitDoneRef = useRef(false); // Track if we've done initial fit
     const [mapStyle, setMapStyle] = useState('streets');
     const [searchQuery, setSearchQuery] = useState('');
@@ -328,6 +347,7 @@ const BrainstormMap = ({
         });
 
         markersRef.current = newMarkers;
+        applyFocusRef.current();
 
         // Fit bounds to show all markers - ONLY on initial load
         if (itemsWithLocation.length > 0 && !initialFitDoneRef.current) {

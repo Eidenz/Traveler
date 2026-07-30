@@ -22,7 +22,7 @@ const linkHost = (url) => {
   }
 };
 
-const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
+const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted, onLocate }) => {
   const Icon = TYPE_ICONS[item.type] || StickyNote;
   const accent = item.color || null;
 
@@ -77,11 +77,28 @@ const BoardItemCard = ({ item, selected, highlighted, dimmed, lifted }) => {
           </p>
         )}
 
-        {item.type === 'place' && item.location_name && (
-          <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 truncate flex items-center gap-1">
-            <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
-            {item.location_name}
-          </p>
+        {/* Address: shown on every card type that has one; clickable when
+            coordinates exist (flies the map there) */}
+        {(item.location_name || (item.latitude != null && item.longitude != null)) && (
+          item.latitude != null && item.longitude != null && onLocate ? (
+            <button
+              type="button"
+              data-no-drag
+              onClick={() => onLocate(item)}
+              title="Show on map"
+              className="mt-1 max-w-full text-[10px] text-gray-400 dark:text-gray-500 hover:text-accent flex items-center gap-1"
+            >
+              <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+              <span className="truncate underline decoration-dotted underline-offset-2">
+                {item.location_name || `${item.latitude.toFixed(3)}, ${item.longitude.toFixed(3)}`}
+              </span>
+            </button>
+          ) : (
+            <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 truncate flex items-center gap-1">
+              <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+              {item.location_name}
+            </p>
+          )
         )}
 
         {item.type === 'link' && item.url && (

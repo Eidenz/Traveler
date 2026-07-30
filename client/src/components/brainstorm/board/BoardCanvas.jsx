@@ -41,6 +41,7 @@ const BoardCanvas = ({
   onOpenGroupColor,
   onDeleteGroup,
   onRenameGroup,
+  onLocateItem, // (item) => void — clicked the address line on a card
 }) => {
   const items = useBrainstormStore((s) => s.items);
   const groups = useBrainstormStore((s) => s.groups);
@@ -440,6 +441,7 @@ const BoardCanvas = ({
               highlighted={highlightId === item.id}
               dimmed={dimmedIds ? dimmedIds.has(item.id) : false}
               lifted={liftedItemId === item.id}
+              onLocate={onLocateItem}
             />
           </div>
         ))}

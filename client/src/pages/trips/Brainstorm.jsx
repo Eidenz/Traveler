@@ -45,6 +45,18 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
   const tripId = requestedTripId || trip?.id;
   const canvasContainerRef = useRef(null);
 
+  // Map instance + a fly-to that may need to wait for the mobile overlay's
+  // map to mount before it can execute
+  const mapInstanceRef = useRef(null);
+  const pendingFlyRef = useRef(null);
+  const handleMapReady = useCallback((map) => {
+    mapInstanceRef.current = map;
+    if (pendingFlyRef.current) {
+      map.flyTo(pendingFlyRef.current);
+      pendingFlyRef.current = null;
+    }
+  }, []);
+
   // Store
   const items = useBrainstormStore((s) => s.items);
   const selectedIds = useBrainstormStore((s) => s.selectedIds);
@@ -210,6 +222,20 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
     setModalDefaults({ type: item.type, location: null, spawn: null });
     setIsModalOpen(true);
   }, [canEdit]);
+
+  // Address click on a card: select it (dims the other map markers) and
+  // fly the map to it — opening the fullscreen map first on mobile
+  const handleLocateItem = useCallback((item) => {
+    if (item.latitude == null || item.longitude == null) return;
+    select([item.id]);
+    const target = { center: [item.longitude, item.latitude], zoom: 15 };
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      pendingFlyRef.current = target;
+      setMobileMapOpen(true);
+    } else {
+      mapInstanceRef.current?.flyTo(target);
+    }
+  }, [select]);
 
   const handleModalSave = async (itemData) => {
     try {
@@ -456,6 +482,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               onOpenGroupColor={setColorTargetGroup}
               onDeleteGroup={handleDeleteGroup}
               onRenameGroup={handleRenameGroup}
+              onLocateItem={handleLocateItem}
             />
 
             {/* Zoom controls */}
@@ -604,6 +631,8 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               canEdit={canEdit}
               onMapClick={handleMapClick}
               onItemClick={handleEditItem}
+              onMapReady={handleMapReady}
+              focusItemIds={selectedIds}
             />
           </div>
         )}
@@ -622,6 +651,8 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               handleEditItem(item);
             }}
             showAddHint={false}
+            onMapReady={handleMapReady}
+            focusItemIds={selectedIds}
           />
           {/* Exit floats left below the search bar — same style as the
               canvas's map-toggle button; mapbox owns the right edge and the
