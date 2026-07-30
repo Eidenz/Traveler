@@ -623,14 +623,15 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
             }}
             showAddHint={false}
           />
-          {/* Fat, thumb-reachable exit — the top corners belong to the
-              map's search bar */}
+          {/* Exit floats left below the search bar — same style as the
+              canvas's map-toggle button; mapbox owns the right edge and the
+              legend owns the bottom */}
           <button
             onClick={() => setMobileMapOpen(false)}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-medium shadow-xl border border-gray-200 dark:border-gray-700 z-50 active:scale-95 transition-transform"
+            className="absolute top-16 left-3 p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-50 active:scale-95 transition-transform"
+            title={t('brainstorm.backToCanvas', 'Back to canvas')}
           >
-            <ArrowLeft className="w-4 h-4" />
-            {t('brainstorm.backToCanvas', 'Back to canvas')}
+            <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
           </button>
         </div>
       )}
