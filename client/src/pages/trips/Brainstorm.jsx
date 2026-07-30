@@ -441,7 +441,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
         {/* Canvas pane */}
         <div
           ref={canvasContainerRef}
-          className="relative h-full flex-shrink-0 max-md:!w-full"
+          className="relative h-full max-md:!w-full md:min-w-[320px]"
           style={{ width: showMapPanel ? `${panelWidth}px` : '100%' }}
         >
           <div className="absolute inset-0">
@@ -597,7 +597,7 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
 
         {/* Map pane (desktop) */}
         {showMapPanel && (
-          <div className="hidden md:block flex-1 relative min-w-0">
+          <div className="hidden md:block flex-1 relative min-w-[260px]">
             <BrainstormMap
               items={items}
               trip={trip}
