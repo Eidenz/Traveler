@@ -940,6 +940,10 @@ const TripDetail = () => {
                   transportation={visibleTransportation}
                   lodging={visibleLodging}
                   activities={visibleActivities}
+                  allTransportation={transportation}
+                  allLodging={lodging}
+                  allActivities={activities}
+                  currentUserId={user?.id}
                   members={members}
                   onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                   onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
@@ -1103,6 +1107,10 @@ const TripDetail = () => {
                 transportation={visibleTransportation}
                 lodging={visibleLodging}
                 activities={visibleActivities}
+                allTransportation={transportation}
+                allLodging={lodging}
+                allActivities={activities}
+                currentUserId={user?.id}
                 members={members}
                 onTransportClick={(item) => handleOpenTransportModal(item?.id)}
                 onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}

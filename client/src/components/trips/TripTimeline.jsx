@@ -26,6 +26,13 @@ const getTransportIcon = (type, className) => {
   }
 };
 
+// A transport belongs to a day when it departs, arrives, or spans it
+const transportTouchesDay = (transport, dateStr) => {
+  const depDate = dayjs(transport.departure_date).format('YYYY-MM-DD');
+  const arrDate = transport.arrival_date ? dayjs(transport.arrival_date).format('YYYY-MM-DD') : depDate;
+  return depDate === dateStr || arrDate === dateStr || (depDate < dateStr && arrDate > dateStr);
+};
+
 // Format transport time range, adding dates when departure/arrival are on
 // different days. Times go through displayTime: exact clock values render in
 // the user's 12h/24h preference, free text shows verbatim.
@@ -317,7 +324,9 @@ const DayGroup = ({
   onAddActivity,
   onDocumentClick,
   canEdit,
-  members
+  members,
+  hasAny,
+  hasMine
 }) => {
   const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(true);
@@ -334,7 +343,9 @@ const DayGroup = ({
       <div className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
 
       <div className="flex gap-4">
-        {/* Day circle */}
+        {/* Day circle. Color states (from the unfiltered lists): accent tint
+            = the day has plans that include you, dashed dim accent = only
+            plans you're not part of, muted gray = free day. */}
         <div className={`
           relative z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
           transition-all duration-300 border-2
@@ -342,7 +353,11 @@ const DayGroup = ({
             ? 'bg-accent text-white border-accent ring-4 ring-accent/20'
             : isPast
               ? 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600'
-              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600'
+              : hasMine
+                ? 'bg-accent/10 text-accent border-accent/50'
+                : hasAny
+                  ? 'bg-transparent text-accent/60 border-accent/40 border-dashed'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600'
           }
         `}>
           <span className="text-sm font-semibold">{dayNumber}</span>
@@ -469,6 +484,13 @@ const TripTimeline = ({
   transportation = [],
   lodging = [],
   activities = [],
+  // Unfiltered lists + viewer, for day-circle coloring. Default to the
+  // rendered lists so callers without a participant filter (public view)
+  // need no extra wiring.
+  allTransportation = transportation,
+  allLodging = lodging,
+  allActivities = activities,
+  currentUserId = null,
   onTransportClick,
   onLodgingClick,
   onActivityClick,
@@ -504,20 +526,10 @@ const TripTimeline = ({
 
       // Get all transports for this day
       // Include transports that: depart this day, arrive this day, or overlap with this day
-      const dayTransports = transportation.filter(t => {
-        const depDate = dayjs(t.departure_date).format('YYYY-MM-DD');
-        const arrDate = t.arrival_date ? dayjs(t.arrival_date).format('YYYY-MM-DD') : depDate;
-
-        // Transport departs this day
-        if (depDate === dateStr) return true;
-        // Transport arrives this day
-        if (arrDate === dateStr) return true;
-        // Transport spans this day (departs before, arrives after)
-        if (depDate < dateStr && arrDate > dateStr) return true;
-
-        return false;
-      }).sort((a, b) => effectiveTime(a.departure_time_exact, a.departure_time)
-        .localeCompare(effectiveTime(b.departure_time_exact, b.departure_time)));
+      const dayTransports = transportation
+        .filter(t => transportTouchesDay(t, dateStr))
+        .sort((a, b) => effectiveTime(a.departure_time_exact, a.departure_time)
+          .localeCompare(effectiveTime(b.departure_time_exact, b.departure_time)));
 
       // Get lodging checking in this day
       const dayLodging = lodging.find(l =>
@@ -529,6 +541,22 @@ const TripTimeline = ({
         dayjs(l.check_out).format('YYYY-MM-DD') === dateStr
       );
 
+      // Day-circle coloring works off the UNFILTERED lists so a "just my
+      // plans" filter can't make a day look free when the group has plans
+      const everythingToday = [
+        ...allActivities.filter(a => dayjs(a.date).format('YYYY-MM-DD') === dateStr),
+        ...allTransportation.filter(t => transportTouchesDay(t, dateStr)),
+        ...allLodging.filter(l =>
+          dayjs(l.check_in).format('YYYY-MM-DD') === dateStr ||
+          dayjs(l.check_out).format('YYYY-MM-DD') === dateStr
+        ),
+      ];
+      const includesMe = (item) =>
+        !item.participant_ids?.length || item.participant_ids.includes(currentUserId);
+      const hasAny = everythingToday.length > 0;
+      // Without a viewer (public link), every planned day counts as "yours"
+      const hasMine = currentUserId == null ? hasAny : everythingToday.some(includesMe);
+
       days.push({
         date: current.toDate(),
         dayNumber,
@@ -536,6 +564,8 @@ const TripTimeline = ({
         transports: dayTransports,
         lodging: dayLodging,
         lodgingCheckout: dayLodgingCheckout,
+        hasAny,
+        hasMine,
         isToday: current.isSame(today, 'day'),
         isPast: current.isBefore(today, 'day'),
       });
