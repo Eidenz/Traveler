@@ -1,6 +1,7 @@
 // server/scripts/seedDevTrip.js
-// Seeds the dev database with a richly filled PAST trip ("Kansai Circuit")
-// to exercise the recap, archive, settlement, currencies, brainstorm, etc.
+// Seeds the dev database with a richly filled ACTIVE trip ("Kansai Circuit",
+// currently on day 5 of 10) to exercise the today/nearby views, recap (by
+// URL), settlement, currencies, brainstorm, etc.
 //
 //   cd server && npm run seed:dev          (or DB_PATH=... node scripts/seedDevTrip.js)
 //
@@ -16,9 +17,9 @@ const bcrypt = require('bcrypt');
 const { db, initializeDatabase } = require('../db/database');
 const { generateTripId } = require('../utils/idGenerator');
 
-const daysAgo = (n) => {
+const daysFromNow = (n) => {
   const d = new Date();
-  d.setDate(d.getDate() - n);
+  d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
 };
 
@@ -39,9 +40,11 @@ const main = async () => {
   const bob = findOrCreateUser('Bob', 'bob@dev.local', PASSWORD);
   const cara = findOrCreateUser('Cara', 'cara@dev.local', PASSWORD);
 
-  // ---- trip (ended two weeks ago, 10 days long) ---------------------------
-  const start = daysAgo(24);
-  const end = daysAgo(15);
+  // ---- trip (ACTIVE: day 5 of 10 as of today) -----------------------------
+  // Mid-trip so the Today view has live entries and the Nearby view is in
+  // its natural during-trip state; the recap is still reachable by URL.
+  const start = daysFromNow(-4);
+  const end = daysFromNow(5);
   const tripId = generateTripId();
   db.prepare(`
     INSERT INTO trips (id, name, description, location, start_date, end_date, owner_id, photo_album_url)
