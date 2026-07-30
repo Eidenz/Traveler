@@ -26,6 +26,7 @@ const BrainstormMap = ({
     onMapReady, // Callback to expose map ref for external control
     compact = false, // Compact mode for mobile
     bottomOffset = 0, // Extra bottom offset for legend when panel covers bottom
+    showAddHint = true, // The "click anywhere to add" bubble (off in mobile fullscreen)
 }) => {
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
@@ -479,7 +480,7 @@ const BrainstormMap = ({
             </div>
 
             {/* Click hint - hidden on compact/mobile */}
-            {canEdit && !compact && (
+            {canEdit && !compact && showAddHint && (
                 <div className="absolute bottom-4 right-4 bg-accent/90 text-white rounded-xl px-3 py-2 text-sm shadow-lg">
                     <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />

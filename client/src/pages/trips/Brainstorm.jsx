@@ -621,12 +621,16 @@ const Brainstorm = ({ tripId: propTripId, fromDashboard = false }) => {
               setMobileMapOpen(false);
               handleEditItem(item);
             }}
+            showAddHint={false}
           />
+          {/* Fat, thumb-reachable exit — the top corners belong to the
+              map's search bar */}
           <button
             onClick={() => setMobileMapOpen(false)}
-            className="absolute top-4 right-4 p-2.5 rounded-xl bg-white dark:bg-gray-800 shadow-lg z-50"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-medium shadow-xl border border-gray-200 dark:border-gray-700 z-50 active:scale-95 transition-transform"
           >
-            <X className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+            <ArrowLeft className="w-4 h-4" />
+            {t('brainstorm.backToCanvas', 'Back to canvas')}
           </button>
         </div>
       )}

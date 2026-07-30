@@ -643,7 +643,8 @@
     "groupColor": "Group color",
     "updated": "Item updated",
     "created": "Item created",
-    "saveFailed": "Failed to save item"
+    "saveFailed": "Failed to save item",
+    "backToCanvas": "Back to canvas"
   },
   "today": {
     "title": "Today",

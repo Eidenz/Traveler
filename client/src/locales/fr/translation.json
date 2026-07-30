@@ -643,7 +643,8 @@
     "groupColor": "Couleur du groupe",
     "updated": "Élément mis à jour",
     "created": "Élément créé",
-    "saveFailed": "Échec de l'enregistrement"
+    "saveFailed": "Échec de l'enregistrement",
+    "backToCanvas": "Retour au canevas"
   },
   "today": {
     "title": "Aujourd'hui",
