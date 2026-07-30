@@ -17,7 +17,6 @@ import { transportAPI, lodgingAPI, activityAPI, documentAPI, budgetAPI } from '.
 import { geocodeLocation } from '../../utils/geocoding';
 import { getImageUrl } from '../../utils/imageUtils';
 import { symbolFor } from '../../utils/currencyUtils';
-import useAuthStore from '../../stores/authStore';
 
 /**
  * Step-based wizard for creating/editing activities, lodging, and transport.
@@ -36,7 +35,6 @@ const ItemWizard = ({
     members = [] // Trip members, for the participants picker
 }) => {
     const { t } = useTranslation();
-    const { user } = useAuthStore();
     const isEditMode = !!itemId;
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +52,7 @@ const ItemWizard = ({
     const [budgetInfo, setBudgetInfo] = useState(null); // { budget, expenses } once loaded
     const [expenseMode, setExpenseMode] = useState('none'); // 'none' | 'new' | 'link'
     const [expenseAmount, setExpenseAmount] = useState('');
-    const [expensePaidBy, setExpensePaidBy] = useState(null); // null = current user, 'none' = no settlement
+    const [expensePaidBy, setExpensePaidBy] = useState(null); // null/'none' = no settlement (default), else payer id
     const [expenseSplitIds, setExpenseSplitIds] = useState(null); // null = follow the item's participants
     const [expenseLinkQuery, setExpenseLinkQuery] = useState('');
     const [expenseLinkId, setExpenseLinkId] = useState(null);
@@ -67,7 +65,7 @@ const ItemWizard = ({
     // Who a tracked expense splits between: an explicit choice, else the
     // item's participants, else everyone (a "6 do it, 5 pay" group is why
     // the split stays editable here)
-    const expenseTracked = expensePaidBy !== 'none';
+    const expenseTracked = expensePaidBy != null && expensePaidBy !== 'none';
     const effectiveSplitIds = expenseSplitIds ?? participantIds ?? members.map((m) => m.id);
     const toggleSplitMember = (id) => {
         const next = effectiveSplitIds.includes(id)
@@ -597,7 +595,7 @@ const ItemWizard = ({
                     category: defaults.category,
                     date: dayjs(defaults.date || new Date()).format('YYYY-MM-DD'),
                     // '' payer = plain expense, no settlement tracking
-                    paid_by: expenseTracked ? (expensePaidBy ?? user?.id) : '',
+                    paid_by: expenseTracked ? expensePaidBy : '',
                     split_user_ids: expenseTracked ? effectiveSplitIds : [],
                     reference_type: expenseRefType,
                     reference_id: referenceId,
@@ -1664,18 +1662,18 @@ const ItemWizard = ({
                                 </span>
                             </div>
                             <select
-                                value={expensePaidBy ?? user?.id ?? 'none'}
+                                value={expensePaidBy ?? 'none'}
                                 onChange={(e) => setExpensePaidBy(e.target.value === 'none' ? 'none' : Number(e.target.value))}
                                 className="w-full px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
                             >
+                                <option value="none">
+                                    {t('itemExpense.notTracked', 'No settlement — just record it')}
+                                </option>
                                 {members.map((member) => (
                                     <option key={member.id} value={member.id}>
                                         {t('itemExpense.paidByOption', 'Paid by {{name}}', { name: member.name })}
                                     </option>
                                 ))}
-                                <option value="none">
-                                    {t('itemExpense.notTracked', 'No settlement — just record it')}
-                                </option>
                             </select>
                         </div>
 
