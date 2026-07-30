@@ -184,6 +184,31 @@ const main = async () => {
   addItem.run(tripId, 'idea', 'Ghibli museum?', 'Sold out :( next time', null,
     null, null, null, 400, 520, '#64748b', 0, null, alice);
 
+  // Shibuya cluster — five spots within walking distance of each other, so
+  // the Nearby view has meaningful sorting when you spoof your location to
+  // Shibuya Crossing (DevTools > Sensors > 35.6595, 139.7005)
+  const shibuyaSpots = [
+    ['Shibuya Crossing selfie', "The classic. Go up Mag's Park for the view", 35.6595, 139.7005, 'Shibuya Crossing', '#0ea5e9'],
+    ['Hachiko statue', "Quick photo, it's right there", 35.6590, 139.7006, 'Hachiko Square', null],
+    ['Nonbei Yokocho bar alley', 'Tiny bars, go after dark', 35.6598, 139.7027, 'Nonbei Yokocho', '#f59e0b'],
+    ['Center Gai ramen hunt', 'The famous jiro-style place', 35.6600, 139.6975, 'Center Gai', '#ef4444'],
+    ['Miyashita Park rooftop', 'Rooftop park over the mall', 35.6621, 139.7016, 'Miyashita Park', '#10b981'],
+  ];
+  const shibuyaIds = shibuyaSpots.map(([title, content, lat, lng, loc, color], i) =>
+    addItem.run(tripId, 'place', title, content, null, lat, lng, loc,
+      80 + (i % 3) * 260, 700 + Math.floor(i / 3) * 200, color, 0, null, bob).lastInsertRowid
+  );
+
+  // Field statuses so the Nearby sections + undo chips have content:
+  // Hachiko is group-done (recorded by Alice), the bar alley is
+  // personally passed by Alice (Bob and Cara still see it recommended)
+  db.prepare(`
+    UPDATE brainstorm_items SET done_at = CURRENT_TIMESTAMP, done_by = ? WHERE id = ?
+  `).run(alice, shibuyaIds[1]);
+  db.prepare(`
+    INSERT INTO brainstorm_item_user_status (item_id, user_id, status) VALUES (?, ?, 'dismissed')
+  `).run(shibuyaIds[2], alice);
+
   // ---- checklists ---------------------------------------------------------
   const listId = db.prepare(`
     INSERT INTO checklists (trip_id, name, created_by, is_personal) VALUES (?, 'Packing list', ?, 0)
@@ -210,6 +235,8 @@ const main = async () => {
   console.log('  Users:    alice@dev.local / bob@dev.local / cara@dev.local');
   console.log(`  Password: ${PASSWORD}`);
   console.log('  Recap:    /trips/' + tripId + '/recap');
+  console.log('  Nearby:   /trips/' + tripId + '/nearby');
+  console.log('  Spoof:    DevTools > Sensors > Location: 35.6595, 139.7005 (Shibuya)');
 };
 
 main().then(() => process.exit(0)).catch((err) => {
