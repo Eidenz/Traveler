@@ -45,9 +45,13 @@ const NearbyIdeas = () => {
   const [showHidden, setShowHidden] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Filters: how far you're willing to go + closest-first vs top picks
+  // Filters: how far you're willing to go + closest-first vs top picks.
+  // The slider walks discrete, human steps; the last stop is "any distance".
+  const RADIUS_STEPS = [0.5, 1, 2, 5, 10, 20, 50, Infinity];
   const [radiusKm, setRadiusKm] = useState(() => {
-    const saved = parseFloat(localStorage.getItem('nearbyRadiusKm'));
+    const raw = localStorage.getItem('nearbyRadiusKm');
+    if (raw === 'Infinity') return Infinity;
+    const saved = parseFloat(raw);
     return Number.isFinite(saved) ? saved : 10;
   });
   const [sortMode, setSortMode] = useState(
@@ -258,28 +262,33 @@ const NearbyIdeas = () => {
           {t('nearby.subtitle', 'Ideas from your brainstorm, closest first')}
         </p>
 
-        {/* Filters: radius + sort */}
-        <div className="mb-4 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          {[1, 5, 10, 25, Infinity].map((km) => (
+        {/* Filters: radius slider + sort */}
+        <div className="mb-4 p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 w-24 flex-shrink-0">
+              {Number.isFinite(radiusKm)
+                ? `≤ ${radiusKm} km`
+                : t('nearby.anyDistance', 'Any distance')}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={RADIUS_STEPS.length - 1}
+              step={1}
+              value={Math.max(0, RADIUS_STEPS.findIndex((v) => v === radiusKm))}
+              onChange={(e) => pickRadius(RADIUS_STEPS[Number(e.target.value)])}
+              className="flex-1 accent-accent"
+              aria-label={t('nearby.radiusLabel', 'Maximum distance')}
+            />
             <button
-              key={km}
-              onClick={() => pickRadius(km)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${radiusKm === km
-                ? 'bg-nav dark:bg-white text-white dark:text-gray-900'
-                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'}`}
+              onClick={() => pickSort(sortMode === 'distance' ? 'priority' : 'distance')}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 flex-shrink-0"
             >
-              {Number.isFinite(km) ? `≤ ${km} km` : t('nearby.anyDistance', 'Any distance')}
+              {sortMode === 'priority'
+                ? (<><Star className="w-3 h-3 text-amber-500 fill-current" />{t('nearby.topPicks', 'Top picks')}</>)
+                : (<><Navigation className="w-3 h-3" />{t('nearby.closest', 'Closest')}</>)}
             </button>
-          ))}
-          <span className="w-px h-5 bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
-          <button
-            onClick={() => pickSort(sortMode === 'distance' ? 'priority' : 'distance')}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400"
-          >
-            {sortMode === 'priority'
-              ? (<><Star className="w-3 h-3 text-amber-500 fill-current" />{t('nearby.topPicks', 'Top picks')}</>)
-              : (<><Navigation className="w-3 h-3" />{t('nearby.closest', 'Closest')}</>)}
-          </button>
+          </div>
         </div>
 
         {/* Geolocation state */}
