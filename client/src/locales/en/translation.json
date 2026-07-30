@@ -725,8 +725,7 @@
     "amount": "Amount",
     "paidBy": "paid by",
     "paidByOption": "Paid by {{name}}",
-    "newHint": "Named and dated after this item, split equally between {{who}}.",
-    "splitSelected": "the {{count}} selected travelers",
+    "newHint": "Named and dated after this item.",
     "searchPlaceholder": "Search shared expenses...",
     "noMatches": "No unlinked shared expenses match.",
     "linkHint": "Will be linked to this item when you save.",
@@ -735,6 +734,8 @@
     "editHint": "Amounts and splits are edited in the Budget tab.",
     "fallbackName": "Trip expense",
     "amountRequired": "Enter an amount for the shared expense, or switch it back to None",
-    "saveFailed": "Saved, but the shared expense could not be attached"
+    "saveFailed": "Saved, but the shared expense could not be attached",
+    "notTracked": "No settlement — just record it",
+    "splitBetween": "Split equally between"
   }
 }

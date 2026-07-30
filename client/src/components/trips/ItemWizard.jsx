@@ -54,7 +54,8 @@ const ItemWizard = ({
     const [budgetInfo, setBudgetInfo] = useState(null); // { budget, expenses } once loaded
     const [expenseMode, setExpenseMode] = useState('none'); // 'none' | 'new' | 'link'
     const [expenseAmount, setExpenseAmount] = useState('');
-    const [expensePaidBy, setExpensePaidBy] = useState(null); // null = current user
+    const [expensePaidBy, setExpensePaidBy] = useState(null); // null = current user, 'none' = no settlement
+    const [expenseSplitIds, setExpenseSplitIds] = useState(null); // null = follow the item's participants
     const [expenseLinkQuery, setExpenseLinkQuery] = useState('');
     const [expenseLinkId, setExpenseLinkId] = useState(null);
     const [linkedExpense, setLinkedExpense] = useState(null); // already linked (edit mode)
@@ -62,6 +63,19 @@ const ItemWizard = ({
 
     // The server stores transport references as 'transportation'
     const expenseRefType = type === 'transport' ? 'transportation' : type;
+
+    // Who a tracked expense splits between: an explicit choice, else the
+    // item's participants, else everyone (a "6 do it, 5 pay" group is why
+    // the split stays editable here)
+    const expenseTracked = expensePaidBy !== 'none';
+    const effectiveSplitIds = expenseSplitIds ?? participantIds ?? members.map((m) => m.id);
+    const toggleSplitMember = (id) => {
+        const next = effectiveSplitIds.includes(id)
+            ? effectiveSplitIds.filter((x) => x !== id)
+            : [...effectiveSplitIds, id];
+        if (next.length === 0) return; // someone has to carry the expense
+        setExpenseSplitIds(next);
+    };
     const [bannerImage, setBannerImage] = useState(null);
     const [documentFiles, setDocumentFiles] = useState([]); // Array of {file, isPersonal} objects for NEW uploads
     const [documentLinks, setDocumentLinks] = useState([]); // Array of {url, title, isPersonal} for NEW link documents
@@ -167,6 +181,7 @@ const ItemWizard = ({
             setExpenseMode('none');
             setExpenseAmount('');
             setExpensePaidBy(null);
+            setExpenseSplitIds(null);
             setExpenseLinkQuery('');
             setExpenseLinkId(null);
             setDocumentFiles([]);
@@ -581,9 +596,9 @@ const ItemWizard = ({
                     amount: parseFloat(expenseAmount),
                     category: defaults.category,
                     date: dayjs(defaults.date || new Date()).format('YYYY-MM-DD'),
-                    paid_by: expensePaidBy ?? user?.id,
-                    // Split follows the item's participants ([] = everyone)
-                    split_user_ids: participantIds ?? [],
+                    // '' payer = plain expense, no settlement tracking
+                    paid_by: expenseTracked ? (expensePaidBy ?? user?.id) : '',
+                    split_user_ids: expenseTracked ? effectiveSplitIds : [],
                     reference_type: expenseRefType,
                     reference_id: referenceId,
                     trip_id: tripId,
@@ -1606,10 +1621,6 @@ const ItemWizard = ({
             { id: 'new', label: t('itemExpense.modeNew', 'New expense') },
             { id: 'link', label: t('itemExpense.modeLink', 'Link existing') },
         ];
-        const splitLabel = participantIds === null
-            ? t('participants.everyone', 'Everyone')
-            : t('itemExpense.splitSelected', 'the {{count}} selected travelers', { count: participantIds.length });
-
         return (
             <div>
                 {label}
@@ -1653,8 +1664,8 @@ const ItemWizard = ({
                                 </span>
                             </div>
                             <select
-                                value={expensePaidBy ?? user?.id ?? ''}
-                                onChange={(e) => setExpensePaidBy(Number(e.target.value))}
+                                value={expensePaidBy ?? user?.id ?? 'none'}
+                                onChange={(e) => setExpensePaidBy(e.target.value === 'none' ? 'none' : Number(e.target.value))}
                                 className="w-full px-3 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-accent"
                             >
                                 {members.map((member) => (
@@ -1662,10 +1673,38 @@ const ItemWizard = ({
                                         {t('itemExpense.paidByOption', 'Paid by {{name}}', { name: member.name })}
                                     </option>
                                 ))}
+                                <option value="none">
+                                    {t('itemExpense.notTracked', 'No settlement — just record it')}
+                                </option>
                             </select>
                         </div>
+
+                        {/* Split, editable: defaults to the item's participants but a
+                            payer list can differ ("6 do it, 5 pay") */}
+                        {expenseTracked && (
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
+                                    {t('itemExpense.splitBetween', 'Split equally between')}
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {members.map((member) => (
+                                        <button
+                                            key={member.id}
+                                            type="button"
+                                            onClick={() => toggleSplitMember(member.id)}
+                                            className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-all ${effectiveSplitIds.includes(member.id)
+                                                ? chipActiveClasses[color]
+                                                : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 opacity-60 hover:opacity-100'
+                                                }`}
+                                        >
+                                            {member.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {t('itemExpense.newHint', 'Named and dated after this item, split equally between {{who}}.', { who: splitLabel })}
+                            {t('itemExpense.newHint', 'Named and dated after this item.')}
                         </p>
                     </div>
                 )}
