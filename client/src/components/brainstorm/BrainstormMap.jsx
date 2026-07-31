@@ -59,6 +59,9 @@ const BrainstormMap = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
+    // Bumped when the style finishes settling so the marker effect retries —
+    // see the isStyleLoaded() guard below
+    const [styleReadyTick, setStyleReadyTick] = useState(0);
 
     // Map styles
     const styles = {
@@ -148,12 +151,15 @@ const BrainstormMap = ({
     useEffect(() => {
         if (!mapRef.current || !isLoaded) return;
 
-        // Check if map style is fully loaded before modifying sources
+        // Check if map style is fully loaded before modifying sources. Retry
+        // via a state tick on 'idle' — re-arming setIsLoaded(true) was a
+        // no-op once isLoaded was already true, leaving first-load markers
+        // unrendered until an unrelated re-render.
         if (!mapRef.current.isStyleLoaded()) {
-            mapRef.current.once('style.load', () => {
-                setIsLoaded(true);
-            });
-            return;
+            const mapInstance = mapRef.current;
+            const retry = () => setStyleReadyTick((t) => t + 1);
+            mapInstance.once('idle', retry);
+            return () => { mapInstance.off('idle', retry); };
         }
 
         const itemsWithLocation = items.filter(item => item.latitude && item.longitude);
@@ -366,7 +372,7 @@ const BrainstormMap = ({
 
             initialFitDoneRef.current = true;
         }
-    }, [items, onItemClick, isLoaded]);
+    }, [items, onItemClick, isLoaded, styleReadyTick]);
 
     // Handle search
     const handleSearch = async () => {

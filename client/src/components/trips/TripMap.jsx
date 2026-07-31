@@ -28,6 +28,9 @@ const TripMap = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasToken, setHasToken] = useState(true);
   const [geocodedPoints, setGeocodedPoints] = useState([]);
+  // Bumped when the style finishes settling so the marker effect retries —
+  // see the isStyleLoaded() guard below
+  const [styleReadyTick, setStyleReadyTick] = useState(0);
 
   // Collect all locations with coordinates (from DB or geocoded)
   const getMapPoints = useCallback(() => {
@@ -465,12 +468,16 @@ const TripMap = ({
 
     const points = getMapPoints();
 
-    // Check if map style is fully loaded before modifying sources
+    // Check if map style is fully loaded before modifying sources. Retry via
+    // a state tick on 'idle' — the old setIsLoaded(true) re-arm was a no-op
+    // once isLoaded was already true, so on a slow first load (style still
+    // settling when the data arrived) markers never rendered until some
+    // unrelated re-render re-ran this effect.
     if (!map.current.isStyleLoaded()) {
-      map.current.once('style.load', () => {
-        setIsLoaded(true);
-      });
-      return;
+      const mapInstance = map.current;
+      const retry = () => setStyleReadyTick((t) => t + 1);
+      mapInstance.once('idle', retry);
+      return () => { mapInstance.off('idle', retry); };
     }
 
     // Track which marker IDs we've seen
@@ -711,7 +718,7 @@ const TripMap = ({
 
       initialFitDoneRef.current = true;
     }
-  }, [getMapPoints, getPointsForZoom, isLoaded, selectedActivityId, onActivityClick, createMarkerElement]);
+  }, [getMapPoints, getPointsForZoom, isLoaded, styleReadyTick, selectedActivityId, onActivityClick, createMarkerElement]);
 
   // Category focus: when the transport or lodging tab is open, dim every
   // other marker (and the route lines that don't belong to the category) so
