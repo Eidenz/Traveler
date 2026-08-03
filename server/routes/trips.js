@@ -12,6 +12,7 @@ const {
   getTripRecap,
   removeTripMember,
   updateMemberRole,
+  updateMyEndDate,
   generatePublicShareToken,
   revokePublicShareToken,
   getTripByPublicToken,
@@ -89,6 +90,9 @@ router.put(
   ],
   updateMemberRole
 );
+
+// Set your own end date on the trip (any member, own row only)
+router.put('/:tripId/members/me/end-date', checkTripAccess(), updateMyEndDate);
 
 // Generate public share token (owner only)
 router.post('/:tripId/public-share', requireOwnerAccess, generatePublicShareToken);

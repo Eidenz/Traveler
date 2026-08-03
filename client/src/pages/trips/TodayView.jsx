@@ -205,7 +205,15 @@ const TodayView = () => {
   const inTrip = trip && today >= trip.start_date && today <= trip.end_date;
   const daysUntil = trip ? dayjs(trip.start_date).diff(dayjs(today), 'day') : 0;
   const dayNumber = trip ? dayjs(today).diff(dayjs(trip.start_date), 'day') + 1 : 0;
-  const totalDays = trip ? dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day') + 1 : 0;
+  // With "just my plans" on, "Day N of M" counts to your own last day
+  const myEndDate = (() => {
+    const me = members.find((m) => m.id === user?.id);
+    return me?.end_date ? dayjs(me.end_date).format('YYYY-MM-DD') : null;
+  })();
+  const effectiveEnd = onlyMine && myEndDate && trip && myEndDate < dayjs(trip.end_date).format('YYYY-MM-DD')
+    ? myEndDate
+    : trip?.end_date;
+  const totalDays = trip ? dayjs(effectiveEnd).diff(dayjs(trip.start_date), 'day') + 1 : 0;
 
   // Participant filter: entries with no subset belong to everyone
   const hasSubsetEntries = entries.some((e) => e.participantIds?.length > 0);

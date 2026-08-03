@@ -1,7 +1,8 @@
 // client/src/components/trips/ShareModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Globe, Link2, X, UserMinus, Crown, ChevronDown, Copy, Trash2, ExternalLink, Lightbulb } from 'lucide-react';
+import { Globe, Link2, X, UserMinus, Crown, ChevronDown, Copy, Trash2, ExternalLink, Lightbulb, CalendarClock, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 
 import Modal from '../ui/Modal';
@@ -37,6 +38,28 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
 
     // Check if current user is owner
     const isOwner = members.find(m => m.id === currentUserId)?.role === 'owner';
+
+    // Your own last day on the trip (for leaving before the group).
+    // Saved on change, like the role dropdowns.
+    const me = members.find(m => m.id === currentUserId);
+    const [isSavingEndDate, setIsSavingEndDate] = useState(false);
+    const tripStartDay = trip?.start_date ? dayjs(trip.start_date).format('YYYY-MM-DD') : undefined;
+    const tripEndDay = trip?.end_date ? dayjs(trip.end_date).format('YYYY-MM-DD') : undefined;
+
+    const handleSaveMyEndDate = async (value) => {
+        try {
+            setIsSavingEndDate(true);
+            const res = await tripAPI.setMyEndDate(tripId, value || null);
+            toast.success(res.data.end_date
+                ? t('sharing.endDateSet', 'Your last day is set to {{date}}', { date: dayjs(res.data.end_date).format('MMM D') })
+                : t('sharing.endDateCleared', 'You now stay for the whole trip'));
+            onUpdate?.();
+        } catch (error) {
+            toast.error(error.response?.data?.message || t('errors.saveFailed'));
+        } finally {
+            setIsSavingEndDate(false);
+        }
+    };
 
     // Handle sharing with a new user
     const handleShareTrip = async (e) => {
@@ -338,6 +361,12 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
                                                 )}
                                             </p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">{member.email}</p>
+                                            {member.end_date && (
+                                                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-0.5">
+                                                    <LogOut className="w-3 h-3" />
+                                                    {t('sharing.leavesOn', 'Leaves {{date}}', { date: dayjs(member.end_date).format('MMM D') })}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
@@ -403,6 +432,44 @@ const ShareModal = ({ isOpen, onClose, trip, members, tripId, onUpdate, currentU
                         })}
                     </div>
                 </div>
+
+                {/* Your own last day — for leaving before the rest of the group */}
+                {me && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                        <div className="flex items-center gap-2 mb-1">
+                            <CalendarClock className="w-4 h-4 text-gray-500" />
+                            <label className="text-sm font-medium">
+                                {t('sharing.myLastDay', 'Your last day')}
+                            </label>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            {t('sharing.myLastDayDesc', 'Leaving before the others? Set your own last day — with "Just my plans" on, the timeline stops there.')}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="date"
+                                value={me.end_date ? dayjs(me.end_date).format('YYYY-MM-DD') : ''}
+                                min={tripStartDay}
+                                max={tripEndDay}
+                                disabled={isSavingEndDate}
+                                onChange={(e) => handleSaveMyEndDate(e.target.value)}
+                                className="px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-accent focus:border-transparent"
+                            />
+                            {me.end_date && (
+                                <button
+                                    onClick={() => handleSaveMyEndDate(null)}
+                                    disabled={isSavingEndDate}
+                                    className="px-3 py-2 rounded-xl text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    {t('sharing.stayWholeTrip', 'Stay the whole trip')}
+                                </button>
+                            )}
+                            {isSavingEndDate && (
+                                <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </Modal>
     );

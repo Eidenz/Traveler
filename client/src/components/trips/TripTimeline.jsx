@@ -515,17 +515,23 @@ const TripTimeline = ({
   canEdit = true,
   members = [],
   categoryFilter = null, // 'transport' | 'lodging' turn the timeline into a filtered view
+  // Viewer's own last day ("just my plans" + a custom end date): the day
+  // list, header range and end marker stop there instead of trip.end_date
+  endDateOverride = null,
 }) => {
   const { t } = useTranslation();
   const addItem = onAddItem || onAddActivity;
 
   if (!trip) return null;
 
+  const effectiveEnd = endDateOverride || trip.end_date;
+  const isPersonalEnd = !!endDateOverride;
+
   // Generate array of days for the trip
   const getDays = () => {
     const days = [];
     const start = dayjs(trip.start_date);
-    const end = dayjs(trip.end_date);
+    const end = dayjs(effectiveEnd);
     const today = dayjs();
 
     let current = start;
@@ -609,7 +615,9 @@ const TripTimeline = ({
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
             <Calendar className="w-4 h-4" />
-            {dayjs(trip.start_date).format('MMM D')} - {dayjs(trip.end_date).format('MMM D, YYYY')}
+            <span className={isPersonalEnd ? 'text-accent font-medium' : undefined}>
+              {dayjs(trip.start_date).format('MMM D')} - {dayjs(effectiveEnd).format('MMM D, YYYY')}
+            </span>
             <span className="mx-1">•</span>
             {days.length} {days.length === 1 ? 'day' : 'days'}
           </p>
@@ -676,14 +684,17 @@ const TripTimeline = ({
           />
         ))}
 
-        {/* End marker */}
+        {/* End marker — with a personal end date it's your departure, not
+            the group's, so say so */}
         <div className="flex gap-4">
           <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-            <span className="text-lg">🏁</span>
+            <span className="text-lg">{isPersonalEnd ? '👋' : '🏁'}</span>
           </div>
           <div className="pt-2">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {t('trips.tripEnds', 'Trip ends')}
+              {isPersonalEnd
+                ? t('trips.yourTripEnds', 'Your trip ends — the group continues until {{date}}', { date: dayjs(trip.end_date).format('MMM D') })
+                : t('trips.tripEnds', 'Trip ends')}
             </p>
           </div>
         </div>

@@ -216,7 +216,9 @@
     "unarchivedToast": "Voyage désarchivé",
     "recap": "Rétro",
     "recapOpen": "Revivre ce voyage",
-    "archivedTrips": "Voyages archivés"
+    "archivedTrips": "Voyages archivés",
+    "tripEnds": "Fin du voyage",
+    "yourTripEnds": "Fin de votre voyage — le groupe continue jusqu’au {{date}}"
   },
   "transportation": {
     "title": "Transport",
@@ -387,7 +389,14 @@
     "createPublicLink": "Créer un lien public",
     "publicViewBanner": "Vous consultez un voyage public. Certaines informations peuvent être masquées.",
     "publicViewNotice": "Ceci est une vue publique. Les informations sensibles comme les codes de confirmation et les documents sont masquées.",
-    "travelers": "Voyageurs"
+    "travelers": "Voyageurs",
+    "myLastDay": "Votre dernier jour",
+    "myLastDayDesc": "Vous partez avant les autres ? Définissez votre propre dernier jour — avec « Mes plans uniquement », la timeline s’arrête là.",
+    "leavesOn": "Part le {{date}}",
+    "endDateSet": "Votre dernier jour est fixé au {{date}}",
+    "endDateCleared": "Vous restez maintenant pour tout le voyage",
+    "stayWholeTrip": "Rester tout le voyage",
+    "personalDatesHint": "Vos dates — vous partez avant le groupe"
   },
   "dashboard": {
     "title": "Tableau de bord",
@@ -750,5 +759,11 @@
   },
   "timeline": {
     "addToDay": "Ajouter à ce jour"
+  },
+  "itemDetail": {
+    "confirmationCode": "Code de confirmation",
+    "departure": "Départ",
+    "arrival": "Arrivée",
+    "viewDocuments": "Voir les documents ({{count}})"
   }
 }

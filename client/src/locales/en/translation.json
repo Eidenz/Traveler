@@ -216,7 +216,9 @@
     "unarchivedToast": "Trip unarchived",
     "recap": "Recap",
     "recapOpen": "Relive this trip",
-    "archivedTrips": "Archived Trips"
+    "archivedTrips": "Archived Trips",
+    "tripEnds": "Trip ends",
+    "yourTripEnds": "Your trip ends — the group continues until {{date}}"
   },
   "transportation": {
     "title": "Transportation",
@@ -387,7 +389,14 @@
     "createPublicLink": "Create public link",
     "publicViewBanner": "You are viewing a public trip. Some information may be hidden.",
     "publicViewNotice": "This is a public view. Sensitive information like confirmation codes and documents are hidden.",
-    "travelers": "Travelers"
+    "travelers": "Travelers",
+    "myLastDay": "Your last day",
+    "myLastDayDesc": "Leaving before the others? Set your own last day — with \"Just my plans\" on, the timeline stops there.",
+    "leavesOn": "Leaves {{date}}",
+    "endDateSet": "Your last day is set to {{date}}",
+    "endDateCleared": "You now stay for the whole trip",
+    "stayWholeTrip": "Stay the whole trip",
+    "personalDatesHint": "Your dates — you leave before the group"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -750,5 +759,11 @@
   },
   "timeline": {
     "addToDay": "Add to this day"
+  },
+  "itemDetail": {
+    "confirmationCode": "Confirmation code",
+    "departure": "Departure",
+    "arrival": "Arrival",
+    "viewDocuments": "View documents ({{count}})"
   }
 }

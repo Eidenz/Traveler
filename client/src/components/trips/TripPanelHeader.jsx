@@ -22,6 +22,9 @@ const TripPanelHeader = ({
   canEdit = true,
   currentUserId = null,
   onTripChange = null, // (trip) => void, e.g. after archive/unarchive
+  // Viewer's own last day ("just my plans" + a custom end date): date range
+  // and night count show their trip, not the group's
+  endDateOverride = null,
 }) => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -49,10 +52,12 @@ const TripPanelHeader = ({
     }
   };
 
+  const effectiveEnd = endDateOverride || trip?.end_date;
+
   // Calculate duration
   const getDuration = () => {
-    if (!trip?.start_date || !trip?.end_date) return null;
-    const nights = dayjs(trip.end_date).diff(dayjs(trip.start_date), 'day');
+    if (!trip?.start_date || !effectiveEnd) return null;
+    const nights = dayjs(effectiveEnd).diff(dayjs(trip.start_date), 'day');
     return {
       nights,
       label: nights === 1 ? t('common.night', 'night') : t('common.nights', 'nights'),
@@ -63,7 +68,7 @@ const TripPanelHeader = ({
   const formatDateRange = () => {
     if (!trip?.start_date) return '';
     const start = dayjs(trip.start_date).format('MMM D');
-    const end = trip.end_date ? dayjs(trip.end_date).format('MMM D') : '';
+    const end = effectiveEnd ? dayjs(effectiveEnd).format('MMM D') : '';
     return end ? `${start} - ${end}` : start;
   };
 
@@ -148,7 +153,14 @@ const TripPanelHeader = ({
 
             <span className="text-gray-300 dark:text-gray-600">•</span>
 
-            <span className="text-gray-600 dark:text-gray-300 font-medium">
+            <span
+              className={endDateOverride
+                ? 'text-accent font-medium'
+                : 'text-gray-600 dark:text-gray-300 font-medium'}
+              title={endDateOverride
+                ? t('sharing.personalDatesHint', 'Your dates — you leave before the group')
+                : undefined}
+            >
               {formatDateRange()}
             </span>
 

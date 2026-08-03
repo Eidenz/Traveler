@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { hasMapbox } from '../../config/env';
 import toast from 'react-hot-toast';
+import dayjs from 'dayjs';
 
 // API and stores
 import { tripAPI, transportAPI, lodgingAPI, activityAPI, checklistAPI, documentAPI } from '../../services/api';
@@ -39,6 +40,8 @@ import DocumentPanel from '../../components/trips/DocumentPanel';
 import ShareModal from '../../components/trips/ShareModal';
 import ItemWizard from '../../components/trips/ItemWizard';
 import AddItemModal from '../../components/trips/AddItemModal';
+import ItemDetailView from '../../components/trips/ItemDetailView';
+import Modal from '../../components/ui/Modal';
 
 const TripDetail = () => {
   const { tripId } = useParams();
@@ -86,6 +89,12 @@ const TripDetail = () => {
 
   // Mobile create flow: wizard-in-modal, optionally starting on the type chooser
   const [addModal, setAddModal] = useState(null); // { type, date } | null
+
+  // Read-only item recap, opened by clicking a timeline/map card. inPanel is
+  // decided at open time, mirroring the wizard's desktop-panel/mobile-modal
+  // split. The item itself is derived from the lists so it stays fresh
+  // through socket updates and post-edit refetches.
+  const [detailItem, setDetailItem] = useState(null); // { type, id, inPanel } | null
 
   // Panel resize state. Rendered width is viewport-clamped so the resize
   // edge never disappears on a smaller monitor; the saved preference keeps
@@ -533,6 +542,43 @@ const TripDetail = () => {
     return userMember && userMember.role === 'owner';
   };
 
+  // Live item behind the detail view; disappears (and closes the view) when
+  // the item is deleted here or by another member
+  const detailData = useMemo(() => {
+    if (!detailItem) return null;
+    const list = detailItem.type === 'transport'
+      ? transportation
+      : detailItem.type === 'lodging' ? lodging : activities;
+    const item = list.find((i) => i.id === detailItem.id);
+    return item ? { type: detailItem.type, item } : null;
+  }, [detailItem, transportation, lodging, activities]);
+
+  useEffect(() => {
+    if (detailItem && !detailData) setDetailItem(null);
+  }, [detailItem, detailData]);
+
+  // Clicking an existing item opens its recap, not the edit wizard
+  const openDetail = (type, id) => {
+    const inPanel = window.innerWidth >= 768 && hasMapboxToken;
+    if (inPanel) {
+      setShowWizard(false);
+      setShowDocumentPanel(false);
+    }
+    setDetailItem({ type, id, inPanel });
+  };
+
+  // Edit button in the recap → the existing wizard/modal flow. On the panel
+  // path the recap stays mounted underneath, so closing the wizard lands
+  // back on it; on the modal path the modals swap.
+  const openEditFromDetail = () => {
+    if (!detailData) return;
+    const { type, item } = detailData;
+    if (!detailItem.inPanel) setDetailItem(null);
+    if (type === 'transport') handleOpenTransportModal(item.id);
+    else if (type === 'lodging') handleOpenLodgingModal(item.id);
+    else handleOpenActivityModal(item);
+  };
+
   // Modal handlers - use wizard on desktop when map is available, otherwise use modals
   const handleOpenTransportModal = (transportId = null) => {
     // On desktop with map, use wizard; on mobile, use modal
@@ -601,6 +647,7 @@ const TripDetail = () => {
   // (transport/lodging), null opens the wizard on its type chooser
   const handleAddItem = (date = null, presetType = null) => {
     const defaultDate = date || trip?.start_date || null;
+    setDetailItem(null); // creating something new — drop any open recap
     if (window.innerWidth >= 768 && hasMapboxToken) {
       setWizardType(presetType);
       setWizardItemId(null);
@@ -826,6 +873,18 @@ const TripDetail = () => {
     () => [...transportation, ...lodging, ...activities].some((i) => i.participant_ids?.length > 0),
     [transportation, lodging, activities]
   );
+
+  // Your own last day (set in the Share modal when you leave before the
+  // group). With "Just my plans" on, the timeline and date visuals stop
+  // there instead of at the trip's official end.
+  const myEndDate = useMemo(() => {
+    const me = members.find((m) => m.id === user?.id);
+    return me?.end_date ? dayjs(me.end_date).format('YYYY-MM-DD') : null;
+  }, [members, user?.id]);
+  const personalEndActive = !!(
+    onlyMine && myEndDate && trip?.end_date &&
+    myEndDate < dayjs(trip.end_date).format('YYYY-MM-DD')
+  );
   const visibleTransportation = useMemo(
     () => (onlyMine ? transportation.filter(isMineItem) : transportation),
     [onlyMine, transportation, isMineItem]
@@ -839,9 +898,11 @@ const TripDetail = () => {
     [onlyMine, activities, isMineItem]
   );
 
-  // Small pill under the tabs toggling the participant filter
+  // Small pill under the tabs toggling the participant filter. Also shown
+  // when you have a custom end date — the toggle clamps the timeline then.
   const renderOnlyMineToggle = () => {
-    if (!hasSubsetItems || !['timeline', 'transport', 'lodging'].includes(activeTab)) return null;
+    if (!hasSubsetItems && !myEndDate) return null;
+    if (!['timeline', 'transport', 'lodging'].includes(activeTab)) return null;
     return (
       <div className="px-4 pt-2 flex justify-end">
         <button
@@ -895,7 +956,7 @@ const TripDetail = () => {
               activities={visibleActivities}
               transportation={visibleTransportation}
               lodging={visibleLodging}
-              onActivityClick={handleOpenActivityModal}
+              onActivityClick={(activity) => openDetail('activity', activity?.id)}
               selectedActivityId={selectedActivityId}
               focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
               compact={mobileViewState === 'split'} // Full controls when in map mode
@@ -981,6 +1042,7 @@ const TripDetail = () => {
               currentUserId={user?.id}
               onTripChange={setTrip}
               canEdit={canEdit()}
+              endDateOverride={personalEndActive ? myEndDate : null}
             />
 
             {/* Tab navigation */}
@@ -1004,10 +1066,11 @@ const TripDetail = () => {
                   allActivities={activities}
                   currentUserId={user?.id}
                   members={members}
+                  endDateOverride={personalEndActive ? myEndDate : null}
                   categoryFilter={activeTab === 'timeline' ? null : activeTab}
-                  onTransportClick={(item) => handleOpenTransportModal(item?.id)}
-                  onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
-                  onActivityClick={handleOpenActivityModal}
+                  onTransportClick={(item) => openDetail('transport', item?.id)}
+                  onLodgingClick={(item) => openDetail('lodging', item?.id)}
+                  onActivityClick={(activity) => openDetail('activity', activity?.id)}
                   onAddItem={(date) => handleAddItem(date, activeTab === 'timeline' ? null : activeTab)}
                   onDocumentClick={handleViewDocument}
                   canEdit={canEdit()}
@@ -1083,6 +1146,7 @@ const TripDetail = () => {
               currentUserId={user?.id}
               onTripChange={setTrip}
               canEdit={canEdit()}
+              endDateOverride={personalEndActive ? myEndDate : null}
             />
           </div>
 
@@ -1109,10 +1173,11 @@ const TripDetail = () => {
                 allActivities={activities}
                 currentUserId={user?.id}
                 members={members}
+                endDateOverride={personalEndActive ? myEndDate : null}
                 categoryFilter={activeTab === 'timeline' ? null : activeTab}
-                onTransportClick={(item) => handleOpenTransportModal(item?.id)}
-                onLodgingClick={(item) => handleOpenLodgingModal(item?.id)}
-                onActivityClick={handleOpenActivityModal}
+                onTransportClick={(item) => openDetail('transport', item?.id)}
+                onLodgingClick={(item) => openDetail('lodging', item?.id)}
+                onActivityClick={(activity) => openDetail('activity', activity?.id)}
                 onAddItem={(date) => handleAddItem(date, activeTab === 'timeline' ? null : activeTab)}
                 onDocumentClick={handleViewDocument}
                 canEdit={canEdit()}
@@ -1196,13 +1261,23 @@ const TripDetail = () => {
                 onDocumentsChange={refreshDocuments}
                 canEdit={canEdit()}
               />
+            ) : detailData && detailItem?.inPanel ? (
+              <ItemDetailView
+                type={detailData.type}
+                item={detailData.item}
+                members={members}
+                canEdit={canEdit()}
+                onEdit={openEditFromDetail}
+                onClose={() => setDetailItem(null)}
+                onDocumentClick={handleViewDocument}
+              />
             ) : (
               <TripMap
                 trip={trip}
                 activities={visibleActivities}
                 transportation={visibleTransportation}
                 lodging={visibleLodging}
-                onActivityClick={handleOpenActivityModal}
+                onActivityClick={(activity) => openDetail('activity', activity?.id)}
                 selectedActivityId={selectedActivityId}
                 focusCategory={activeTab === 'transport' ? 'transport' : activeTab === 'lodging' ? 'lodging' : null}
               />
@@ -1210,6 +1285,29 @@ const TripDetail = () => {
           </div>
         )}
       </div>
+
+      {/* Item recap modal (mobile / no-map desktop; the map layout uses the
+          right panel instead) */}
+      <Modal
+        isOpen={!!detailData && !detailItem?.inPanel}
+        onClose={() => setDetailItem(null)}
+        size="lg"
+        noPadding
+      >
+        <div className="h-[80vh] max-h-[700px]">
+          {detailData && (
+            <ItemDetailView
+              type={detailData.type}
+              item={detailData.item}
+              members={members}
+              canEdit={canEdit()}
+              onEdit={openEditFromDetail}
+              onClose={() => setDetailItem(null)}
+              onDocumentClick={handleViewDocument}
+            />
+          )}
+        </div>
+      </Modal>
 
       {/* Modals - shared between mobile and desktop */}
       <TransportModal

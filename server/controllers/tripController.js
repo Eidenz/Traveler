@@ -51,9 +51,10 @@ const getTripById = (req, res) => {
       return res.status(404).json({ message: 'Trip not found' });
     }
 
-    // Get trip members
+    // Get trip members. end_date is a member's own last day (NULL = stays
+    // until the trip's end_date).
     const members = db.prepare(`
-      SELECT u.id, u.name, u.email, u.profile_image, tm.role
+      SELECT u.id, u.name, u.email, u.profile_image, tm.role, tm.end_date
       FROM trip_members tm
       JOIN users u ON tm.user_id = u.id
       WHERE tm.trip_id = ?
@@ -758,6 +759,50 @@ const updateMemberRole = (req, res) => {
 };
 
 /**
+ * Set the requesting member's own end date — their last day on the trip
+ * when they leave before the group does. Self-service on purpose: any
+ * member manages only their own row (route has no :userId). Null/empty or
+ * the trip's own end date clears it back to "stays the whole trip".
+ */
+const updateMyEndDate = (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const userId = req.user.id;
+    const raw = req.body.end_date;
+
+    const trip = db.prepare('SELECT start_date, end_date FROM trips WHERE id = ?').get(tripId);
+    if (!trip) {
+      return res.status(404).json({ message: 'Trip not found' });
+    }
+
+    let endDate = null;
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+      endDate = String(raw).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+        return res.status(400).json({ message: 'End date must be YYYY-MM-DD' });
+      }
+      const tripStart = String(trip.start_date).slice(0, 10);
+      const tripEnd = String(trip.end_date).slice(0, 10);
+      if (endDate < tripStart || endDate > tripEnd) {
+        return res.status(400).json({ message: 'Your end date must fall within the trip dates' });
+      }
+      if (endDate === tripEnd) endDate = null; // full trip = no custom date
+    }
+
+    db.prepare('UPDATE trip_members SET end_date = ? WHERE trip_id = ? AND user_id = ?')
+      .run(endDate, tripId, userId);
+
+    return res.status(200).json({
+      message: endDate ? 'Your end date was updated' : 'Your end date was cleared',
+      end_date: endDate
+    });
+  } catch (error) {
+    console.error('Update my end date error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
  * Generate a public share token for a trip (owner only)
  */
 const generatePublicShareToken = (req, res) => {
@@ -932,6 +977,7 @@ module.exports = {
   shareTrip,
   removeTripMember,
   updateMemberRole,
+  updateMyEndDate,
   generatePublicShareToken,
   revokePublicShareToken,
   getTripByPublicToken,

@@ -116,6 +116,7 @@ export const tripAPI = {
   shareTrip: (tripId, shareData) => api.post(`/trips/${tripId}/share`, shareData),
   removeTripMember: (tripId, userId) => api.delete(`/trips/${tripId}/members/${userId}`),
   updateMemberRole: (tripId, userId, role) => api.put(`/trips/${tripId}/members/${userId}/role`, { role }),
+  setMyEndDate: (tripId, endDate) => api.put(`/trips/${tripId}/members/me/end-date`, { end_date: endDate }),
   generatePublicShareToken: (tripId) => api.post(`/trips/${tripId}/public-share`),
   revokePublicShareToken: (tripId) => api.delete(`/trips/${tripId}/public-share`),
   getTripByPublicToken: (token) => api.get(`/trips/public/${token}`),
